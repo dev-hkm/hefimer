@@ -687,22 +687,23 @@ function ReceiveResult({
 
   const deleteR2Object = async (objectKey: string) => {
     if (!objectKey) return;
-    try {
-      const apiBase = (r2WorkerUrl || "").trim();
-      const apiUrl = apiBase
-        ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
-        : `/api/r2/delete-object`;
+    const apiBase = (r2WorkerUrl || "").trim();
+    const apiUrl = apiBase
+      ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
+      : `/api/r2/delete-object`;
 
-      console.log("Deleting R2 object for self-destruct:", objectKey);
-      await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ objectKey }),
-      });
-    } catch (err) {
-      console.error("Failed to delete R2 object:", err);
+    console.log("Deleting R2 object for self-destruct:", objectKey);
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ objectKey }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Server returned ${res.status}`);
     }
   };
 
@@ -6354,6 +6355,7 @@ export default function App() {
             console.log(`Cleaning up expired drop: ${code}`);
             
             // 1. Delete from R2 if it is a file and has an objectKey
+            let r2DeleteSuccess = true;
             if (data.objectKey) {
               try {
                 const apiBase = (r2WorkerUrl || "").trim();
@@ -6361,22 +6363,31 @@ export default function App() {
                   ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
                   : `/api/r2/delete-object`;
 
-                await fetch(apiUrl, {
+                const res = await fetch(apiUrl, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({ objectKey: data.objectKey }),
                 });
+
+                if (!res.ok) {
+                  const errData = await res.json().catch(() => ({}));
+                  throw new Error(errData.error || `Server returned ${res.status}`);
+                }
+
                 console.log(`Deleted R2 object for expired drop ${code}: ${data.objectKey}`);
               } catch (r2Err) {
                 console.error(`Failed to delete R2 object for ${code}:`, r2Err);
+                r2DeleteSuccess = false;
               }
             }
             
-            // 2. Delete from Firebase
-            await remove(ref(rtdb, `drops/${code}`));
-            console.log(`Deleted Firebase node for expired drop ${code}`);
+            // 2. Delete from Firebase only if R2 deletion was successful (or skipped)
+            if (r2DeleteSuccess) {
+              await remove(ref(rtdb, `drops/${code}`));
+              console.log(`Deleted Firebase node for expired drop ${code}`);
+            }
           }
         }
       } catch (err) {
