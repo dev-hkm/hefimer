@@ -137,6 +137,57 @@ app.post("/api/r2/delete-object", async (req, res) => {
   }
 });
 
+// API: Cron Cleanup
+app.get("/api/cron/cleanup", async (req, res) => {
+  const secret = req.query.secret;
+  if (!process.env.CRON_SECRET) {
+    return res.status(503).json({ error: "CRON_SECRET is not configured." });
+  }
+  if (secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+
+  try {
+    const FIREBASE_URL = "https://hefimer-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const fbRes = await fetch(`${FIREBASE_URL}/drops.json`);
+    if (!fbRes.ok) throw new Error("Failed to fetch Firebase drops");
+    const drops = await fbRes.json();
+    if (!drops) return res.json({ success: true, deletedCount: 0 });
+
+    const now = Date.now();
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    for (const [code, data] of Object.entries(drops) as [string, any][]) {
+      if (data.expiresAt && data.expiresAt <= now) {
+        let r2DeleteSuccess = true;
+        if (data.objectKey) {
+          try {
+            await r2Client.send(new DeleteObjectCommand({
+              Bucket: BUCKET_NAME,
+              Key: data.objectKey,
+            }));
+          } catch (r2Err: any) {
+            console.error(`R2 delete failed for ${code}:`, r2Err);
+            r2DeleteSuccess = false;
+            errors.push(`R2 delete failed for ${code}`);
+          }
+        }
+        if (r2DeleteSuccess) {
+          const deleteRes = await fetch(`${FIREBASE_URL}/drops/${code}.json`, { method: "DELETE" });
+          if (deleteRes.ok) deletedCount++;
+          else errors.push(`Firebase delete failed for ${code}`);
+        }
+      }
+    }
+
+    res.json({ success: true, deletedCount, errors: errors.length > 0 ? errors : undefined });
+  } catch (error: any) {
+    console.error("Cron Error:", error);
+    res.status(500).json({ error: "Cron execution failed" });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
