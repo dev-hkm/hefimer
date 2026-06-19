@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import cors from "cors";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
 
@@ -103,6 +103,37 @@ app.get("/api/r2/presign-download", async (req, res) => {
   } catch (error) {
     console.error("Presign Download Error:", error);
     res.status(500).json({ error: "Failed to generate download URL" });
+  }
+});
+
+// API: Delete Object from R2
+app.post("/api/r2/delete-object", async (req, res) => {
+  try {
+    const { objectKey } = req.body;
+    if (!objectKey) {
+      return res.status(400).json({ error: "Missing objectKey" });
+    }
+
+    // Validate key safety
+    if (!objectKey.startsWith("uploads/") || objectKey.length > 256) {
+      return res.status(400).json({ error: "Invalid object key" });
+    }
+
+    // Validate environment variables
+    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !BUCKET_NAME) {
+      return res.status(500).json({ error: "R2 storage is not configured." });
+    }
+
+    const command = new DeleteObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: objectKey,
+    });
+
+    await r2Client.send(command);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete Object Error:", error);
+    res.status(500).json({ error: "Failed to delete object from R2" });
   }
 });
 

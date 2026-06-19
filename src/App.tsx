@@ -109,6 +109,9 @@ import {
   update,
   onDisconnect,
   runTransaction,
+  query,
+  orderByChild,
+  endAt,
 } from "firebase/database";
 
 enum OperationType {
@@ -682,10 +685,34 @@ function ReceiveResult({
   } | null>(null);
   const [renameInput, setRenameInput] = useState("");
 
+  const deleteR2Object = async (objectKey: string) => {
+    if (!objectKey) return;
+    try {
+      const apiBase = (r2WorkerUrl || "").trim();
+      const apiUrl = apiBase
+        ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
+        : `/api/r2/delete-object`;
+
+      console.log("Deleting R2 object for self-destruct:", objectKey);
+      await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ objectKey }),
+      });
+    } catch (err) {
+      console.error("Failed to delete R2 object:", err);
+    }
+  };
+
   useEffect(() => {
     if (item.isOneTime) {
       const performSelfDestruct = async () => {
         try {
+          if (item.objectKey) {
+            await deleteR2Object(item.objectKey);
+          }
           await remove(ref(rtdb, `drops/${code}`));
           showToast("This drop has self-destructed after viewing", "success");
         } catch (err) {
@@ -694,7 +721,7 @@ function ReceiveResult({
       };
       performSelfDestruct();
     }
-  }, [code, item.isOneTime, showToast]);
+  }, [code, item.isOneTime, showToast, item.objectKey]);
 
   if (item.text && item.text.startsWith("__HEFIMER_FILE__")) {
     try {
@@ -6307,6 +6334,60 @@ export default function App() {
   useEffect(() => {
     (window as any).addToHistory = addToHistory;
   }, [history]);
+
+  // Automatic Cleanup of Expired Drops
+  useEffect(() => {
+    const performCleanup = async () => {
+      try {
+        const now = Date.now();
+        const expiredQuery = query(
+          ref(rtdb, "drops"),
+          orderByChild("expiresAt"),
+          endAt(now)
+        );
+        const snapshot = await get(expiredQuery);
+        if (snapshot.exists()) {
+          const expiredData = snapshot.val();
+          console.log("Found expired drops for cleanup:", Object.keys(expiredData));
+          
+          for (const [code, data] of Object.entries(expiredData) as [string, any][]) {
+            console.log(`Cleaning up expired drop: ${code}`);
+            
+            // 1. Delete from R2 if it is a file and has an objectKey
+            if (data.objectKey) {
+              try {
+                const apiBase = (r2WorkerUrl || "").trim();
+                const apiUrl = apiBase
+                  ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
+                  : `/api/r2/delete-object`;
+
+                await fetch(apiUrl, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ objectKey: data.objectKey }),
+                });
+                console.log(`Deleted R2 object for expired drop ${code}: ${data.objectKey}`);
+              } catch (r2Err) {
+                console.error(`Failed to delete R2 object for ${code}:`, r2Err);
+              }
+            }
+            
+            // 2. Delete from Firebase
+            await remove(ref(rtdb, `drops/${code}`));
+            console.log(`Deleted Firebase node for expired drop ${code}`);
+          }
+        }
+      } catch (err) {
+        console.error("Expired drops cleanup failed:", err);
+      }
+    };
+
+    performCleanup();
+    const interval = setInterval(performCleanup, 60000);
+    return () => clearInterval(interval);
+  }, [r2WorkerUrl]);
 
   const handleChatTabClick = () => {
     vibrate();
