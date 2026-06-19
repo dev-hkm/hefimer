@@ -1,0 +1,250 @@
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+    --font-sans: "Ubuntu", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+    background-color: #000000;
+    color: #ffffff;
+    -webkit-tap-highlight-color: transparent;
+    font-family:
+        "Ubuntu",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Oxygen,
+        Cantarell,
+        "Open Sans",
+        "Helvetica Neue",
+        sans-serif;
+}
+
+/* Custom scrollbar for glassmorphism */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Force react-simple-code-editor to not wrap lines */
+.editor-container > textarea,
+.editor-container > pre {
+    white-space: pre !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+}
+
+/* Prism Dracula-like theme for react-simple-code-editor */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: #6272a4;
+}
+
+.token.punctuation {
+    color: #f8f8f2;
+}
+
+.token.namespace {
+    opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.constant,
+.token.symbol,
+.token.deleted {
+    color: #ff79c6;
+}
+
+.token.boolean,
+.token.number {
+    color: #bd93f9;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+    color: #50fa7b;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+    color: #f8f8f2;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.function,
+.token.class-name {
+    color: #f1fa8c;
+}
+
+.token.keyword {
+    color: #ff79c6;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+    color: #f1fa8c;
+}
+
+.token.important,
+.token.bold {
+    font-weight: bold;
+}
+
+.token.italic {
+    font-style: italic;
+}
+
+.token.entity {
+    cursor: help;
+}
+
+.token.namespace {
+    opacity: 0.7;
+}
+
+.token.coord,
+.token.property-access,
+.token.method,
+.token.parameter {
+    color: #f8f8f2;
+}
+
+.token.decorator,
+.token.annotation {
+    color: #ffb86c;
+}
+
+.token.module,
+.token.package {
+    color: #ff79c6;
+}
+
+.token.type,
+.token.class-name {
+    color: #8be9fd;
+}
+
+.token.function {
+    color: #50fa7b;
+}
+
+.token.keyword {
+    color: #ff79c6;
+}
+
+.token.operator {
+    color: #ff79c6;
+}
+
+.token.punctuation {
+    color: #f8f8f2;
+}
+
+.token.string {
+    color: #f1fa8c;
+}
+
+.token.number {
+    color: #bd93f9;
+}
+
+.token.boolean {
+    color: #bd93f9;
+}
+
+.token.comment {
+    color: #6272a4;
+}
+
+.animate-marquee {
+    animation: marquee 20s linear infinite;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-33.33%);
+    }
+}
+
+html.light-theme {
+    filter: invert(1) hue-rotate(180deg) brightness(1.05);
+}
+
+/* Ensure images don't get inverted/hue-rotated or if they are, they get corrected */
+html.light-theme img,
+html.light-theme video,
+html.light-theme .emoji-no-invert {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+@media (max-width: 639px) {
+    html {
+        overflow-x: hidden;
+    }
+
+    body {
+        min-width: 320px;
+        overflow-x: hidden;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+        touch-action: manipulation;
+    }
+
+    .editor-container > textarea,
+    .editor-container > pre {
+        font-size: 13px !important;
+    }
+}
