@@ -185,11 +185,12 @@ const sanitizeError = (errStr: string | undefined) => {
 
 const parseExpire = (expireStr: string) => {
   const match =
-    expireStr.match(/^(\d+)([mhpdw])$/i) ||
-    expireStr.match(/^(\d+)(min|h|d|w)$/i);
+    expireStr.match(/^(\d+)([smhpdw])$/i) ||
+    expireStr.match(/^(\d+)(sec|min|h|d|w)$/i);
   if (!match) return 60 * 60 * 1000; // default 1h
   const val = parseInt(match[1]);
   const unit = match[2].toLowerCase();
+  if (unit === "s" || unit === "sec") return val * 1000;
   if (unit === "m" || unit === "min" || unit === "p") return val * 60 * 1000;
   if (unit === "h") return val * 60 * 60 * 1000;
   if (unit === "d") return val * 24 * 60 * 60 * 1000;
@@ -1302,11 +1303,13 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
   const isLongPress = useRef(false);
 
   const EXPIRE_OPTIONS = [
+    { label: "30 sec", value: "30s" },
     { label: "5 min", value: "5p" },
     { label: "30 min", value: "30p" },
     { label: "1 hour", value: "1h" },
     { label: "12 hours", value: "12h" },
     { label: "24 hours", value: "24h" },
+    { label: "48 hours", value: "48h" },
   ];
 
   const handleCopy = () => {
@@ -1874,11 +1877,13 @@ function R2SendFile({
       }
 
       const expireMap: any = {
+        "30s": 30 * 1000,
         "5p": 5 * 60 * 1000,
         "30p": 30 * 60 * 1000,
         "1h": 60 * 60 * 1000,
         "12h": 12 * 60 * 60 * 1000,
         "24h": 24 * 60 * 60 * 1000,
+        "48h": 48 * 60 * 60 * 1000,
       };
       const expiresAtDate = new Date(
         Date.now() + (expireMap[expire] || 3600000),
@@ -2063,11 +2068,13 @@ function R2SendFile({
 
           <div className="flex flex-wrap gap-2 justify-center">
             {[
+              { label: "30 sec", value: "30s" },
               { label: "5 min", value: "5p" },
               { label: "30 min", value: "30p" },
               { label: "1 hour", value: "1h" },
               { label: "12 hours", value: "12h" },
               { label: "24 hours", value: "24h" },
+              { label: "48 hours", value: "48h" },
             ].map((opt) => (
               <button
                 key={opt.value}
@@ -2247,11 +2254,13 @@ function SendFile({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const EXPIRE_OPTIONS = [
+    { label: "30 sec", value: "30s" },
     { label: "5 min", value: "5p" },
     { label: "30 min", value: "30p" },
     { label: "1 hour", value: "1h" },
     { label: "12 hours", value: "12h" },
     { label: "24 hours", value: "24h" },
+    { label: "48 hours", value: "48h" },
   ];
 
   const handleUpload = async () => {
@@ -2686,15 +2695,15 @@ function SendFile({
                     <label className="text-xs font-medium text-white/40 ml-2">
                       Self-Destruct Timer
                     </label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {EXPIRE_OPTIONS.slice(0, 5).map((opt) => (
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {EXPIRE_OPTIONS.map((opt) => (
                         <button
                           key={opt.value}
                           onClick={() => {
                             vibrate();
                             setExpire(opt.value);
                           }}
-                          className={`py-2 rounded-full text-[10px] font-bold tracking-wider transition-all ${expire === opt.value ? "bg-white text-black shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-white/5 text-white/40 hover:bg-white/10"}`}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider transition-all ${expire === opt.value ? "bg-white text-black shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-white/5 text-white/40 hover:bg-white/10"}`}
                         >
                           {opt.label}
                         </button>
