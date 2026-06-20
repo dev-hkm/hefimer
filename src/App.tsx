@@ -2394,7 +2394,7 @@ function R2SendFile({
                     <span>
                       Max file:{" "}
                       <span className="text-emerald-400/70 tracking-normal text-[11px] font-mono">
-                        100 GB multipart
+                        5 GB direct
                       </span>
                     </span>
                     <div className="w-1 h-1 rounded-full bg-emerald-400/20" />
