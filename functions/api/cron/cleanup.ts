@@ -1,10 +1,6 @@
-import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { deleteR2Object, type R2Env } from "../../lib/r2";
 
-interface Env {
-  R2_ACCOUNT_ID: string;
-  R2_ACCESS_KEY_ID: string;
-  R2_SECRET_ACCESS_KEY: string;
-  R2_BUCKET_NAME: string;
+interface Env extends R2Env {
   CRON_SECRET?: string;
 }
 
@@ -49,19 +45,6 @@ export const onRequest: any = async (context: any) => {
       });
     }
 
-    // Initialize R2 client
-    let r2Client: S3Client | null = null;
-    if (env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET_NAME) {
-      r2Client = new S3Client({
-        region: "auto",
-        endpoint: `https://${env.R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: env.R2_ACCESS_KEY_ID.trim(),
-          secretAccessKey: env.R2_SECRET_ACCESS_KEY.trim(),
-        },
-      });
-    }
-
     const now = Date.now();
     let deletedCount = 0;
     const errors: string[] = [];
@@ -72,12 +55,9 @@ export const onRequest: any = async (context: any) => {
         let r2DeleteSuccess = true;
 
         // If it's an R2 file, try to delete it first
-        if (data.objectKey && r2Client) {
+        if (data.objectKey) {
           try {
-            await r2Client.send(new DeleteObjectCommand({
-              Bucket: env.R2_BUCKET_NAME.trim(),
-              Key: data.objectKey,
-            }));
+            await deleteR2Object(env, data.objectKey);
           } catch (r2Err: any) {
             console.error(`R2 delete failed for ${code}:`, r2Err);
             r2DeleteSuccess = false;

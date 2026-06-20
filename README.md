@@ -1,20 +1,14 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Hefimer
 
-# Run and deploy your AI Studio app
+Hefimer is a temporary sharing workspace for files, text, chat rooms, and live boards.
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/44c6249f-f4d3-433b-8e61-5ff3a6642297
+1. Install dependencies with `npm install`
+2. Set R2 values in `.env.local` if you use secret R2 mode
+3. Start the local server with `npm run dev`
 
-## Run Locally
+## Checks
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- `npm run build`
+- `npm run lint`

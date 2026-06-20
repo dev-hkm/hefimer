@@ -61,6 +61,8 @@ import {
   Sun,
   Moon,
   Monitor,
+  QrCode,
+  Share2,
 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
@@ -94,6 +96,7 @@ import "prismjs/components/prism-graphql";
 import "prismjs/components/prism-scss";
 import "prismjs/components/prism-kotlin";
 import "prismjs/components/prism-swift";
+import QRCode from "qrcode";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -543,6 +546,8 @@ function ResultView({
 }: any) {
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
+  const [showQR, setShowQR] = useState(false);
+  const [downloadQRFn, setDownloadQRFn] = useState<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -665,7 +670,234 @@ function ResultView({
           New Drop
         </button>
       </div>
+
+      {/* QR Code Section */}
+      <div className="flex flex-col space-y-4 w-full pt-1">
+        <button
+          onClick={() => {
+            vibrate();
+            setShowQR(!showQR);
+          }}
+          className={`w-full py-3.5 border rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 ${showQR ? "bg-white/20 text-white border-white/20" : isR2 ? "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400/60 border-emerald-500/10" : "bg-white/5 hover:bg-white/10 text-white/75 border-white/10 active:scale-98"}`}
+        >
+          <QrCode size={16} />
+          {showQR ? "Hide Share QR Code" : "Share via QR Code"}
+        </button>
+
+        <AnimatePresence initial={false}>
+          {showQR && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden w-full"
+            >
+              <div className="bg-white/[0.03] border border-white/10 rounded-[32px] p-6 flex flex-col items-center gap-5 shadow-2xl relative mt-2 w-full">
+                <div className={`absolute inset-0 rounded-[32px] bg-gradient-to-b ${isR2 ? "from-emerald-500/[0.02]" : "from-indigo-500/[0.02]"} to-transparent pointer-events-none`} />
+                
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  Share Drop
+                </h4>
+
+                <BeautifulQRCode
+                  value={`${window.location.origin}/?code=${code}`}
+                  size={190}
+                  theme={isR2 ? "emerald" : "default"}
+                  onDownloadReady={setDownloadQRFn}
+                />
+
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-medium text-white/80">
+                    Scan to open & retrieve this drop
+                  </p>
+                  <p className="text-[10px] text-white/30">
+                    Compatible with any smartphone camera or reader app
+                  </p>
+                </div>
+
+                <div className="flex gap-2 w-full pt-1">
+                  <button
+                    onClick={() => {
+                      vibrate();
+                      if (downloadQRFn) downloadQRFn();
+                    }}
+                    disabled={!downloadQRFn}
+                    className="flex-1 bg-white hover:bg-white/90 text-black border border-white/20 rounded-full py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                  >
+                    <Download size={12} /> Save QR Image
+                  </button>
+                  <button
+                    onClick={() => {
+                      vibrate();
+                      navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
+                      showToast("Link copied to clipboard", "success");
+                    }}
+                    className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Copy size={12} /> Copy Link
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
+  );
+}
+
+interface BeautifulQRCodeProps {
+  value: string;
+  size?: number;
+  theme?: "emerald" | "default";
+  onDownloadReady?: (downloadFn: () => void) => void;
+}
+
+function BeautifulQRCode({
+  value,
+  size = 220,
+  theme = "default",
+  onDownloadReady,
+}: BeautifulQRCodeProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    try {
+      // Use low error correction for smaller matrix size (fewer dots, cleaner look)
+      const qr = QRCode.create(value, { errorCorrectionLevel: "L" });
+      const qrSize = qr.modules.size;
+      const data = qr.modules.data;
+
+      const dpr = window.devicePixelRatio || 1;
+      
+      // Calculate layout in physical coordinates to align exactly to physical screen pixels
+      const physicalSize = size * dpr;
+      
+      // Base quiet margin in physical pixels
+      const baseMargin = Math.round(14 * dpr);
+      
+      // Calculate integer physical cell size (force perfect pixel grid alignment)
+      const physicalCellSize = Math.max(1, Math.floor((physicalSize - baseMargin * 2) / qrSize));
+      
+      // Recalculate physical margin to perfectly center the QR code inside the canvas width
+      const physicalMargin = Math.round((physicalSize - physicalCellSize * qrSize) / 2);
+
+      // Set canvas physical dimensions
+      canvas.width = physicalSize;
+      canvas.height = physicalSize;
+      
+      // Set canvas display dimensions (CSS pixels)
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
+
+      // Set theme colors
+      const isEmerald = theme === "emerald";
+      const bgColor = isEmerald ? "#f0fdf4" : "#ffffff"; // Emerald-50 vs pure white
+      const fgColor = isEmerald ? "#047857" : "#000000"; // Emerald-700 vs pure black
+      
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, physicalSize, physicalSize);
+
+      const isFinder = (r: number, c: number) => {
+        if (r < 7 && c < 7) return true;
+        if (r < 7 && c >= qrSize - 7) return true;
+        if (r >= qrSize - 7 && c < 7) return true;
+        return false;
+      };
+
+      ctx.fillStyle = fgColor;
+
+      // Draw modules as solid squares, aligned perfectly to physical pixel boundaries
+      for (let r = 0; r < qrSize; r++) {
+        for (let c = 0; c < qrSize; c++) {
+          if (isFinder(r, c)) continue;
+          const isDark = data[r * qrSize + c] === 1;
+          if (isDark) {
+            const x = physicalMargin + c * physicalCellSize;
+            const y = physicalMargin + r * physicalCellSize;
+            // Draw exact physical rectangle block with zero fractional coordinates
+            ctx.fillRect(x, y, physicalCellSize, physicalCellSize);
+          }
+        }
+      }
+
+      // Draw finder patterns with smooth rounded corners, perfectly scaled in physical pixels
+      const drawFinder = (x: number, y: number) => {
+        ctx.fillStyle = fgColor;
+        ctx.beginPath();
+        ctx.roundRect(
+          x, 
+          y, 
+          physicalCellSize * 7, 
+          physicalCellSize * 7, 
+          physicalCellSize * 1.6
+        );
+        ctx.fill();
+
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(
+          x + physicalCellSize,
+          y + physicalCellSize,
+          physicalCellSize * 5,
+          physicalCellSize * 5,
+          physicalCellSize * 1.1,
+        );
+        ctx.fill();
+
+        ctx.fillStyle = fgColor;
+        ctx.beginPath();
+        ctx.roundRect(
+          x + physicalCellSize * 2,
+          y + physicalCellSize * 2,
+          physicalCellSize * 3,
+          physicalCellSize * 3,
+          physicalCellSize * 0.6,
+        );
+        ctx.fill();
+      };
+
+      // Coordinates for finders in physical space
+      drawFinder(physicalMargin, physicalMargin);
+      drawFinder(physicalMargin + (qrSize - 7) * physicalCellSize, physicalMargin);
+      drawFinder(physicalMargin, physicalMargin + (qrSize - 7) * physicalCellSize);
+    } catch (e) {
+      console.error("BeautifulQRCode drawing error:", e);
+    }
+  }, [value, size, theme]);
+
+  useEffect(() => {
+    if (onDownloadReady && canvasRef.current) {
+      const downloadFn = () => {
+        if (!canvasRef.current) return;
+        const url = canvasRef.current.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `hefimer_qr.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+      onDownloadReady(() => downloadFn);
+    }
+  }, [onDownloadReady]);
+
+  return (
+    <div className="relative group p-2 rounded-[28px] bg-black/40 border border-white/5 shadow-2xl">
+      <canvas
+        ref={canvasRef}
+        className="rounded-[20px] block transition-transform duration-300 group-hover:scale-[1.02]"
+      />
+      <div
+        className="absolute -inset-1 rounded-[30px] opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-xl pointer-events-none -z-10 bg-gradient-to-br from-white to-white/40"
+      />
+    </div>
   );
 }
 
@@ -674,11 +906,47 @@ function ReceiveResult({
   code,
   onReset,
   showToast,
-  r2WorkerUrl,
 }: any) {
   let item = { ...initialItem };
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  const getProviderNameFromUrl = (url: string): string => {
+    if (!url) return "File";
+    if (item.objectKey) return "Cloudflare R2";
+    if (url.includes("gofile.io")) return "Gofile";
+    if (url.includes("catbox.moe")) return "Litterbox";
+    if (url.includes("pixeldrain.com")) return "Pixeldrain";
+    if (url.includes("storage.to")) return "storage.to";
+    if (url.includes("tmpfiles.org")) return "tmpfiles.org";
+    try {
+      const domain = new URL(url).hostname;
+      return domain.replace("www.", "").split(".")[0].replace(/^\w/, (c) => c.toUpperCase());
+    } catch {
+      return "Host";
+    }
+  };
+
+  const triggerDirectDownload = async (url: string, fileName: string) => {
+    try {
+      showToast("Downloading file...", "info");
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Fetch failed");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileName || "download";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      showToast("Download completed successfully", "success");
+    } catch (err) {
+      console.warn("Direct fetch download failed (likely CORS), falling back to open in tab:", err);
+      window.open(url, "_blank");
+    }
+  };
   const [showLineNumbers, setShowLineNumbers] = useState(false);
   const [renameData, setRenameData] = useState<{
     isOpen: boolean;
@@ -688,10 +956,7 @@ function ReceiveResult({
 
   const deleteR2Object = async (objectKey: string) => {
     if (!objectKey) return;
-    const apiBase = (r2WorkerUrl || "").trim();
-    const apiUrl = apiBase
-      ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
-      : `/api/r2/delete-object`;
+    const apiUrl = "/api/r2/delete";
 
     console.log("Deleting R2 object for self-destruct:", objectKey);
     const res = await fetch(apiUrl, {
@@ -845,10 +1110,7 @@ function ReceiveResult({
     }
     try {
       showToast("Generating secret download link...", "info");
-      const apiBase = (r2WorkerUrl || "").trim();
-      const apiUrl = apiBase
-        ? `${apiBase.replace(/\/$/, "")}/api/r2/presign-download?objectKey=${encodeURIComponent(item.objectKey)}`
-        : `/api/r2/presign-download?objectKey=${encodeURIComponent(item.objectKey)}`;
+      const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`;
 
       console.log("Fetching download URL from:", apiUrl);
       const res = await fetch(apiUrl);
@@ -890,10 +1152,7 @@ function ReceiveResult({
     }
     try {
       showToast("Generating secret link...", "info");
-      const apiBase = (r2WorkerUrl || "").trim();
-      const apiUrl = apiBase
-        ? `${apiBase.replace(/\/$/, "")}/api/r2/presign-download?objectKey=${encodeURIComponent(item.objectKey)}`
-        : `/api/r2/presign-download?objectKey=${encodeURIComponent(item.objectKey)}`;
+      const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`;
 
       console.log("Fetching copy link URL from:", apiUrl);
       const res = await fetch(apiUrl);
@@ -1130,11 +1389,18 @@ function ReceiveResult({
             <button
               onClick={() => {
                 vibrate();
-                window.open(item.fileUrl, "_blank");
+                if (item.fileUrl && !item.fileUrl.includes("gofile.io")) {
+                  triggerDirectDownload(item.fileUrl, item.fileName);
+                } else {
+                  window.open(item.fileUrl, "_blank");
+                }
               }}
               className="flex-1 bg-white text-black hover:bg-white/90 border border-white/20 rounded-full px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-center"
             >
-              <Download size={18} /> Open in Gofile
+              <Download size={18} />{" "}
+              {item.fileUrl && item.fileUrl.includes("gofile.io")
+                ? "Open in Gofile"
+                : "Download"}
             </button>
             <button
               onClick={handleCopyLink}
@@ -1146,6 +1412,8 @@ function ReceiveResult({
           </div>
         </div>
       )}
+
+
 
       <AnimatePresence>
         {renameData && (
@@ -1404,7 +1672,7 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: -5 }}
           transition={{ duration: 0.2 }}
-          className="space-y-5 flex flex-col"
+          className="space-y-2.5 flex flex-col"
         >
           <div className="relative group">
             <div className="w-full min-h-[320px] max-h-[70vh] bg-[#000000] border border-white/20 rounded-[40px] overflow-hidden relative shadow-2xl flex flex-col transition-all focus-within:ring-1 focus-within:ring-white/40 focus-within:shadow-[0_0_30px_rgba(255,255,255,0.05)]">
@@ -1596,19 +1864,21 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
               ))}
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-[32px] p-1 flex flex-col transition-all">
-              <button
+            <div className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] flex flex-col transition-all overflow-hidden">
+              <div 
                 onClick={() => {
                   vibrate();
                   setShowOptions(!showOptions);
                 }}
-                className="flex items-center justify-between w-full h-9 px-3 text-xs font-bold text-white/40 hover:text-white transition-colors"
+                className="flex items-center justify-between w-full px-4 py-2 cursor-pointer select-none group/header"
               >
-                <span>Advanced Options</span>
-                <motion.div animate={{ rotate: showOptions ? 180 : 0 }}>
-                  <ChevronDown size={14} />
-                </motion.div>
-              </button>
+                <div className="flex items-center gap-2 text-xs font-bold text-white/50 group-hover/header:text-white transition-colors">
+                  <span>Advanced Options</span>
+                  <motion.div animate={{ rotate: showOptions ? 180 : 0 }}>
+                    <ChevronDown size={14} className="text-white/50 group-hover/header:text-white transition-colors" />
+                  </motion.div>
+                </div>
+              </div>
 
               <AnimatePresence>
                 {showOptions && (
@@ -1616,57 +1886,60 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden space-y-4 pt-2"
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
                   >
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-white/40 ml-2">
-                        Password (Optional)
-                      </label>
-                      <div className="relative">
-                        <Lock
-                          size={14}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
-                        />
-                        <input
-                          type="text"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Set a password..."
-                          className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        vibrate();
-                        setIsOneTime(!isOneTime);
-                      }}
-                      className={`w-full flex items-center justify-between p-3 rounded-full border transition-all ${isOneTime ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-white/40"}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Trash2
-                          size={16}
-                          className={
-                            isOneTime ? "text-red-400" : "text-white/20"
-                          }
-                        />
-                        <div className="text-left">
-                          <p className="text-xs font-bold">Self-Destruct</p>
-                          <p className="text-[10px] opacity-60">
-                            Delete after one successful read
-                          </p>
+                    <div className="px-5 pb-5 pt-3 border-t border-white/5 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                          Password (Optional)
+                        </label>
+                        <div className="relative">
+                          <Lock
+                            size={14}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
+                          />
+                          <input
+                            type="text"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Set a password..."
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
+                          />
                         </div>
                       </div>
-                      <div
-                        className={`w-8 h-4 rounded-full relative transition-colors ${isOneTime ? "bg-red-500" : "bg-white/10"}`}
+
+                      <button
+                        onClick={() => {
+                          vibrate();
+                          setIsOneTime(!isOneTime);
+                        }}
+                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all ${isOneTime ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.08]"}`}
                       >
-                        <motion.div
-                          animate={{ x: isOneTime ? 18 : 2 }}
-                          className="absolute top-1 w-2 h-2 bg-white rounded-full"
-                        />
-                      </div>
-                    </button>
+                        <div className="flex items-center gap-3">
+                          <Trash2
+                            size={16}
+                            className={
+                              isOneTime ? "text-red-400" : "text-white/20"
+                            }
+                          />
+                          <div className="text-left">
+                            <p className="text-xs font-bold">Self-Destruct</p>
+                            <p className="text-[10px] opacity-60">
+                              Delete after one successful read
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className={`w-8 h-4 rounded-full relative transition-colors ${isOneTime ? "bg-red-500" : "bg-white/10"}`}
+                        >
+                          <motion.div
+                            animate={{ x: isOneTime ? 18 : 2 }}
+                            className="absolute top-1 w-2 h-2 bg-white rounded-full"
+                          />
+                        </div>
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1745,7 +2018,6 @@ function R2SendFile({
   onExit,
   stats,
   updateStats,
-  r2WorkerUrl,
 }: any) {
   const { file, resultCode, expiresAt } = state;
   const [uploading, setUploading] = useState(false);
@@ -1759,6 +2031,25 @@ function R2SendFile({
   const [showOptions, setShowOptions] = useState(false);
   const [isFolderMode, setIsFolderMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeUploadRequests = useRef(new Set<XMLHttpRequest>());
+  const multipartUpload = useRef<{ objectKey: string; uploadId: string } | null>(null);
+  const uploadWasCancelled = useRef(false);
+
+  const cancelR2Upload = async () => {
+    uploadWasCancelled.current = true;
+    activeUploadRequests.current.forEach((request) => request.abort());
+    activeUploadRequests.current.clear();
+    const session = multipartUpload.current;
+    multipartUpload.current = null;
+    if (session) {
+      await fetch("/api/r2/multipart/abort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(session),
+      }).catch(() => undefined);
+    }
+    showToast("Upload cancelled", "info");
+  };
 
   const handleR2Upload = async () => {
     vibrate();
@@ -1769,6 +2060,7 @@ function R2SendFile({
 
     setUploading(true);
     setProgress(0);
+    uploadWasCancelled.current = false;
 
     let progressTimer: any;
 
@@ -1796,73 +2088,117 @@ function R2SendFile({
         finalType = "application/zip";
       }
 
-      // Artificial delay to show progress bar if not zipping or to jump start
-      if (!isFolderMode) {
-        progressTimer = setInterval(() => {
-          setProgress((p) => (p < 10 ? p + 1 : p));
-        }, 50);
+      const maxUploadSize = 100 * 1024 * 1024 * 1024;
+      if (fileToUpload.size > maxUploadSize) {
+        throw new Error("Secret R2 uploads support files up to 100 GB");
       }
 
-      const apiBase = r2WorkerUrl.trim() || "";
-      const apiUrl = apiBase
-        ? `${apiBase.replace(/\/$/, "")}/api/r2/presign-upload?filename=${encodeURIComponent(finalName)}&contentType=${encodeURIComponent(finalType)}`
-        : `/api/r2/presign-upload?filename=${encodeURIComponent(finalName)}&contentType=${encodeURIComponent(finalType)}`;
+      const getPresignedUpload = async () => {
+        const apiUrl = `/api/r2/upload-url?filename=${encodeURIComponent(finalName)}&contentType=${encodeURIComponent(finalType)}`;
+        const presignRes = await fetch(apiUrl, { cache: "no-store" });
 
-      // 1. Get Presigned URL from our backend
-      const presignRes = await fetch(apiUrl);
+        if (!presignRes.ok) {
+          const errorData = await presignRes.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to prepare the R2 upload");
+        }
 
-      if (!presignRes.ok) {
-        const errorData = await presignRes.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get upload URL");
+        return presignRes.json() as Promise<{ url: string; objectKey: string }>;
+      };
+
+      const putFile = (url: string, blob: Blob, onProgress?: (loaded: number) => void) =>
+        new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          activeUploadRequests.current.add(xhr);
+          xhr.upload.onprogress = (e) => {
+            if (!e.lengthComputable) return;
+            onProgress?.(e.loaded);
+            if (!onProgress) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setProgress(isFolderMode ? 30 + Math.round(pct * 0.7) : pct);
+            }
+          };
+          xhr.onload = () => {
+            activeUploadRequests.current.delete(xhr);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const etag = xhr.getResponseHeader("ETag");
+              resolve(etag || "");
+            } else reject(new Error(`R2 returned status ${xhr.status}`));
+          };
+          xhr.onerror = () => {
+            activeUploadRequests.current.delete(xhr);
+            reject(new Error("Secure storage did not accept the upload. Please try again."));
+          };
+          xhr.onabort = () => {
+            activeUploadRequests.current.delete(xhr);
+            reject(new Error("Upload cancelled"));
+          };
+          xhr.open("PUT", url);
+          xhr.setRequestHeader("Content-Type", finalType);
+          xhr.send(blob);
+        });
+
+      let objectKey = "";
+      const multipartThreshold = 5 * 1024 * 1024;
+      if (fileToUpload.size <= multipartThreshold) {
+        const { url, objectKey: singleObjectKey } = await getPresignedUpload();
+        objectKey = singleObjectKey;
+        await putFile(url, fileToUpload);
+      } else {
+        const initResponse = await fetch("/api/r2/multipart/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: finalName, contentType: finalType }),
+        });
+        const initData = await initResponse.json().catch(() => ({}));
+        if (!initResponse.ok) throw new Error(initData.error || "Could not start multipart upload");
+
+        objectKey = initData.objectKey;
+        multipartUpload.current = { objectKey, uploadId: initData.uploadId };
+        const partSize = 64 * 1024 * 1024;
+        const totalParts = Math.ceil(fileToUpload.size / partSize);
+        if (totalParts > 10_000) throw new Error("File is too large for multipart upload");
+
+        const uploadedBytes = new Map<number, number>();
+        const parts: { ETag: string; PartNumber: number }[] = [];
+        let nextPart = 1;
+        const uploadPart = async (partNumber: number) => {
+          if (uploadWasCancelled.current) throw new Error("Upload cancelled");
+          const partResponse = await fetch("/api/r2/multipart/part-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ objectKey, uploadId: initData.uploadId, partNumber }),
+          });
+          const partData = await partResponse.json().catch(() => ({}));
+          if (!partResponse.ok) throw new Error(partData.error || "Could not prepare upload part");
+          const start = (partNumber - 1) * partSize;
+          const chunk = fileToUpload.slice(start, Math.min(start + partSize, fileToUpload.size));
+          const etag = await putFile(partData.url, chunk, (loaded) => {
+            uploadedBytes.set(partNumber, loaded);
+            let totalUploaded = 0;
+            uploadedBytes.forEach((bytes) => { totalUploaded += bytes; });
+            setProgress(Math.min(99, Math.round((totalUploaded / fileToUpload.size) * 100)));
+          });
+          if (!etag) throw new Error("Storage did not return a verification tag for an upload part");
+          parts.push({ ETag: etag, PartNumber: partNumber });
+        };
+        const worker = async () => {
+          while (nextPart <= totalParts) {
+            const partNumber = nextPart++;
+            await uploadPart(partNumber);
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(3, totalParts) }, worker));
+        if (uploadWasCancelled.current) throw new Error("Upload cancelled");
+        const completeResponse = await fetch("/api/r2/multipart/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ objectKey, uploadId: initData.uploadId, parts }),
+        });
+        const completeData = await completeResponse.json().catch(() => ({}));
+        if (!completeResponse.ok) throw new Error(completeData.error || "Could not finish multipart upload");
+        multipartUpload.current = null;
+        setProgress(100);
       }
-
-      const { url, objectKey } = await presignRes.json();
-
-      if (progressTimer) clearInterval(progressTimer);
-
-      // 2. Upload directly to R2 using PUT
-      const xhr = new XMLHttpRequest();
-
-      const uploadPromise = new Promise((resolve, reject) => {
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            // If we zipped, we map 30-100 to the actual upload
-            const normalizedPct = isFolderMode
-              ? 30 + Math.round(pct * 0.7)
-              : pct;
-            setProgress(normalizedPct);
-          }
-        };
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(true);
-          } else {
-            reject(
-              new Error(
-                `Upload failed with status ${xhr.status}. Check your R2 CORS.`,
-              ),
-            );
-          }
-        };
-
-        xhr.onerror = () => {
-          reject(
-            new Error(
-              "Network error during upload. Ensure CORS is configured on your R2 bucket.",
-            ),
-          );
-        };
-        xhr.onabort = () => reject(new Error("Upload aborted"));
-      });
-
-      xhr.open("PUT", url);
-      // Explicitly set Content-Type to match the signed URL
-      xhr.setRequestHeader("Content-Type", finalType);
-      xhr.send(fileToUpload);
-
-      await uploadPromise;
 
       // 3. Save metadata to Firebase
       let generatedCode = "";
@@ -1927,10 +2263,20 @@ function R2SendFile({
       showToast("Secretly uploaded to Cloudflare R2!", "success");
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || "R2 Upload failed", "error");
+      const session = multipartUpload.current;
+      multipartUpload.current = null;
+      if (session) {
+        fetch("/api/r2/multipart/abort", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(session),
+        }).catch(() => undefined);
+      }
+      showToast(err.message || "R2 Upload failed", uploadWasCancelled.current ? "info" : "error");
     } finally {
       if (progressTimer) clearInterval(progressTimer);
       setUploading(false);
+      activeUploadRequests.current.clear();
     }
   };
 
@@ -1955,7 +2301,7 @@ function R2SendFile({
           initial={{ opacity: 0, scale: 0.98, y: 5 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: -5 }}
-          className="space-y-5 flex flex-col"
+          className="space-y-2.5 flex flex-col"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1985,11 +2331,7 @@ function R2SendFile({
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              if (
-                !uploading &&
-                e.dataTransfer.files &&
-                e.dataTransfer.files[0]
-              ) {
+              if (!uploading && e.dataTransfer.files && e.dataTransfer.files[0]) {
                 setState((prev: any) => ({
                   ...prev,
                   file: e.dataTransfer.files[0],
@@ -2011,49 +2353,106 @@ function R2SendFile({
               type="file"
               className="hidden"
               ref={fileInputRef}
-              onChange={(e) =>
-                e.target.files?.[0] &&
-                setState((prev: any) => ({ ...prev, file: e.target.files![0] }))
-              }
+              {...(isFolderMode
+                ? ({ webkitdirectory: "", directory: "" } as any)
+                : {})}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const firstFile = e.target.files[0];
+                  const displayName =
+                    isFolderMode && (firstFile as any).webkitRelativePath
+                      ? (firstFile as any).webkitRelativePath.split("/")[0]
+                      : firstFile.name;
+
+                  const fileToSet = isFolderMode
+                    ? {
+                        name: displayName,
+                        size: Array.from(e.target.files).reduce(
+                          (acc, f) => acc + f.size,
+                          0,
+                        ),
+                        originalFiles: e.target.files,
+                      }
+                    : firstFile;
+
+                  setState((prev: any) => ({
+                    ...prev,
+                    file: fileToSet as any,
+                  }));
+                  vibrate();
+                }
+              }}
             />
 
-            <div className="flex items-center gap-6 w-fit mx-auto transition-all">
-              <div className="w-16 h-16 bg-emerald-400/10 group-hover:bg-emerald-400/20 rounded-full flex items-center justify-center transition-all border border-emerald-400/10 shadow-inner shrink-0">
-                {uploading ? (
-                  <Loader2
-                    size={28}
-                    className="text-emerald-400 animate-spin"
-                  />
-                ) : (
-                  <ShieldCheck
-                    size={28}
-                    className="text-emerald-400 group-hover:scale-110 transition-transform"
-                  />
-                )}
+            {uploading ? (
+              <div className="flex items-center gap-6 w-fit mx-auto transition-all">
+                <div className="w-16 h-16 bg-emerald-400/10 rounded-full flex items-center justify-center transition-all border border-emerald-400/10 shadow-inner shrink-0">
+                  <Loader2 size={28} className="text-emerald-400 animate-spin" />
+                </div>
+                <div className="flex flex-col items-start justify-center">
+                  <p className="text-white font-bold text-base text-left leading-tight mb-1">
+                    Uploading... {progress}%
+                  </p>
+                </div>
               </div>
-
-              <div className="flex flex-col items-start justify-center">
-                <p
-                  className="text-white font-bold text-base text-left leading-tight mb-1 truncate max-w-[200px]"
-                  title={file ? file.name : ""}
-                >
-                  {uploading
-                    ? `Uploading... ${progress}%`
-                    : file
-                      ? file.name
-                      : "Secret R2 Upload"}
-                </p>
-                {file && !uploading && (
-                  <p className="text-emerald-400/60 text-xs mt-1 font-medium tracking-wide">
+            ) : file ? (
+              <div className="flex items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-fit mx-auto">
+                <div className="relative group/file shrink-0">
+                  <div className="w-16 h-16 bg-emerald-400/10 rounded-full flex items-center justify-center border border-emerald-400/20 shadow-xl transition-transform group-hover/file:scale-105">
+                    {isFolderMode ? (
+                      <Folder size={28} className="text-emerald-400" />
+                    ) : (
+                      <File size={28} className="text-emerald-400" />
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setState((prev: any) => ({ ...prev, file: null }));
+                      vibrate();
+                    }}
+                    className="absolute -top-2 -right-2 w-7 h-7 bg-white text-black rounded-full flex items-center justify-center border border-black shadow-lg hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all z-20"
+                    title="Remove File"
+                  >
+                    <X size={14} strokeWidth={3} />
+                  </button>
+                </div>
+                <div className="text-left w-[200px]">
+                  <h4 className="text-white font-bold text-base break-words leading-tight mb-1 line-clamp-2">
+                    {file.name}
+                  </h4>
+                  <p className="text-emerald-400/60 text-xs font-medium tracking-wide">
                     {(file.size / 1024 / 1024).toFixed(2)} MB
                   </p>
-                )}
-                {!uploading && !file && (
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-6 w-fit mx-auto transition-all">
+                <div className="w-16 h-16 bg-emerald-400/10 group-hover:bg-emerald-400/20 rounded-full flex items-center justify-center transition-all border border-emerald-400/10 shrink-0 shadow-inner">
+                  {isFolderMode ? (
+                    <FolderPlus
+                      size={28}
+                      className="text-emerald-400/70 group-hover:text-emerald-400 group-hover:scale-110 transition-all"
+                    />
+                  ) : (
+                    <ShieldCheck
+                      size={28}
+                      className="text-emerald-400/70 group-hover:text-emerald-400 group-hover:scale-110 transition-all"
+                    />
+                  )}
+                </div>
+
+                <div className="flex flex-col items-start justify-center">
+                  <p className="text-white font-bold text-base text-left leading-tight mb-1">
+                    {isFolderMode
+                      ? "Tap to select a folder"
+                      : "Tap to select a file"}
+                  </p>
                   <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-[0.05em] text-emerald-400/40 mt-1">
                     <span>
-                      Max memory:{" "}
+                      Max file:{" "}
                       <span className="text-emerald-400/70 tracking-normal text-[11px] font-mono">
-                        5.00 GB
+                        100 GB multipart
                       </span>
                     </span>
                     <div className="w-1 h-1 rounded-full bg-emerald-400/20" />
@@ -2061,9 +2460,9 @@ function R2SendFile({
                       <Lock size={10} /> Encrypted
                     </span>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2 justify-center">
@@ -2089,19 +2488,47 @@ function R2SendFile({
             ))}
           </div>
 
-          <div className="w-full bg-white/5 border border-white/10 rounded-[32px] p-1 flex flex-col transition-all">
-            <button
+          <div className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] flex flex-col transition-all overflow-hidden">
+            <div 
               onClick={() => {
                 vibrate();
                 setShowOptions(!showOptions);
               }}
-              className="flex items-center justify-between w-full h-9 px-3 text-xs font-bold text-white/40 hover:text-white transition-colors"
+              className="flex items-center justify-between w-full px-4 py-2 cursor-pointer select-none group/header"
             >
-              <span>Advanced Options</span>
-              <motion.div animate={{ rotate: showOptions ? 180 : 0 }}>
-                <ChevronDown size={14} />
-              </motion.div>
-            </button>
+              <div className="flex items-center gap-2 text-xs font-bold text-white/50 group-hover/header:text-white transition-colors">
+                <span>Advanced Options</span>
+                <motion.div animate={{ rotate: showOptions ? 180 : 0 }}>
+                  <ChevronDown size={14} className="text-white/50 group-hover/header:text-white transition-colors" />
+                </motion.div>
+              </div>
+
+              <div 
+                className="flex bg-black/40 p-0.5 rounded-xl border border-white/5 shadow-inner"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => {
+                    vibrate();
+                    setIsFolderMode(false);
+                    setState((prev: any) => ({ ...prev, file: null }));
+                  }}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[9px] font-bold uppercase tracking-wider transition-all ${!isFolderMode ? "bg-emerald-500/20 text-emerald-400 shadow-sm" : "text-white/30 hover:text-white/60"}`}
+                >
+                  <File size={9} strokeWidth={2.5} /> File
+                </button>
+                <button
+                  onClick={() => {
+                    vibrate();
+                    setIsFolderMode(true);
+                    setState((prev: any) => ({ ...prev, file: null }));
+                  }}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[9px] font-bold uppercase tracking-wider transition-all ${isFolderMode ? "bg-emerald-500/20 text-emerald-400 shadow-sm" : "text-white/30 hover:text-white/60"}`}
+                >
+                  <Folder size={9} strokeWidth={2.5} /> Folder
+                </button>
+              </div>
+            </div>
 
             <AnimatePresence>
               {showOptions && (
@@ -2109,88 +2536,91 @@ function R2SendFile({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden space-y-4 pt-2"
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                  className="overflow-hidden"
                 >
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      value={customFileName}
-                      onChange={(e) => setCustomFileName(e.target.value)}
-                      placeholder="Custom filename..."
-                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Add a note..."
-                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all resize-none h-20"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">
-                      Password (Optional)
-                    </label>
-                    <div className="relative">
-                      <Lock
-                        size={14}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
-                      />
+                  <div className="px-5 pb-5 pt-3 border-t border-white/5 space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                        Display Name
+                      </label>
                       <input
                         type="text"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Set a password..."
-                        className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all"
+                        value={customFileName}
+                        onChange={(e) => setCustomFileName(e.target.value)}
+                        placeholder="Custom filename..."
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all"
                       />
                     </div>
-                  </div>
 
-                  <button
-                    onClick={() => {
-                      vibrate();
-                      setIsOneTime(!isOneTime);
-                    }}
-                    className={`w-full flex items-center justify-between p-3 rounded-full border transition-all ${isOneTime ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-white/40"}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Trash2
-                        size={16}
-                        className={isOneTime ? "text-red-400" : "text-white/20"}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Add a note..."
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all resize-none h-20"
                       />
-                      <div className="text-left">
-                        <p className="text-xs font-bold">Self-Destruct</p>
-                        <p className="text-[10px] opacity-60">
-                          Delete after one successful read
-                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                        Password (Optional)
+                      </label>
+                      <div className="relative">
+                        <Lock
+                          size={14}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
+                        />
+                        <input
+                          type="text"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Set a password..."
+                          className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all"
+                        />
                       </div>
                     </div>
-                    <div
-                      className={`w-8 h-4 rounded-full relative transition-colors ${isOneTime ? "bg-red-500" : "bg-white/10"}`}
+
+                    <button
+                      onClick={() => {
+                        vibrate();
+                        setIsOneTime(!isOneTime);
+                      }}
+                      className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all ${isOneTime ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.08]"}`}
                     >
-                      <motion.div
-                        animate={{ x: isOneTime ? 18 : 2 }}
-                        className="absolute top-1 w-2 h-2 bg-white rounded-full"
-                      />
-                    </div>
-                  </button>
+                      <div className="flex items-center gap-3">
+                        <Trash2
+                          size={16}
+                          className={isOneTime ? "text-red-400" : "text-white/20"}
+                        />
+                        <div className="text-left">
+                          <p className="text-xs font-bold">Self-Destruct</p>
+                          <p className="text-[10px] opacity-60">
+                            Delete after one successful read
+                          </p>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-8 h-4 rounded-full relative transition-colors ${isOneTime ? "bg-red-500" : "bg-white/10"}`}
+                      >
+                        <motion.div
+                          animate={{ x: isOneTime ? 18 : 2 }}
+                          className="absolute top-1 w-2 h-2 bg-white rounded-full"
+                        />
+                      </div>
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
           <button
-            onClick={handleR2Upload}
-            disabled={!file || uploading}
+            onClick={uploading ? cancelR2Upload : handleR2Upload}
+            disabled={!file && !uploading}
             className={`w-full bg-emerald-400 text-black hover:bg-emerald-300 active:scale-[0.98] rounded-full px-6 py-4 font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-400/20`}
           >
             {uploading ? (
@@ -2198,7 +2628,7 @@ function R2SendFile({
             ) : (
               <ShieldCheck size={20} />
             )}
-            {uploading ? `Uploading ${progress}%` : "Secret Upload to R2"}
+            {uploading ? `Cancel upload ${progress}%` : "Secret Upload to R2"}
           </button>
 
           {stats && stats.files.length > 0 && (
@@ -2208,7 +2638,7 @@ function R2SendFile({
                   24h History
                 </h4>
                 <span className="text-[10px] font-bold text-emerald-400">
-                  Total: {(stats.totalSize / 1024 / 1024).toFixed(2)} MB / 5 GB
+                  Total: {(stats.totalSize / 1024 / 1024).toFixed(2)} MB / 100 GB
                 </span>
               </div>
               <div className="max-h-[120px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
@@ -2249,19 +2679,125 @@ function SendFile({
   const [password, setPassword] = useState("");
   const [isOneTime, setIsOneTime] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  const [expire, setExpire] = useState("1h");
+  const [expire, setExpire] = useState("72h");
   const [isFolderMode, setIsFolderMode] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState("storageto");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeXhrRef = useRef<XMLHttpRequest | null>(null);
+  const uploadCancelledRef = useRef(false);
 
-  const EXPIRE_OPTIONS = [
-    { label: "30 sec", value: "30s" },
-    { label: "5 min", value: "5p" },
-    { label: "30 min", value: "30p" },
-    { label: "1 hour", value: "1h" },
-    { label: "12 hours", value: "12h" },
-    { label: "24 hours", value: "24h" },
-    { label: "48 hours", value: "48h" },
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+  const UPLOAD_PROVIDERS = [
+    {
+      id: "storageto",
+      name: "storage.to",
+      maxSizeLabel: "25 GB",
+      expiry: "Deletes after 3 days (1-7 days configurable)",
+      speed: "Fast, powered by Cloudflare R2",
+      features: "High-speed downloads via Cloudflare CDN. Unthrottled bandwidth.",
+    },
+    {
+      id: "gofile",
+      name: "Gofile",
+      maxSizeLabel: "3 GB",
+      expiry: "Deletes after 10 days of inactivity",
+      speed: "Fast, but subject to rate limits",
+      features: "Secure & anonymous, supports flexible expiration settings.",
+    },
+    {
+      id: "tmpfiles",
+      name: "tmpfiles",
+      maxSizeLabel: "100 MB",
+      expiry: "Deletes after 60 minutes",
+      speed: "Standard speed",
+      features: "Short-lived temporary hosting. Automatically deleted after 1 hour.",
+    },
+    {
+      id: "litterbox",
+      name: "Litterbox",
+      maxSizeLabel: isLocal ? "1 GB" : "100 MB",
+      expiry: "Temporary (1, 12, 24, or 72 hours)",
+      speed: "Standard speed",
+      features: "Strictly temporary file hosting, files deleted automatically.",
+    }
   ];
+
+  const selectedProviderInfo =
+    UPLOAD_PROVIDERS.find((prov) => prov.id === selectedProvider) ||
+    UPLOAD_PROVIDERS[0];
+
+  const getMaxSizeText = () => selectedProviderInfo.maxSizeLabel;
+
+  const bindXhr = (xhr: XMLHttpRequest) => {
+    activeXhrRef.current = xhr;
+    return xhr;
+  };
+
+  const clearActiveXhr = (xhr?: XMLHttpRequest) => {
+    if (!xhr || activeXhrRef.current === xhr) {
+      activeXhrRef.current = null;
+    }
+  };
+
+  const cancelUpload = () => {
+    if (!loading) return;
+    uploadCancelledRef.current = true;
+    const xhr = activeXhrRef.current;
+    if (xhr) {
+      xhr.abort();
+    }
+    clearActiveXhr(xhr || undefined);
+    setLoading(false);
+    setProgress(0);
+    showToast("Upload canceled", "success");
+  };
+
+  const handleSelectProvider = (provId: string) => {
+    setSelectedProvider(provId);
+    if (provId === "litterbox") {
+      const validLitterboxOptions = ["1h", "12h", "24h", "72h"];
+      if (!validLitterboxOptions.includes(expire)) {
+        setExpire("1h");
+      }
+    } else if (provId === "tmpfiles") {
+      setExpire("1h");
+    } else if (provId === "storageto") {
+      const validStorageToOptions = ["24h", "48h", "72h", "120h", "168h"];
+      if (!validStorageToOptions.includes(expire)) {
+        setExpire("72h");
+      }
+    }
+  };
+
+  const EXPIRE_OPTIONS = selectedProvider === "litterbox"
+    ? [
+        { label: "1 hour", value: "1h" },
+        { label: "12 hours", value: "12h" },
+        { label: "24 hours", value: "24h" },
+        { label: "72 hours", value: "72h" },
+      ]
+    : selectedProvider === "tmpfiles"
+    ? [
+        { label: "1 hour (Fixed)", value: "1h" }
+      ]
+    : selectedProvider === "storageto"
+    ? [
+        { label: "1 day", value: "24h" },
+        { label: "2 days", value: "48h" },
+        { label: "3 days (Default)", value: "72h" },
+        { label: "5 days", value: "120h" },
+        { label: "7 days", value: "168h" },
+      ]
+    : [
+        { label: "30 sec", value: "30s" },
+        { label: "5 min", value: "5p" },
+        { label: "30 min", value: "30p" },
+        { label: "1 hour", value: "1h" },
+        { label: "12 hours", value: "12h" },
+        { label: "24 hours", value: "24h" },
+        { label: "48 hours", value: "48h" },
+      ];
 
   const handleUpload = async () => {
     vibrate();
@@ -2270,8 +2806,29 @@ function SendFile({
       return;
     }
 
-    if (file.size > 3 * 1024 * 1024 * 1024) {
-      showToast("File size exceeds 3GB limit", "error");
+    uploadCancelledRef.current = false;
+
+    const getSelectedProviderName = () => {
+      const p = UPLOAD_PROVIDERS.find(x => x.id === selectedProvider);
+      return p ? p.name : "selected host";
+    };
+
+    let sizeLimit = 3 * 1024 * 1024 * 1024; // Default Gofile (3 GB)
+    let limitLabel = "3 GB";
+
+    if (selectedProvider === "litterbox") {
+      sizeLimit = isLocal ? 1 * 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+      limitLabel = isLocal ? "1 GB" : "100 MB (due to Cloudflare Workers proxy limits)";
+    } else if (selectedProvider === "storageto") {
+      sizeLimit = 25 * 1024 * 1024 * 1024;
+      limitLabel = "25 GB";
+    } else if (selectedProvider === "tmpfiles") {
+      sizeLimit = 100 * 1024 * 1024;
+      limitLabel = "100 MB";
+    }
+
+    if (file.size > sizeLimit) {
+      showToast(`File size exceeds limit of ${limitLabel} for ${getSelectedProviderName()}`, "error");
       return;
     }
 
@@ -2299,6 +2856,12 @@ function SendFile({
         finalName = finalName.endsWith(".zip") ? finalName : `${finalName}.zip`;
       }
 
+      if (fileToUpload.size > sizeLimit) {
+        showToast(`Zipped folder size (${(fileToUpload.size / 1024 / 1024).toFixed(2)} MB) exceeds limit of ${limitLabel} for ${getSelectedProviderName()}`, "error");
+        setLoading(false);
+        return;
+      }
+
       let fileUrl = "";
 
       const uploadWithProgress = (
@@ -2306,7 +2869,7 @@ function SendFile({
         formData: FormData,
       ): Promise<any> => {
         return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
+          const xhr = bindXhr(new XMLHttpRequest());
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
               const pct = Math.round((e.loaded / e.total) * 100);
@@ -2317,6 +2880,7 @@ function SendFile({
             }
           };
           xhr.onload = () => {
+            clearActiveXhr(xhr);
             if (xhr.status >= 200 && xhr.status < 300) {
               try {
                 resolve(JSON.parse(xhr.responseText));
@@ -2324,67 +2888,370 @@ function SendFile({
                 resolve(xhr.responseText);
               }
             } else {
-              reject(new Error(`Upload failed with status ${xhr.status}`));
+              try {
+                const errJson = JSON.parse(xhr.responseText);
+                reject(new Error(errJson.error || errJson.message || `Upload failed with status ${xhr.status}`));
+              } catch {
+                reject(new Error(xhr.responseText || `Upload failed with status ${xhr.status}`));
+              }
             }
           };
-          xhr.onerror = () => reject(new Error("Network error during upload"));
+          xhr.onabort = () => {
+            clearActiveXhr(xhr);
+            reject(new Error("UPLOAD_CANCELED"));
+          };
+          xhr.onerror = () => {
+            clearActiveXhr(xhr);
+            reject(new Error("Network error during upload"));
+          };
           xhr.open("POST", url);
           xhr.send(formData);
         });
       };
 
       try {
-        showToast("Getting Gofile server...", "info");
-        const serverRes = await fetch("https://api.gofile.io/servers");
-        if (!serverRes.ok)
-          throw new Error("Gofile servers are currently unavailable");
-        const serverData = await serverRes.json();
-        const serverName = serverData.data.servers[0].name;
+        if (selectedProvider === "gofile") {
+          let serverName = "";
+          const cachedServer = sessionStorage.getItem("gofile_server");
 
-        showToast("Uploading via Gofile.io...", "info");
-        const gofileData = new FormData();
-        gofileData.append("file", fileToUpload, finalName);
-        const uploadJson = await uploadWithProgress(
-          `https://${serverName}.gofile.io/contents/uploadfile`,
-          gofileData,
-        );
-
-        if (uploadJson.status !== "ok") {
-          throw new Error(uploadJson.status || "Gofile upload failed");
-        }
-
-        const gofileCode =
-          uploadJson.data.parentFolderCode || uploadJson.data.id;
-
-        // Gofile has blocked direct web downloads for free users. We MUST redirect to the landing page.
-        fileUrl = `https://gofile.io/d/${gofileCode}`;
-
-        // Try to set expiration in Gofile if possible
-        const guestToken = uploadJson.data.guestToken;
-        if (guestToken && gofileCode) {
           try {
-            const durationMs = parseExpire(expire);
-            const expireTimestamp = Math.floor(
-              (Date.now() + durationMs) / 1000,
-            );
-            await fetch("https://api.gofile.io/contents", {
-              method: "PUT",
+            showToast("Getting Gofile server...", "info");
+            const serverRes = await fetch("https://api.gofile.io/servers");
+            if (serverRes.ok) {
+              const serverData = await serverRes.json();
+              if (serverData.status === "ok" && serverData.data?.servers?.[0]?.name) {
+                serverName = serverData.data.servers[0].name;
+                sessionStorage.setItem("gofile_server", serverName);
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to fetch Gofile server list:", err);
+          }
+
+          if (!serverName) {
+            if (cachedServer) {
+              serverName = cachedServer;
+            } else {
+              const fallbackServers = ["store-eu-par-3", "store1", "store3"];
+              serverName = fallbackServers[Math.floor(Math.random() * fallbackServers.length)];
+            }
+          }
+
+          showToast("Uploading via Gofile.io...", "info");
+          const gofileData = new FormData();
+          gofileData.append("file", fileToUpload, finalName);
+          const uploadJson = await uploadWithProgress(
+            `https://${serverName}.gofile.io/contents/uploadfile`,
+            gofileData,
+          );
+
+          if (uploadJson.status !== "ok") {
+            throw new Error(uploadJson.status || "Gofile upload failed");
+          }
+
+          const gofileCode =
+            uploadJson.data.parentFolderCode || uploadJson.data.id;
+
+          // Gofile has blocked direct web downloads for free users. We MUST redirect to the landing page.
+          fileUrl = `https://gofile.io/d/${gofileCode}`;
+
+          // Try to set expiration in Gofile if possible
+          const guestToken = uploadJson.data.guestToken;
+          if (guestToken && gofileCode) {
+            try {
+              const durationMs = parseExpire(expire);
+              const expireTimestamp = Math.floor(
+                (Date.now() + durationMs) / 1000,
+              );
+              await fetch("https://api.gofile.io/contents", {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${guestToken}`,
+                },
+                body: JSON.stringify({
+                  contentId: gofileCode,
+                  attribute: "expire",
+                  attributeValue: expireTimestamp,
+                }),
+              });
+            } catch (err) {
+              console.warn("Could not set Gofile expiration", err);
+            }
+          }
+        } else if (selectedProvider === "litterbox") {
+          showToast("Uploading via Litterbox...", "info");
+          const lbData = new FormData();
+          lbData.append("reqtype", "fileupload");
+          
+          const lbTime = expire === "12h" || expire === "24h" || expire === "72h" ? expire : (expire === "48h" ? "72h" : "1h");
+          lbData.append("time", lbTime);
+          lbData.append("fileToUpload", fileToUpload, finalName);
+
+          const uploadResult = await uploadWithProgress(
+            "/api/proxy/litterbox",
+            lbData,
+          );
+
+          if (typeof uploadResult === "string" && uploadResult.startsWith("https://")) {
+            fileUrl = uploadResult.trim();
+          } else if (typeof uploadResult === "string" && uploadResult.includes("https://")) {
+            const match = uploadResult.match(/(https:\/\/litterbox\.catbox\.moe\/files\/[a-zA-Z0-9.\-_]+)/);
+            if (match) {
+              fileUrl = match[1];
+            }
+          }
+        } else if (selectedProvider === "storageto") {
+          showToast("Initializing upload with storage.to...", "info");
+          
+          let visitorToken = localStorage.getItem("hefimer_storageto_visitor_token");
+          if (!visitorToken) {
+            visitorToken = Math.random().toString(36).substring(2, 18) + Math.random().toString(36).substring(2, 18);
+            localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
+          }
+
+          // 1. Initialize upload to get presigned URL
+          const initRes = await fetch("/api/proxy/storageto/upload/init", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Visitor-Token": visitorToken,
+            },
+            body: JSON.stringify({
+              filename: finalName,
+              content_type: fileToUpload.type || "application/octet-stream",
+              size: fileToUpload.size,
+            }),
+          });
+
+          if (!initRes.ok) {
+            const errData = await initRes.json().catch(() => ({}));
+            throw new Error(errData.error || `Failed to initialize storage.to upload (status ${initRes.status})`);
+          }
+
+          const initData = await initRes.json();
+          if (!initData.success) {
+            throw new Error(initData.error || "Failed to initialize storage.to upload");
+          }
+
+          const r2Key = initData.r2_key;
+          let fileId = "";
+          let ownerToken = initData.owner_token || "";
+
+          if (initData.type === "single") {
+            const uploadUrl = initData.upload_url;
+            if (!uploadUrl) throw new Error("Failed to retrieve upload URL from storage.to");
+
+            // Perform direct PUT upload
+            showToast("Uploading bytes to storage.to...", "info");
+            await new Promise<void>((resolve, reject) => {
+              const xhr = bindXhr(new XMLHttpRequest());
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  const pct = Math.round((e.loaded / e.total) * 100);
+                  const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
+                  setProgress(normalizedPct);
+                }
+              };
+              xhr.onload = () => {
+                clearActiveXhr(xhr);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve();
+                } else {
+                  reject(new Error(`PUT upload failed with status ${xhr.status}`));
+                }
+              };
+              xhr.onabort = () => {
+                clearActiveXhr(xhr);
+                reject(new Error("UPLOAD_CANCELED"));
+              };
+              xhr.onerror = () => {
+                clearActiveXhr(xhr);
+                reject(new Error("Network error during storage.to PUT upload"));
+              };
+              xhr.open("PUT", uploadUrl);
+              xhr.setRequestHeader("Content-Type", fileToUpload.type || "application/octet-stream");
+              xhr.send(fileToUpload);
+            });
+          } else if (initData.type === "multipart") {
+            const uploadId = initData.upload_id;
+            const partSize = initData.part_size;
+            const totalParts = initData.total_parts;
+            const initialUrls = initData.initial_urls || {};
+
+            showToast(`Uploading ${totalParts} parts to storage.to...`, "info");
+
+            const completedParts: { partNumber: number; etag: string }[] = [];
+
+            for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+              let partUploadUrl = initialUrls[partNumber.toString()];
+
+              if (!partUploadUrl) {
+                const partsRes = await fetch("/api/proxy/storageto/upload/parts", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Owner ${ownerToken}`,
+                  },
+                  body: JSON.stringify({
+                    upload_id: uploadId,
+                    part_numbers: [partNumber],
+                  }),
+                });
+                if (!partsRes.ok) throw new Error(`Failed to fetch part ${partNumber} URL`);
+                const partsData = await partsRes.json();
+                const partObj = partsData.part_urls?.find((p: any) => p.partNumber === partNumber);
+                if (!partObj) throw new Error(`Could not get URL for part ${partNumber}`);
+                partUploadUrl = partObj.url;
+              }
+
+              const start = (partNumber - 1) * partSize;
+              const end = Math.min(start + partSize, fileToUpload.size);
+              const chunk = fileToUpload.slice(start, end);
+
+              // Upload the chunk
+              const etag = await new Promise<string>((resolve, reject) => {
+                const xhr = bindXhr(new XMLHttpRequest());
+                xhr.upload.onprogress = (e) => {
+                  if (e.lengthComputable) {
+                    const chunkPct = Math.round((e.loaded / e.total) * 100);
+                    const overallPct = Math.round(((partNumber - 1) / totalParts) * 100 + (chunkPct / totalParts));
+                    const normalizedPct = isFolderMode ? 30 + Math.round(overallPct * 0.7) : overallPct;
+                    setProgress(normalizedPct);
+                  }
+                };
+                xhr.onload = () => {
+                  clearActiveXhr(xhr);
+                  if (xhr.status >= 200 && xhr.status < 300) {
+                    const etagHeader = xhr.getResponseHeader("ETag");
+                    if (etagHeader) {
+                      resolve(etagHeader);
+                    } else {
+                      const fallbackEtag = xhr.getResponseHeader("etag") || xhr.getResponseHeader("ETAG");
+                      if (fallbackEtag) resolve(fallbackEtag);
+                      else reject(new Error(`ETag header missing in part ${partNumber} upload response`));
+                    }
+                  } else {
+                    reject(new Error(`Part ${partNumber} upload failed with status ${xhr.status}`));
+                  }
+                };
+                xhr.onabort = () => {
+                  clearActiveXhr(xhr);
+                  reject(new Error("UPLOAD_CANCELED"));
+                };
+                xhr.onerror = () => {
+                  clearActiveXhr(xhr);
+                  reject(new Error(`Network error during part ${partNumber} upload`));
+                };
+                xhr.open("PUT", partUploadUrl);
+                xhr.send(chunk);
+              });
+
+              completedParts.push({ partNumber, etag });
+            }
+
+            // Complete multipart
+            showToast("Assembling parts...", "info");
+            const completeRes = await fetch("/api/proxy/storageto/upload/complete-multipart", {
+              method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${guestToken}`,
+                "Authorization": `Owner ${ownerToken}`,
               },
               body: JSON.stringify({
-                contentId: gofileCode,
-                attribute: "expire",
-                attributeValue: expireTimestamp,
+                upload_id: uploadId,
+                parts: completedParts,
               }),
             });
-          } catch (err) {
-            console.warn("Could not set Gofile expiration", err);
+
+            if (!completeRes.ok) {
+              const errData = await completeRes.json().catch(() => ({}));
+              throw new Error(errData.error || "Failed to assemble multipart upload");
+            }
+          } else {
+            throw new Error(`Unsupported upload type: ${initData.type}`);
+          }
+
+          // 3. Confirm upload to finalize
+          showToast("Finalizing upload with storage.to...", "info");
+          const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Visitor-Token": visitorToken,
+            },
+            body: JSON.stringify({
+              filename: finalName,
+              size: fileToUpload.size,
+              content_type: fileToUpload.type || "application/octet-stream",
+              r2_key: r2Key,
+            }),
+          });
+
+          if (!confirmRes.ok) {
+            const errData = await confirmRes.json().catch(() => ({}));
+            throw new Error(errData.error || `Failed to confirm storage.to upload (status ${confirmRes.status})`);
+          }
+
+          const confirmData = await confirmRes.json();
+          if (!confirmData.success || !confirmData.file?.url) {
+            throw new Error(confirmData.error || "Failed to confirm file with storage.to");
+          }
+
+          fileUrl = confirmData.file.raw_url || confirmData.file.url;
+          fileId = confirmData.file.id;
+          ownerToken = confirmData.owner_token || ownerToken;
+
+          // 4. Set custom expiry if it is configured
+          if (fileId && ownerToken && expire) {
+            let days = 3;
+            if (expire === "24h") days = 1;
+            else if (expire === "48h") days = 2;
+            else if (expire === "72h") days = 3;
+            else if (expire === "120h") days = 5;
+            else if (expire === "168h") days = 7;
+
+            if (days !== 3) {
+              try {
+                await fetch(`/api/proxy/storageto/file/${fileId}/expiry`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Owner ${ownerToken}`,
+                  },
+                  body: JSON.stringify({ days }),
+                });
+              } catch (err) {
+                console.warn("Could not set custom expiry for storage.to:", err);
+              }
+            }
+          }
+        } else if (selectedProvider === "tmpfiles") {
+          showToast("Uploading via tmpfiles.org...", "info");
+          const tfData = new FormData();
+          tfData.append("file", fileToUpload, finalName);
+
+          const uploadResult = await uploadWithProgress(
+            "/api/proxy/tmpfiles",
+            tfData,
+          );
+
+          if (uploadResult && uploadResult.status === "success" && uploadResult.data?.url) {
+            const viewUrl = uploadResult.data.url;
+            fileUrl = viewUrl.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+          } else {
+            throw new Error(
+              uploadResult.error ||
+                uploadResult.message ||
+                `Upload failed: ${JSON.stringify(uploadResult)}`
+            );
           }
         }
       } catch (e: any) {
-        console.error("Gofile upload error:", e);
+        if (uploadCancelledRef.current) {
+          throw new Error("UPLOAD_CANCELED");
+        }
+        console.error(`${selectedProvider} upload error:`, e);
         throw new Error(e.message || "File upload failed");
       }
 
@@ -2458,9 +3325,12 @@ function SendFile({
       updateStats(file.name, file.size, false);
       showToast("File uploaded and code generated!", "success");
     } catch (err: any) {
-      console.error(err);
-      showToast(sanitizeError(err.message) || "An error occurred", "error");
+      if (err?.message !== "UPLOAD_CANCELED" && !uploadCancelledRef.current) {
+        console.error(err);
+        showToast(sanitizeError(err.message) || "An error occurred", "error");
+      }
     } finally {
+      clearActiveXhr();
       setLoading(false);
     }
   };
@@ -2486,7 +3356,7 @@ function SendFile({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: -5 }}
           transition={{ duration: 0.2 }}
-          className="space-y-5 flex flex-col"
+          className="space-y-2.5 flex flex-col"
         >
           <div
             onClick={() => !loading && fileInputRef.current?.click()}
@@ -2566,6 +3436,17 @@ function SendFile({
                   <p className="text-white font-bold text-base text-left leading-tight mb-1 truncate max-w-[200px]">
                     Uploading... {progress}%
                   </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cancelUpload();
+                    }}
+                    className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/65 transition-all hover:bg-red-500/15 hover:text-red-300 hover:border-red-400/30"
+                  >
+                    <X size={12} />
+                    Cancel Upload
+                  </button>
                 </div>
               </div>
             ) : file ? (
@@ -2623,10 +3504,15 @@ function SendFile({
                   </p>
                   {!loading && (
                     <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-[0.05em] text-white/40 mt-1">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/10 px-2 py-1 text-[9px] tracking-[0.16em] text-emerald-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                        {selectedProviderInfo.name}
+                      </span>
+                      <div className="w-1 h-1 rounded-full bg-white/20" />
                       <span>
-                        Max file size:{" "}
+                        Max size:{" "}
                         <span className="text-white/70 tracking-normal text-[11px] font-mono">
-                          3.00 GB
+                          {getMaxSizeText()}
                         </span>
                       </span>
                       <div className="w-1 h-1 rounded-full bg-white/20" />
@@ -2644,31 +3530,34 @@ function SendFile({
             )}
           </div>
 
-          <div className="w-full bg-white/5 border border-white/10 rounded-[32px] p-1 flex flex-col transition-all">
-            <div className="flex items-center justify-between w-full h-9 px-3">
-              <button
-                onClick={() => {
-                  vibrate();
-                  setShowOptions(!showOptions);
-                }}
-                className="flex items-center gap-2 text-xs font-bold text-white/40 hover:text-white transition-colors h-full flex-1 text-left"
-              >
+          <div className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] flex flex-col transition-all overflow-hidden">
+            <div 
+              onClick={() => {
+                vibrate();
+                setShowOptions(!showOptions);
+              }}
+              className="flex items-center justify-between w-full px-4 py-2 cursor-pointer select-none group/header"
+            >
+              <div className="flex items-center gap-2 text-xs font-bold text-white/50 group-hover/header:text-white transition-colors">
                 <span>Advanced Options</span>
                 <motion.div animate={{ rotate: showOptions ? 180 : 0 }}>
-                  <ChevronDown size={14} />
+                  <ChevronDown size={14} className="text-white/50 group-hover/header:text-white transition-colors" />
                 </motion.div>
-              </button>
+              </div>
 
-              <div className="flex bg-black/40 p-1 rounded-full border border-white/5 shadow-inner">
+              <div 
+                className="flex bg-black/40 p-0.5 rounded-xl border border-white/5 shadow-inner"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   onClick={() => {
                     vibrate();
                     setIsFolderMode(false);
                     setState((prev: any) => ({ ...prev, file: null }));
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${!isFolderMode ? "bg-white/15 text-white shadow-sm" : "text-white/30 hover:text-white/60"}`}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[9px] font-bold uppercase tracking-wider transition-all ${!isFolderMode ? "bg-white/15 text-white shadow-sm" : "text-white/30 hover:text-white/60"}`}
                 >
-                  <File size={10} strokeWidth={2.5} /> File
+                  <File size={9} strokeWidth={2.5} /> File
                 </button>
                 <button
                   onClick={() => {
@@ -2676,9 +3565,9 @@ function SendFile({
                     setIsFolderMode(true);
                     setState((prev: any) => ({ ...prev, file: null }));
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${isFolderMode ? "bg-white/15 text-white shadow-sm" : "text-white/30 hover:text-white/60"}`}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[9px] font-bold uppercase tracking-wider transition-all ${isFolderMode ? "bg-white/15 text-white shadow-sm" : "text-white/30 hover:text-white/60"}`}
                 >
-                  <Folder size={10} strokeWidth={2.5} /> Folder
+                  <Folder size={9} strokeWidth={2.5} /> Folder
                 </button>
               </div>
             </div>
@@ -2689,75 +3578,137 @@ function SendFile({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden space-y-4 pt-2"
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                  className="overflow-hidden"
                 >
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-white/40 ml-2">
-                      Self-Destruct Timer
-                    </label>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {EXPIRE_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => {
-                            vibrate();
-                            setExpire(opt.value);
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider transition-all ${expire === opt.value ? "bg-white text-black shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-white/5 text-white/40 hover:bg-white/10"}`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <div className="px-5 pb-5 pt-3 border-t border-white/5 space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                        Upload Host Provider
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 px-1">
+                        {UPLOAD_PROVIDERS.map((prov) => {
+                          const isSelected = selectedProvider === prov.id;
+                          return (
+                            <button
+                              key={prov.id}
+                              type="button"
+                              onClick={() => handleSelectProvider(prov.id)}
+                              className={`w-full py-2.5 px-2 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                isSelected
+                                  ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                                  : "bg-white/[0.02] border-white/10 text-white/60 hover:bg-white/[0.05] hover:text-white"
+                              }`}
+                            >
+                              <span>{prov.name}</span>
+                              <span className={`text-[8px] font-mono tracking-tight ${isSelected ? "text-black/50" : "text-white/30"}`}>
+                                {prov.maxSizeLabel}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-white/40 ml-2">
-                      Password (Optional)
-                    </label>
-                    <div className="relative">
-                      <Lock
-                        size={14}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
-                      />
-                      <input
-                        type="text"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Set a password..."
-                        className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
-                      />
+                      {/* Selected Host Limits Info Card */}
+                      {(() => {
+                        const prov = UPLOAD_PROVIDERS.find(p => p.id === selectedProvider);
+                        if (!prov) return null;
+                        return (
+                          <div className="mx-1 mt-2.5 p-3 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col gap-1.5 backdrop-blur-md">
+                            <p className="text-white font-bold text-[10px] uppercase tracking-wider border-b border-white/5 pb-1 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              {prov.name} Limits & Info
+                            </p>
+                            <div className="text-[10px] text-white/70 space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-white/40">Max File Size:</span>
+                                <span className="text-emerald-400 font-mono font-bold">{prov.maxSizeLabel}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-white/40 shrink-0">Expiry Policy:</span>
+                                <span className="text-amber-400 text-right leading-tight">{prov.expiry}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-white/40 shrink-0">Speed & Features:</span>
+                                <span className="text-blue-400 text-right leading-tight">{prov.speed}</span>
+                              </div>
+                              <div className="text-[9px] text-white/40 leading-relaxed border-t border-white/5 pt-1.5 mt-1 italic text-left">
+                                {prov.features}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
-                  </div>
 
-                  <button
-                    onClick={() => {
-                      vibrate();
-                      setIsOneTime(!isOneTime);
-                    }}
-                    className={`w-full flex items-center justify-between p-3 rounded-full border transition-all ${isOneTime ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-white/40"}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Trash2
-                        size={16}
-                        className={isOneTime ? "text-red-400" : "text-white/20"}
-                      />
-                      <div className="text-left">
-                        <p className="text-xs font-bold">Self-Destruct</p>
-                        <p className="text-[10px] opacity-60">
-                          Delete after one successful read
-                        </p>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                        Self-Destruct Timer
+                      </label>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {EXPIRE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              vibrate();
+                              setExpire(opt.value);
+                            }}
+                            className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all ${expire === opt.value ? "bg-white text-black shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-white/5 text-white/40 hover:bg-white/10"}`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div
-                      className={`w-8 h-4 rounded-full relative transition-colors ${isOneTime ? "bg-red-500" : "bg-white/10"}`}
-                    >
-                      <motion.div
-                        animate={{ x: isOneTime ? 18 : 2 }}
-                        className="absolute top-1 w-2 h-2 bg-white rounded-full"
-                      />
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
+                        Password (Optional)
+                      </label>
+                      <div className="relative">
+                        <Lock
+                          size={14}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
+                        />
+                        <input
+                          type="text"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Set a password..."
+                          className="w-full bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
+                        />
+                      </div>
                     </div>
-                  </button>
+
+                    <button
+                      onClick={() => {
+                        vibrate();
+                        setIsOneTime(!isOneTime);
+                      }}
+                      className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all ${isOneTime ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.08]"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Trash2
+                          size={16}
+                          className={isOneTime ? "text-red-400" : "text-white/20"}
+                        />
+                        <div className="text-left">
+                          <p className="text-xs font-bold">Self-Destruct</p>
+                          <p className="text-[10px] opacity-60">
+                            Delete after one successful read
+                          </p>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-8 h-4 rounded-full relative transition-colors ${isOneTime ? "bg-red-500" : "bg-white/10"}`}
+                      >
+                        <motion.div
+                          animate={{ x: isOneTime ? 18 : 2 }}
+                          className="absolute top-1 w-2 h-2 bg-white rounded-full"
+                        />
+                      </div>
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -2782,7 +3733,6 @@ function Receive({
   addToHistory,
   state,
   setState,
-  r2WorkerUrl,
 }: any) {
   const { code, result } = state;
   const [loading, setLoading] = useState(false);
@@ -2790,6 +3740,7 @@ function Receive({
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [inputPassword, setInputPassword] = useState("");
   const [pendingData, setPendingData] = useState<any>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const hasAutoFetched = useRef(false);
 
   const handleRetrieve = async (bypassPassword = false) => {
@@ -2887,7 +3838,6 @@ function Receive({
             setState({ code: "", result: null });
           }}
           showToast={showToast}
-          r2WorkerUrl={r2WorkerUrl}
         />
       ) : (
         <motion.div
@@ -2898,7 +3848,8 @@ function Receive({
           transition={{ duration: 0.2 }}
           className="space-y-6 flex flex-col items-center relative"
         >
-          <div className="w-full max-w-[280px] relative">
+          <div className="w-full max-w-[340px] relative h-20 flex items-center justify-center">
+            {/* Hidden Input overlaid on top */}
             <input
               type="text"
               value={code}
@@ -2912,15 +3863,52 @@ function Receive({
                   handleRetrieve();
                 }
               }}
-              placeholder="00000"
-              className="w-full bg-white/5 border border-white/20 rounded-full px-2 py-6 text-center text-4xl tracking-[0.25em] text-white placeholder-white/10 focus:outline-none focus:ring-1 focus:ring-white/50 transition-all font-sans"
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+              pattern="\d*"
+              inputMode="numeric"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-text z-20 text-[1px]"
+              autoComplete="one-time-code"
             />
+            
+            {/* Visual Slots */}
+            <div className="flex gap-3 sm:gap-4 justify-between w-full z-10 pointer-events-none">
+              {[0, 1, 2, 3, 4].map((index) => {
+                const char = code[index] || "";
+                const showCursor = isInputFocused && code.length === index;
+                
+                return (
+                  <div
+                    key={index}
+                    className={`w-11 h-14 sm:w-14 sm:h-18 flex items-center justify-center border-b-[3px] transition-all duration-200 relative ${
+                      char
+                        ? "border-white text-white"
+                        : showCursor
+                          ? "border-white"
+                          : "border-white/15"
+                    }`}
+                  >
+                    <span className="text-3xl sm:text-5xl font-black font-sans select-none leading-none">
+                      {char}
+                    </span>
+                    {/* Blinking cursor */}
+                    {showCursor && (
+                      <motion.div
+                        animate={{ opacity: [1, 0, 1] }}
+                        transition={{ repeat: Infinity, duration: 1.0, ease: "easeInOut" }}
+                        className="absolute w-0.5 h-6 sm:h-8 bg-white"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <button
             onClick={() => handleRetrieve()}
             disabled={loading || code.length !== 5}
-            className={glassButton + " max-w-[280px]"}
+            className={glassButton + " max-w-[340px]"}
           >
             {loading ? (
               <Loader2 className="animate-spin" size={20} />
@@ -3900,7 +4888,6 @@ function AdminPanel({
   const [newSecretPass, setNewSecretPass] = useState(
     globalStats.passwords?.secret || "",
   );
-  const [newR2Url, setNewR2Url] = useState(globalStats.r2WorkerUrl || "");
 
   // Sync local inputs with global stats when they change remotely
   useEffect(() => {
@@ -3913,12 +4900,6 @@ function AdminPanel({
       setNewSecretPass(globalStats.passwords.secret);
     }
   }, [globalStats.passwords]);
-
-  useEffect(() => {
-    if (globalStats.r2WorkerUrl) {
-      setNewR2Url(globalStats.r2WorkerUrl);
-    }
-  }, [globalStats.r2WorkerUrl]);
 
   useEffect(() => {
     setSystemNotice(globalStats.notice);
@@ -4180,15 +5161,6 @@ function AdminPanel({
     }
   };
 
-  const handleUpdateR2Url = async () => {
-    try {
-      await update(ref(rtdb, "stats"), { r2WorkerUrl: newR2Url.trim() });
-      showToast("R2 Worker URL updated", "success");
-    } catch (err) {
-      showToast("Failed to update R2 URL", "error");
-    }
-  };
-
   const handleClearAllExpired = async (expiredRooms: any[]) => {
     if (!isClearingAll) {
       setIsClearingAll(true);
@@ -4372,39 +5344,6 @@ function AdminPanel({
               {isNukingBoards ? "Confirm?" : "Nuke Boards"}
             </span>
           </button>
-        </div>
-
-        {/* R2 Configuration */}
-        <div className="p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-3xl space-y-4 shadow-lg shadow-emerald-500/5">
-          <div className="flex items-center gap-2 text-emerald-400/60">
-            <ShieldCheck size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">
-              R2 Worker Configuration
-            </span>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-medium text-white/40 ml-2">
-              Cloudflare Worker URL
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newR2Url}
-                onChange={(e) => setNewR2Url(e.target.value)}
-                placeholder="https://your-worker.workers.dev"
-                className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-400/40 transition-all"
-              />
-              <button
-                onClick={handleUpdateR2Url}
-                className="px-6 bg-emerald-400 text-black rounded-full text-[10px] font-bold hover:scale-105 active:scale-95 transition-all"
-              >
-                Update
-              </button>
-            </div>
-            <p className="text-[9px] text-white/20 italic ml-2">
-              * This URL is used for Secret R2 Mode file uploads and downloads.
-            </p>
-          </div>
         </div>
 
         <div className="p-5 bg-white/5 border border-white/10 rounded-3xl space-y-4">
@@ -5565,7 +6504,13 @@ function LikeWidget({
   };
 
   return (
-    <div className="w-full max-w-[500px] mt-4 relative">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full max-w-[500px] mt-4 relative"
+    >
       <div className="flex items-center justify-between px-8">
         <h3 className="text-sm font-bold text-white/80 tracking-tight">
           How would you rate this page?
@@ -5624,7 +6569,7 @@ function LikeWidget({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
@@ -5955,15 +6900,26 @@ function FAQSection() {
   return (
     <div className="w-full px-4 mb-4">
       <div className="max-w-[800px] mx-auto">
-        <h2
+        <motion.h2
+          initial={{ opacity: 0, y: 15 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-white/90 text-lg font-bold mb-6 tracking-wide"
           style={{ fontFamily: "monospace" }}
         >
           FAQ
-        </h2>
+        </motion.h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
           {FAQ_ITEMS.map((item, i) => (
-            <div key={i} className="border-t border-white/[0.06]">
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.6, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+              className="border-t border-white/[0.06]"
+            >
               <button
                 onClick={() => {
                   vibrate();
@@ -5993,7 +6949,7 @@ function FAQSection() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -6005,8 +6961,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<
     "text" | "file" | "receive" | "history" | "chat" | "board"
   >("file");
-  const [isBrandDockVisible, setIsBrandDockVisible] = useState(true);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [chatTabClicks, setChatTabClicks] = useState(0);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const logoClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showAdminPass, setShowAdminPass] = useState(false);
   const [adminPass, setAdminPass] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -6048,18 +7006,6 @@ export default function App() {
       return () => mediaQuery.removeEventListener("change", applyTheme);
     }
   }, [themeMode]);
-
-  useEffect(() => {
-    const updateBrandDockVisibility = () => {
-      setIsBrandDockVisible(window.scrollY < 96);
-    };
-
-    updateBrandDockVisibility();
-    window.addEventListener("scroll", updateBrandDockVisibility, {
-      passive: true,
-    });
-    return () => window.removeEventListener("scroll", updateBrandDockVisibility);
-  }, []);
 
   // R2 Secret Mode States
   const [isR2Mode, setIsR2Mode] = useState(false);
@@ -6265,9 +7211,6 @@ export default function App() {
     totalSize: number;
     files: { name: string; size: number; timestamp: number }[];
   }>({ firstUploadTime: 0, totalSize: 0, files: [] });
-  const [r2WorkerUrl, setR2WorkerUrl] = useState(
-    "https://ais-dev-uhincpmat2pbbw7r6n5l7s-315508064787.asia-east1.run.app",
-  ); // Hardcoded to Cloud Run API
   const [standardStats, setStandardStats] = useState<{
     firstUploadTime: number;
     totalSize: number;
@@ -6367,10 +7310,7 @@ export default function App() {
             let r2DeleteSuccess = true;
             if (data.objectKey) {
               try {
-                const apiBase = (r2WorkerUrl || "").trim();
-                const apiUrl = apiBase
-                  ? `${apiBase.replace(/\/$/, "")}/api/r2/delete-object`
-                  : `/api/r2/delete-object`;
+                const apiUrl = "/api/r2/delete";
 
                 const res = await fetch(apiUrl, {
                   method: "POST",
@@ -6407,7 +7347,35 @@ export default function App() {
     performCleanup();
     const interval = setInterval(performCleanup, 60000);
     return () => clearInterval(interval);
-  }, [r2WorkerUrl]);
+  }, []);
+
+  const handleLogoClick = () => {
+    vibrate();
+    
+    if (logoClickTimeoutRef.current) {
+      clearTimeout(logoClickTimeoutRef.current);
+    }
+    
+    logoClickTimeoutRef.current = setTimeout(() => {
+      setLogoClicks(0);
+    }, 2000);
+    
+    const newCount = logoClicks + 1;
+    setLogoClicks(newCount);
+    
+    if (newCount >= 5) {
+      if (isAdmin) {
+        showToast("Admin mode is already active", "info");
+      } else {
+        setShowAdminPass(true);
+      }
+      setLogoClicks(0);
+      if (logoClickTimeoutRef.current) {
+        clearTimeout(logoClickTimeoutRef.current);
+        logoClickTimeoutRef.current = null;
+      }
+    }
+  };
 
   const handleChatTabClick = () => {
     vibrate();
@@ -6530,8 +7498,6 @@ export default function App() {
           if (data.passwords.admin) setAdminMasterPass(data.passwords.admin);
           if (data.passwords.secret) setSecretMasterPass(data.passwords.secret);
         }
-        if (data.r2WorkerUrl) setR2WorkerUrl(data.r2WorkerUrl);
-
         if (data.broadcast && data.broadcast.id !== lastBroadcastId.current) {
           const isExpired =
             data.broadcast.expiresAt !== 0 &&
@@ -6676,6 +7642,158 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#000000] text-white font-sans selection:bg-white/30 flex flex-col items-center justify-start p-4 sm:p-6 relative overflow-x-hidden">
+      {/* Floating Actions Dock */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <button
+          onClick={() => {
+            vibrate();
+            setIsHistoryModalOpen(true);
+          }}
+          className="flex w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-white/70 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 shadow-lg cursor-pointer select-none"
+          title="History"
+          style={{ WebkitTapHighlightColor: "transparent" }}
+        >
+          <Clock size={16} />
+        </button>
+        <button
+          onClick={() => {
+            vibrate();
+            const nextMode =
+              themeMode === "night"
+                ? "light"
+                : themeMode === "light"
+                  ? "auto"
+                  : "night";
+            setThemeMode(nextMode);
+            showToast(
+              `Theme: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} Mode`,
+              "success",
+            );
+          }}
+          className="flex w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-white/70 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 shadow-lg cursor-pointer select-none"
+          title={`Current Theme: ${themeMode}`}
+          style={{ WebkitTapHighlightColor: "transparent" }}
+        >
+          {themeMode === "night" ? (
+            <Moon size={16} fill="currentColor" />
+          ) : themeMode === "light" ? (
+            <Sun size={16} fill="currentColor" />
+          ) : (
+            <Monitor size={16} />
+          )}
+        </button>
+      </div>
+
+      {/* Admin Password Override Modal */}
+      <AnimatePresence>
+        {showAdminPass && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            onClick={() => {
+              setShowAdminPass(false);
+              setAdminPass("");
+            }}
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onSubmit={handleAdminAuth}
+              className="w-full max-w-sm bg-zinc-950/80 border border-white/10 rounded-[32px] p-8 shadow-2xl relative flex flex-col gap-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col items-center gap-2 mb-1">
+                <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                  <ShieldAlert size={22} className="text-white/60 animate-pulse" />
+                </div>
+                <h3 className="font-bold uppercase tracking-[0.2em] text-xs text-white/60 mt-2">
+                  System Override
+                </h3>
+                <p className="text-[10px] text-white/40 text-center">
+                  Please enter the administrator override passcode.
+                </p>
+              </div>
+              <div className="relative font-mono">
+                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <input
+                  type="password"
+                  value={adminPass}
+                  onChange={(e) => setAdminPass(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-center focus:outline-none focus:border-white/30 transition-all font-sans tracking-[0.5em] text-lg text-white"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3 mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminPass(false);
+                    setAdminPass("");
+                  }}
+                  className="flex-1 bg-white/5 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-colors border border-white/5 text-white/70"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-white text-black py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-white/90 transition-colors shadow-lg shadow-white/10"
+                >
+                  Authorize
+                </button>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Isolated Full-Screen Admin Dashboard */}
+      <AnimatePresence>
+        {isAdmin && (
+          <motion.div
+            key="admin-screen"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#000000] z-[400] overflow-y-auto flex flex-col justify-start p-4 sm:p-6"
+          >
+            <div className="w-full max-w-4xl mx-auto py-8">
+              <div className="bg-[#050505] border border-white/10 rounded-[32px] p-6 sm:p-8 shadow-2xl relative backdrop-blur-xl">
+                {/* Decorative background glow */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] to-transparent rounded-[32px] pointer-events-none" />
+                
+                <AdminPanel
+                  showToast={showToast}
+                  addToHistory={addToHistory}
+                  onExit={() => {
+                    vibrate();
+                    setIsAdmin(false);
+                  }}
+                  chatState={chatState}
+                  setChatState={setChatState}
+                  boardState={boardState}
+                  setBoardState={setBoardState}
+                  globalStats={{
+                    notice: globalNotice,
+                    noticeTheme,
+                    noticeExpiresAt,
+                    isFrozen,
+                    likes: likesCount,
+                    passwords: {
+                      admin: adminMasterPass,
+                      secret: secretMasterPass,
+                    },
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Global Notice Banner */}
       <AnimatePresence>
         {isNoticeActive && (
@@ -6799,7 +7917,8 @@ export default function App() {
         </span>
       </motion.div>
 
-      {/* Brand Dock */}
+      {/* Brand Dock (Temporarily Disabled) */}
+      {/* 
       <AnimatePresence>
         {isBrandDockVisible && (
           <motion.div
@@ -6846,6 +7965,16 @@ export default function App() {
           <button
             onClick={() => {
               vibrate();
+              setIsHistoryModalOpen(true);
+            }}
+            className="flex w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-xl sm:rounded-2xl border border-white/[0.12] bg-white/[0.06] text-white/75 transition-all hover:bg-white/[0.12] hover:text-white active:scale-90"
+            title="History"
+          >
+            <Clock size={18} />
+          </button>
+          <button
+            onClick={() => {
+              vibrate();
               const nextMode =
                 themeMode === "night"
                   ? "light"
@@ -6873,6 +8002,7 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      */}
 
       {/* Theme Toggle Button */}
       <motion.button
@@ -6932,7 +8062,7 @@ export default function App() {
         </AnimatePresence>
       </motion.button>
 
-      <div className="w-full flex flex-col items-center justify-start pt-28 sm:pt-20 pb-16 sm:pb-12">
+      <div className="w-full flex flex-col items-center justify-start pt-0 pb-16 sm:pb-12">
         <div className="w-full max-w-[1280px] z-10 flex flex-col">
           {/* Header */}
           <div className="hidden">
@@ -6979,6 +8109,39 @@ export default function App() {
             </motion.p>
           </div>
 
+          {/* History Modal */}
+          <AnimatePresence>
+            {isHistoryModalOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                onClick={() => setIsHistoryModalOpen(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                  className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-6 shadow-2xl relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setIsHistoryModalOpen(false)}
+                    className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"
+                  >
+                    <X size={20} />
+                  </button>
+                  <HistoryView
+                    history={history}
+                    setHistory={setHistory}
+                    showToast={showToast}
+                  />
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Main Card */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -6990,36 +8153,74 @@ export default function App() {
             className={
               isDedicatedToolScreen
                 ? "w-full"
-                : "w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px_280px] gap-10 xl:gap-12"
+                : "w-full grid grid-cols-1 xl:grid-cols-2 gap-10 xl:gap-0 relative"
             }
           >
+            {/* Central Divider Line */}
+            {!isDedicatedToolScreen && (
+              <motion.div
+                initial={{ scaleY: 0 }}
+                animate={{ scaleY: 1 }}
+                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                className="hidden xl:block absolute left-1/2 top-0 bottom-0 w-px bg-white/10 -translate-x-1/2 origin-top pointer-events-none"
+              />
+            )}
+
             <motion.div
               initial={{ opacity: 0, scale: 0.72, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-              className="hidden"
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
+              className={
+                isDedicatedToolScreen
+                  ? "hidden"
+                  : "hidden xl:flex absolute left-1/2 top-[290px] -translate-x-1/2 -translate-y-1/2 z-10 flex-col items-center justify-center cursor-pointer select-none"
+              }
+              onClick={handleLogoClick}
+              style={{ WebkitTapHighlightColor: "transparent" }}
             >
-              <img
+              {/* Invisible black mask to cleanly cut the divider line behind the logo */}
+              <div className="absolute w-40 h-40 rounded-full bg-[#000000] pointer-events-none select-none" />
+
+              <motion.img
                 src="/hefimer-orbit.svg"
                 alt="Hefimer mark"
-                className="w-full h-full object-contain drop-shadow-[0_0_14px_rgba(255,255,255,0.2)]"
+                draggable="false"
+                animate={{ rotate: 360 }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 25,
+                  ease: "linear",
+                }}
+                className="relative z-10 w-44 h-44 object-contain drop-shadow-[0_0_35px_rgba(255,255,255,0.15)] opacity-95 pointer-events-none select-none"
               />
             </motion.div>
-            <section className="min-w-0">
-            <div className={isDedicatedToolScreen ? "hidden" : "mb-8"}>
+            <section className={isDedicatedToolScreen ? "min-w-0" : "min-w-0 xl:pr-[120px]"}>
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className={isDedicatedToolScreen ? "hidden" : "mb-8"}
+            >
               <p className="text-[10px] uppercase tracking-[0.24em] font-bold text-white/30 mb-3">
                 Create a drop
               </p>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-[-0.05em] text-white">
+              <h1
+                onClick={handleLogoClick}
+                className="text-4xl sm:text-5xl font-bold tracking-[-0.05em] text-white cursor-pointer select-none"
+                style={{ WebkitTapHighlightColor: "transparent" }}
+              >
                 Send
               </h1>
               <p className="mt-2 text-sm text-white/40">
                 Share a file or text that disappears when its moment is over.
               </p>
-            </div>
+            </motion.div>
 
             {/* Send modes */}
-            <div
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
               className={
                 isDedicatedToolScreen
                   ? "hidden"
@@ -7090,7 +8291,7 @@ export default function App() {
                   </React.Fragment>
                 );
               })}
-            </div>
+            </motion.div>
 
             {/* Inline Toast */}
             <AnimatePresence mode="wait">
@@ -7186,7 +8387,12 @@ export default function App() {
             )}
 
             {/* Content Area */}
-            <div className="relative">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="relative"
+            >
               <AnimatePresence mode="wait">
                 {activeTab === "file" && (
                   <motion.div
@@ -7249,7 +8455,6 @@ export default function App() {
                         }}
                         stats={r2Stats}
                         updateStats={updateUploadStats}
-                        r2WorkerUrl={r2WorkerUrl}
                       />
                     ) : (
                       <SendFile
@@ -7287,77 +8492,14 @@ export default function App() {
                     exit={{ opacity: 0, x: 10 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {showAdminPass ? (
-                      <motion.form
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        onSubmit={handleAdminAuth}
-                        className="space-y-4 p-6 bg-white/5 rounded-[32px] border border-white/10 shadow-2xl"
-                      >
-                        <div className="flex flex-col items-center gap-2 mb-2">
-                          <h3 className="font-bold uppercase tracking-[0.2em] text-xs text-white/60">
-                            System Override
-                          </h3>
-                        </div>
-                        <input
-                          type="password"
-                          value={adminPass}
-                          onChange={(e) => setAdminPass(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full bg-black/40 border border-white/10 rounded-full px-5 py-4 text-center focus:outline-none focus:border-white/30 transition-all font-sans tracking-[0.5em] text-lg"
-                          autoFocus
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAdminPass(false);
-                              setAdminPass("");
-                            }}
-                            className="flex-1 bg-white/5 py-3.5 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="flex-1 bg-white text-black py-3.5 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
-                          >
-                            Authorize
-                          </button>
-                        </div>
-                      </motion.form>
-                    ) : isAdmin ? (
-                      <AdminPanel
-                        showToast={showToast}
-                        addToHistory={addToHistory}
-                        onExit={() => setIsAdmin(false)}
-                        chatState={chatState}
-                        setChatState={setChatState}
-                        boardState={boardState}
-                        setBoardState={setBoardState}
-                        globalStats={{
-                          notice: globalNotice,
-                          noticeTheme,
-                          noticeExpiresAt,
-                          isFrozen,
-                          likes: likesCount,
-                          passwords: {
-                            admin: adminMasterPass,
-                            secret: secretMasterPass,
-                          },
-                          r2WorkerUrl,
-                        }}
-                      />
-                    ) : (
-                      <Chat
-                        showToast={showToast}
-                        addToHistory={addToHistory}
-                        state={chatState}
-                        setState={setChatState}
-                        isAdmin={isAdmin}
-                        isFrozen={isFrozen}
-                      />
-                    )}
+                    <Chat
+                      showToast={showToast}
+                      addToHistory={addToHistory}
+                      state={chatState}
+                      setState={setChatState}
+                      isAdmin={isAdmin}
+                      isFrozen={isFrozen}
+                    />
                   </motion.div>
                 )}
                 {activeTab === "board" && (
@@ -7376,106 +8518,62 @@ export default function App() {
                     />
                   </motion.div>
                 )}
-                {false && activeTab === "receive" && (
-                  <motion.div
-                    key="receive"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Receive
-                      showToast={showToast}
-                      addToHistory={addToHistory}
-                      state={receiveState}
-                      setState={setReceiveState}
-                      r2WorkerUrl={r2WorkerUrl}
-                    />
-                  </motion.div>
-                )}
-                {false && activeTab === "history" && (
-                  <motion.div
-                    key="history"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <HistoryView
-                      history={history}
-                      setHistory={setHistory}
-                      showToast={showToast}
-                    />
-                  </motion.div>
-                )}
               </AnimatePresence>
-            </div>
+            </motion.div>
             </section>
 
             <aside
               className={
                 isDedicatedToolScreen
                   ? "hidden"
-                  : "border-t border-white/10 pt-10 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-10"
+                  : "border-t border-white/10 pt-10 xl:border-t-0 xl:pt-0 xl:pl-10"
               }
             >
-              <p className="text-[10px] uppercase tracking-[0.24em] font-bold text-white/30 mb-3">
-                Open a drop
-              </p>
-              <h2 className="text-4xl font-bold tracking-[-0.05em] text-white">
-                Receive
-              </h2>
-              <p className="mt-2 mb-10 text-sm leading-relaxed text-white/40">
-                Enter the five-digit code you received to open a file or text.
-              </p>
-              <Receive
-                showToast={showToast}
-                addToHistory={addToHistory}
-                state={receiveState}
-                setState={setReceiveState}
-                r2WorkerUrl={r2WorkerUrl}
-              />
-              <div className="mt-10 border-t border-white/10 pt-5 flex items-start gap-3 text-xs leading-relaxed text-white/35">
-                <ShieldCheck size={16} className="mt-0.5 shrink-0 text-white/55" />
-                <p>Each drop is temporary. The owner controls when it expires.</p>
-              </div>
-            </aside>
-
-            <aside
-              className={
-                isDedicatedToolScreen
-                  ? "hidden"
-                  : "border-t border-white/10 pt-10 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-10"
-              }
-            >
-              <p className="text-[10px] uppercase tracking-[0.24em] font-bold text-white/30 mb-3">
-                Your activity
-              </p>
-              <h2 className="text-4xl font-bold tracking-[-0.05em] text-white mb-2">
-                History
-              </h2>
-              <p className="mb-8 text-sm leading-relaxed text-white/40">
-                Recent drops, rooms and boards at a glance.
-              </p>
-              <HistoryView
-                history={history}
-                setHistory={setHistory}
-                showToast={showToast}
-              />
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <p className="text-[10px] uppercase tracking-[0.24em] font-bold text-white/30 mb-3">
+                  Open a drop
+                </p>
+                <h2 className="text-4xl sm:text-5xl font-bold tracking-[-0.05em] text-white">
+                  Receive
+                </h2>
+                <p className="mt-2 mb-10 text-sm leading-relaxed text-white/40">
+                  Enter the five-digit code you received to open a file or text.
+                </p>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="xl:pl-[110px]"
+              >
+                <Receive
+                  showToast={showToast}
+                  addToHistory={addToHistory}
+                  state={receiveState}
+                  setState={setReceiveState}
+                />
+              </motion.div>
             </aside>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55, duration: 0.45 }}
+          <div
             className={
               isDedicatedToolScreen
                 ? "hidden"
                 : "mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2"
             }
           >
-            <div className="sm:col-span-2 flex items-end justify-between border-b border-white/10 pb-5">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="sm:col-span-2 flex items-end justify-between border-b border-white/10 pb-5"
+            >
               <div>
                 <p className="text-[10px] uppercase tracking-[0.24em] font-bold text-white/30">
                   Live tools
@@ -7487,7 +8585,7 @@ export default function App() {
               <span className="hidden sm:block text-xs text-white/35">
                 Temporary, collaborative spaces
               </span>
-            </div>
+            </motion.div>
             {[
               {
                 id: "chat",
@@ -7501,11 +8599,15 @@ export default function App() {
                 description: "Draw, annotate and collaborate on a shared canvas.",
                 icon: Palette,
               },
-            ].map((tool) => {
+            ].map((tool, idx) => {
               const Icon = tool.icon;
               return (
-                <button
+                <motion.button
                   key={tool.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  transition={{ duration: 0.7, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => {
                     if (tool.id === "chat") {
                       handleChatTabClick();
@@ -7535,10 +8637,10 @@ export default function App() {
                       </p>
                     </div>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
-          </motion.div>
+          </div>
         </div>
       </div>
 
@@ -7552,14 +8654,14 @@ export default function App() {
       {/* Separator */}
       <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
 
-      {/* Like Widget */}
-      <LikeWidget showToast={showToast} likes={likesCount} />
+      {/* FAQ Section */}
+      <FAQSection />
 
       {/* Separator */}
       <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
 
-      {/* FAQ Section */}
-      <FAQSection />
+      {/* Like Widget */}
+      <LikeWidget showToast={showToast} likes={likesCount} />
 
       {/* Separator */}
       <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
@@ -7574,6 +8676,18 @@ export default function App() {
         <p className="text-white/30 text-[11px] leading-relaxed font-medium italic mb-4">
           Your instant web hub for quick file sharing, real-time messaging, and
           live collaborative tools. Fast, lightweight, and works on any device.
+        </p>
+
+        <p className="text-white/35 text-[10px] mb-4">
+          Developed by{" "}
+          <a
+            href="https://hoangkhanhminh.pages.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/60 underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
+          >
+            Khanh Minh
+          </a>
         </p>
 
         {/* Policy Links */}

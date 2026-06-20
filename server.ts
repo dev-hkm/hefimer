@@ -2,9 +2,19 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import cors from "cors";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
+import { randomUUID } from "crypto";
 
 dotenv.config();
 
@@ -39,51 +49,32 @@ const BUCKET_NAME = (process.env.R2_BUCKET_NAME || "").trim();
  * ]
  */
 
-// API: Presign Upload URL
-app.get("/api/r2/presign-upload", async (req, res) => {
+// API: Create a short-lived direct R2 upload URL for local development.
+app.get("/api/r2/upload-url", async (req, res) => {
   try {
     const { filename, contentType } = req.query;
-    if (!filename || !contentType) {
-      return res.status(400).json({ error: "Missing filename or contentType" });
+    if (!filename) {
+      return res.status(400).json({ error: "Missing filename" });
     }
-
-    // Validate environment variables
-    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !BUCKET_NAME) {
-      console.error("R2 Configuration Missing:", {
-        accountId: !!process.env.R2_ACCOUNT_ID,
-        accessKey: !!process.env.R2_ACCESS_KEY_ID,
-        secretKey: !!process.env.R2_SECRET_ACCESS_KEY,
-        bucket: !!BUCKET_NAME
-      });
-      return res.status(500).json({ error: "R2 storage is not configured on the server. Please check environment variables." });
-    }
-
-    // Generate a unique key
-    const uniqueId = Math.random().toString(36).substring(2, 15);
-    const objectKey = `uploads/${uniqueId}-${filename}`;
-
+    const objectKey = `hefimer/${randomUUID()}/${filename}`;
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: objectKey,
-      ContentType: contentType as string,
+      ContentType: (contentType as string) || "application/octet-stream",
     });
-
-    // Presigned URL valid for 15 minutes
     const url = await getSignedUrl(r2Client, command, { expiresIn: 900 });
-
-    res.json({
-      url,
-      objectKey,
-      expiresAt: Date.now() + 900 * 1000,
-    });
+    res.json({ objectKey, url });
   } catch (error) {
-    console.error("Presign Upload Error:", error);
+    console.error("Upload URL Error:", error);
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
 
-// API: Presign Download URL
-app.get("/api/r2/presign-download", async (req, res) => {
+
+
+
+// API: Create a short-lived direct R2 download URL for local development.
+app.get("/api/r2/download-url", async (req, res) => {
   try {
     const { objectKey } = req.query;
     if (!objectKey) {
@@ -107,7 +98,7 @@ app.get("/api/r2/presign-download", async (req, res) => {
 });
 
 // API: Delete Object from R2
-app.post("/api/r2/delete-object", async (req, res) => {
+app.post("/api/r2/delete", async (req, res) => {
   try {
     const { objectKey } = req.body;
     if (!objectKey) {
@@ -115,7 +106,7 @@ app.post("/api/r2/delete-object", async (req, res) => {
     }
 
     // Validate key safety
-    if (!objectKey.startsWith("uploads/") || objectKey.length > 256) {
+    if (!objectKey.startsWith("hefimer/") || objectKey.length > 256) {
       return res.status(400).json({ error: "Invalid object key" });
     }
 
@@ -185,6 +176,105 @@ app.get("/api/cron/cleanup", async (req, res) => {
   } catch (error: any) {
     console.error("Cron Error:", error);
     res.status(500).json({ error: "Cron execution failed" });
+  }
+});
+
+// API: Proxy Litterbox Upload
+app.post("/api/proxy/litterbox", async (req, res) => {
+  try {
+    const targetUrl = "https://litterbox.catbox.moe/resources/internals/api.php";
+    const contentType = req.headers["content-type"];
+
+    const headers: Record<string, string> = {};
+    if (contentType) {
+      headers["content-type"] = contentType;
+    }
+
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers,
+      body: req as any,
+      duplex: "half",
+    } as any);
+
+    const bodyText = await response.text();
+    res.status(response.status).send(bodyText);
+  } catch (error: any) {
+    console.error("Litterbox Proxy Error:", error);
+    res.status(500).json({ error: error.message || "Litterbox proxy failed" });
+  }
+});
+
+// API: Proxy storage.to
+app.all("/api/proxy/storageto/*", async (req, res) => {
+  try {
+    const subpath = req.params[0] || "";
+    const targetUrl = new URL(`https://storage.to/api/${subpath}`);
+    const searchParams = new URLSearchParams(req.query as any);
+    targetUrl.search = searchParams.toString();
+
+    const headers: Record<string, string> = {};
+    const headerKeys = [
+      "content-type",
+      "x-visitor-token",
+      "x-owner-token",
+      "authorization",
+    ];
+    for (const key of headerKeys) {
+      const val = req.headers[key];
+      if (typeof val === "string") {
+        headers[key] = val;
+      }
+    }
+
+    let requestBody: any = null;
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      const contentType = req.headers["content-type"] || "";
+      if (contentType.includes("application/json")) {
+        requestBody = JSON.stringify(req.body);
+      } else {
+        requestBody = req;
+      }
+    }
+
+    const response = await fetch(targetUrl.toString(), {
+      method: req.method,
+      headers,
+      body: requestBody,
+      duplex: "half",
+    } as any);
+
+    const bodyText = await response.text();
+    res.status(response.status).send(bodyText);
+  } catch (error: any) {
+    console.error("storage.to Proxy Error:", error);
+    res.status(500).json({ error: error.message || "storage.to proxy failed" });
+  }
+});
+
+// API: Proxy tmpfiles.org Upload
+app.post("/api/proxy/tmpfiles", async (req, res) => {
+  try {
+    const targetUrl = "https://tmpfiles.org/api/v1/upload";
+    const contentType = req.headers["content-type"];
+
+    const headers: Record<string, string> = {};
+    if (contentType) {
+      headers["content-type"] = contentType;
+    }
+
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers,
+      body: req as any,
+      duplex: "half",
+    } as any);
+
+    const bodyText = await response.text();
+    res.status(response.status).send(bodyText);
+  } catch (error: any) {
+    console.error("tmpfiles Proxy Error:", error);
+    res.status(500).json({ error: error.message || "tmpfiles proxy failed" });
   }
 });
 

@@ -6,11 +6,21 @@
     <title>Hefimer</title>
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/svg+xml" href="/hefimer-orbit.svg" />
-    <link rel="apple-touch-icon" href="/hefimer-orbit.svg" />
+    <link rel="apple-touch-icon" href="/hefimer-orbit.png" />
+    <link rel="manifest" href="/manifest.json" />
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW Registered', reg))
+            .catch(err => console.error('SW Registration Failed', err));
+        });
+      }
+    </script>
   </body>
 </html>
