@@ -57,12 +57,7 @@ app.get("/api/r2/upload-url", async (req, res) => {
       return res.status(400).json({ error: "Missing filename" });
     }
     const objectKey = `hefimer/${randomUUID()}/${filename}`;
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: objectKey,
-      ContentType: (contentType as string) || "application/octet-stream",
-    });
-    const url = await getSignedUrl(r2Client, command, { expiresIn: 900 });
+    const url = `/api/r2/upload?objectKey=${encodeURIComponent(objectKey)}&contentType=${encodeURIComponent((contentType as string) || "application/octet-stream")}`;
     res.json({ objectKey, url });
   } catch (error) {
     console.error("Upload URL Error:", error);
@@ -70,8 +65,126 @@ app.get("/api/r2/upload-url", async (req, res) => {
   }
 });
 
+// API: Local R2 Single Upload Proxy
+app.put("/api/r2/upload", async (req, res) => {
+  try {
+    const { objectKey, contentType } = req.query;
+    if (!objectKey) {
+      return res.status(400).json({ error: "Missing objectKey" });
+    }
 
+    const contentLength = parseInt(req.headers["content-length"] || "", 10);
+    await r2Client.send(new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: objectKey as string,
+      ContentType: (contentType as string) || "application/octet-stream",
+      Body: req,
+      ContentLength: isNaN(contentLength) ? undefined : contentLength,
+    }));
 
+    res.json({ success: true, objectKey });
+  } catch (error: any) {
+    console.error("Local R2 Upload Error:", error);
+    res.status(500).json({ error: error.message || "Failed to upload to R2" });
+  }
+});
+
+// API: Init R2 Multipart Upload
+app.post("/api/r2/multipart/init", async (req, res) => {
+  try {
+    const { filename, contentType } = req.body;
+    if (!filename || !contentType) {
+      return res.status(400).json({ error: "Missing filename or contentType" });
+    }
+    const objectKey = `hefimer/${randomUUID()}/${filename}`;
+    const result = await r2Client.send(new CreateMultipartUploadCommand({
+      Bucket: BUCKET_NAME,
+      Key: objectKey,
+      ContentType: contentType,
+    }));
+    res.json({ objectKey, uploadId: result.UploadId });
+  } catch (error: any) {
+    console.error("Local R2 Multipart Init Error:", error);
+    res.status(500).json({ error: error.message || "Failed to initialize R2 multipart upload" });
+  }
+});
+
+// API: R2 Multipart Part URL
+app.post("/api/r2/multipart/part-url", async (req, res) => {
+  const { objectKey, uploadId, partNumber } = req.body;
+  if (!objectKey || !uploadId || !partNumber) {
+    return res.status(400).json({ error: "Missing objectKey, uploadId, or partNumber" });
+  }
+  const partUrl = `/api/r2/multipart/upload-part?objectKey=${encodeURIComponent(objectKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
+  res.json({ url: partUrl });
+});
+
+// API: Local R2 Multipart Upload Part Proxy
+app.put("/api/r2/multipart/upload-part", async (req, res) => {
+  try {
+    const { objectKey, uploadId, partNumber } = req.query;
+    if (!objectKey || !uploadId || !partNumber) {
+      return res.status(400).json({ error: "Missing objectKey, uploadId, or partNumber" });
+    }
+
+    const partNum = parseInt(partNumber as string, 10);
+    const contentLength = parseInt(req.headers["content-length"] || "", 10);
+
+    const result = await r2Client.send(new UploadPartCommand({
+      Bucket: BUCKET_NAME,
+      Key: objectKey as string,
+      UploadId: uploadId as string,
+      PartNumber: partNum,
+      Body: req,
+      ContentLength: isNaN(contentLength) ? undefined : contentLength,
+    }));
+
+    res.setHeader("ETag", result.ETag || "");
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Local R2 Upload Part Error:", error);
+    res.status(500).json({ error: error.message || "Failed to upload R2 part" });
+  }
+});
+
+// API: Local R2 Multipart Complete
+app.post("/api/r2/multipart/complete", async (req, res) => {
+  try {
+    const { objectKey, uploadId, parts } = req.body;
+    if (!objectKey || !uploadId || !parts) {
+      return res.status(400).json({ error: "Missing objectKey, uploadId, or parts" });
+    }
+    await r2Client.send(new CompleteMultipartUploadCommand({
+      Bucket: BUCKET_NAME,
+      Key: objectKey,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts.sort((a: any, b: any) => a.PartNumber - b.PartNumber) },
+    }));
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Local R2 Multipart Complete Error:", error);
+    res.status(500).json({ error: error.message || "Failed to complete R2 multipart upload" });
+  }
+});
+
+// API: Local R2 Multipart Abort
+app.post("/api/r2/multipart/abort", async (req, res) => {
+  try {
+    const { objectKey, uploadId } = req.body;
+    if (!objectKey || !uploadId) {
+      return res.status(400).json({ error: "Missing objectKey or uploadId" });
+    }
+    await r2Client.send(new AbortMultipartUploadCommand({
+      Bucket: BUCKET_NAME,
+      Key: objectKey,
+      UploadId: uploadId,
+    }));
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Local R2 Multipart Abort Error:", error);
+    res.status(500).json({ error: error.message || "Failed to abort R2 multipart upload" });
+  }
+});
 
 // API: Create a short-lived direct R2 download URL for local development.
 app.get("/api/r2/download-url", async (req, res) => {

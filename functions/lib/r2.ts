@@ -1,3 +1,4 @@
+import "./polyfill";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -108,4 +109,39 @@ export async function abortMultipartUpload(env: R2Env, objectKey: string, upload
   await client(env).send(new AbortMultipartUploadCommand({
     Bucket: env.R2_BUCKET_NAME.trim(), Key: objectKey, UploadId: uploadId,
   }));
+}
+
+export async function uploadObjectProxy(
+  env: R2Env,
+  objectKey: string,
+  body: any,
+  contentType: string,
+  contentLength?: number,
+) {
+  await client(env).send(new PutObjectCommand({
+    Bucket: env.R2_BUCKET_NAME.trim(),
+    Key: objectKey,
+    ContentType: contentType,
+    Body: body,
+    ContentLength: contentLength,
+  }));
+}
+
+export async function uploadMultipartPartProxy(
+  env: R2Env,
+  objectKey: string,
+  uploadId: string,
+  partNumber: number,
+  body: any,
+  contentLength?: number,
+) {
+  const result = await client(env).send(new UploadPartCommand({
+    Bucket: env.R2_BUCKET_NAME.trim(),
+    Key: objectKey,
+    UploadId: uploadId,
+    PartNumber: partNumber,
+    Body: body,
+    ContentLength: contentLength,
+  }));
+  return result.ETag;
 }

@@ -9,8 +9,8 @@ export const onRequest: any = async ({ request, env }: { request: Request; env: 
     return json({ error: "Invalid multipart upload reference" }, 400);
   }
   try {
-    const url = await createMultipartPartUrl(env, objectKey, uploadId, partNumber);
-    return json({ url });
+    const partUrl = `/api/r2/multipart/upload-part?objectKey=${encodeURIComponent(objectKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
+    return json({ url: partUrl });
   } catch (error) {
     console.error("R2 multipart part URL error:", error);
     return json({ error: "Could not prepare upload part" }, 503);

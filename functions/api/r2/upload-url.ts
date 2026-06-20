@@ -12,7 +12,9 @@ export const onRequest: any = async ({ request, env }: { request: Request; env: 
   if (!filename || !isSafeContentType(contentType)) return json({ error: "Invalid filename or content type" }, 400);
 
   try {
-    return json(await createUploadUrl(env, filename, contentType));
+    const objectKey = `hefimer/${crypto.randomUUID()}/${filename}`;
+    const url = `/api/r2/upload?objectKey=${encodeURIComponent(objectKey)}&contentType=${encodeURIComponent(contentType)}`;
+    return json({ objectKey, url });
   } catch (error) {
     console.error("R2 upload URL error:", error);
     return json({ error: error instanceof Error ? error.message : "Could not prepare secure upload" }, 503);
