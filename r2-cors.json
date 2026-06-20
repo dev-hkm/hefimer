@@ -2,7 +2,7 @@
   "rules": [
     {
       "allowed": {
-        "origins": ["https://hefimer.pages.dev"],
+        "origins": ["*"],
         "methods": ["GET", "HEAD", "PUT"],
         "headers": ["Content-Type"]
       },

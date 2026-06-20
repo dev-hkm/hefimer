@@ -2088,9 +2088,9 @@ function R2SendFile({
         finalType = "application/zip";
       }
 
-      const maxUploadSize = 100 * 1024 * 1024 * 1024;
+      const maxUploadSize = 5 * 1024 * 1024 * 1024;
       if (fileToUpload.size > maxUploadSize) {
-        throw new Error("Secret R2 uploads support files up to 100 GB");
+        throw new Error("Secret R2 uploads support files up to 5 GB");
       }
 
       const getPresignedUpload = async () => {
@@ -2138,67 +2138,9 @@ function R2SendFile({
         });
 
       let objectKey = "";
-      const multipartThreshold = 5 * 1024 * 1024;
-      if (fileToUpload.size <= multipartThreshold) {
-        const { url, objectKey: singleObjectKey } = await getPresignedUpload();
-        objectKey = singleObjectKey;
-        await putFile(url, fileToUpload);
-      } else {
-        const initResponse = await fetch("/api/r2/multipart/init", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: finalName, contentType: finalType }),
-        });
-        const initData = await initResponse.json().catch(() => ({}));
-        if (!initResponse.ok) throw new Error(initData.error || "Could not start multipart upload");
-
-        objectKey = initData.objectKey;
-        multipartUpload.current = { objectKey, uploadId: initData.uploadId };
-        const partSize = 64 * 1024 * 1024;
-        const totalParts = Math.ceil(fileToUpload.size / partSize);
-        if (totalParts > 10_000) throw new Error("File is too large for multipart upload");
-
-        const uploadedBytes = new Map<number, number>();
-        const parts: { ETag: string; PartNumber: number }[] = [];
-        let nextPart = 1;
-        const uploadPart = async (partNumber: number) => {
-          if (uploadWasCancelled.current) throw new Error("Upload cancelled");
-          const partResponse = await fetch("/api/r2/multipart/part-url", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ objectKey, uploadId: initData.uploadId, partNumber }),
-          });
-          const partData = await partResponse.json().catch(() => ({}));
-          if (!partResponse.ok) throw new Error(partData.error || "Could not prepare upload part");
-          const start = (partNumber - 1) * partSize;
-          const chunk = fileToUpload.slice(start, Math.min(start + partSize, fileToUpload.size));
-          const etag = await putFile(partData.url, chunk, (loaded) => {
-            uploadedBytes.set(partNumber, loaded);
-            let totalUploaded = 0;
-            uploadedBytes.forEach((bytes) => { totalUploaded += bytes; });
-            setProgress(Math.min(99, Math.round((totalUploaded / fileToUpload.size) * 100)));
-          });
-          if (!etag) throw new Error("Storage did not return a verification tag for an upload part");
-          parts.push({ ETag: etag, PartNumber: partNumber });
-        };
-        const worker = async () => {
-          while (nextPart <= totalParts) {
-            const partNumber = nextPart++;
-            await uploadPart(partNumber);
-          }
-        };
-        await Promise.all(Array.from({ length: Math.min(3, totalParts) }, worker));
-        if (uploadWasCancelled.current) throw new Error("Upload cancelled");
-        const completeResponse = await fetch("/api/r2/multipart/complete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ objectKey, uploadId: initData.uploadId, parts }),
-        });
-        const completeData = await completeResponse.json().catch(() => ({}));
-        if (!completeResponse.ok) throw new Error(completeData.error || "Could not finish multipart upload");
-        multipartUpload.current = null;
-        setProgress(100);
-      }
+      const { url, objectKey: singleObjectKey } = await getPresignedUpload();
+      objectKey = singleObjectKey;
+      await putFile(url, fileToUpload);
 
       // 3. Save metadata to Firebase
       let generatedCode = "";
