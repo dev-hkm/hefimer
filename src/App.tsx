@@ -4040,20 +4040,7 @@ function HistoryView({ history, setHistory, showToast }: any) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"
-    >
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-lg font-bold">Recent History</h3>
-        <button
-          onClick={clearHistory}
-          className="text-white/40 hover:text-white transition-colors text-sm flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-full"
-        >
-          <Trash2 size={14} /> Clear
-        </button>
-      </div>
+    <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1.5 custom-scrollbar">
       <AnimatePresence>
         {history.map((item: any, i: number) => (
           <motion.div
@@ -4079,24 +4066,34 @@ function HistoryView({ history, setHistory, showToast }: any) {
                       : "Received"}
                 </span>
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-white/40 flex items-center gap-1">
-                  {getTypeIcon(item.type)}
-                  <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[150px]">
-                    {item.type === "file" || item.type === "r2_file"
-                      ? item.fileName
-                      : item.type === "room"
-                        ? item.roomName
-                        : item.type === "board"
-                          ? item.boardName
-                          : "Text Snippet"}
-                  </span>
-                </span>
-                {item.fileSize && (
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                {item.fileName ? (
                   <>
-                    <span className="text-white/20">•</span>
-                    <span className="text-[10px] text-white/40 font-mono">
-                      {(item.fileSize / 1024 / 1024).toFixed(2)} MB
+                    <span className="text-[10px] text-white/50 shrink-0">
+                      {getTypeIcon(item.isR2 ? "r2_file" : "file")}
+                    </span>
+                    <span
+                      className="text-[10px] text-white/40 truncate max-w-[140px]"
+                      title={item.fileName}
+                    >
+                      {item.fileName}
+                    </span>
+                    {item.fileSize && (
+                      <>
+                        <span className="text-white/20">•</span>
+                        <span className="text-[9px] text-white/30 shrink-0">
+                          {(item.fileSize / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] text-white/50 shrink-0">
+                      {getTypeIcon(item.type)}
+                    </span>
+                    <span className="text-[10px] text-white/40 uppercase tracking-widest">
+                      {item.type}
                     </span>
                   </>
                 )}
@@ -4124,7 +4121,7 @@ function HistoryView({ history, setHistory, showToast }: any) {
           </motion.div>
         ))}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
@@ -7422,7 +7419,49 @@ const FAQ_ITEMS = [
   },
 ];
 
-function LandingPage({ setActiveTab, onOpenHistory }: any) {
+const MockupTerminal = () => {
+  return (
+    <div className="w-full max-w-[720px] mx-auto border border-white/10 bg-zinc-950/60 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl mt-12 text-left">
+      {/* Title Bar */}
+      <div className="flex items-center justify-between px-4 py-3 bg-zinc-900/60 border-b border-white/5">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/5" />
+        </div>
+        <span className="text-[10px] font-mono text-white/40 tracking-wider">hefimer-terminal ~ bash</span>
+        <div className="w-12" />
+      </div>
+      
+      {/* Terminal Content */}
+      <div className="p-6 font-mono text-xs space-y-3 leading-relaxed text-white/70">
+        <div>
+          <span className="text-white/30">guest@hefimer:~$</span> <span className="text-white font-medium">hefimer drop --file="src.zip" --expire="10m"</span>
+        </div>
+        <div className="space-y-1 pl-3 border-l border-white/10 text-white/50">
+          <p>✔ Connecting to peer-to-peer network... [OK]</p>
+          <p>✔ Generating ephemeral AES-256-GCM key... [OK]</p>
+          <p>✔ Encrypting payload (12.4 MB)... [OK]</p>
+          <p className="text-white font-bold">✔ Drop created: Code <span className="text-black bg-white px-1.5 py-0.5 rounded font-mono font-black">92813</span></p>
+        </div>
+        <div className="pt-2 text-white/30">
+          <p># Real-time WebSocket connection state:</p>
+          <p>[13:42:01] info: channel established with signaling server</p>
+          <p>[13:42:05] info: peer connected from 192.168.1.45</p>
+          <p className="text-white/50">[13:42:06] info: chunk transmission started █ █ █ █ █ █ █ █ ░ ░  80%</p>
+          <p className="text-white/70 font-semibold">[13:42:07] success: file decrypted on receiver end</p>
+          <p className="text-white/50">[13:42:08] warning: self-destruction sequence armed (expires in 09m 59s)</p>
+        </div>
+        <div className="flex items-center gap-1.5 pt-2">
+          <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-white/70" />
+          <span className="text-[10px] text-white/35 font-sans">Awaiting next secure handoff...</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy }: any) {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -7452,20 +7491,9 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
     >
       {/* Hero Section */}
       <motion.div variants={itemVariants} className="text-center max-w-[800px] mx-auto space-y-6 px-4">
-        {/* Glow Header Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-md">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inset-0 rounded-full bg-indigo-400 animate-ping opacity-50" />
-            <span className="relative w-2 h-2 rounded-full bg-indigo-400" />
-          </span>
-          <span className="text-[10px] tracking-widest font-black uppercase text-white/50">
-            Real-time Ephemeral Sharing
-          </span>
-        </div>
-
         <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-white leading-[1.05] font-sans">
           Share Anything.<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+          <span className="text-white/40">
             Vanish Permanently.
           </span>
         </h1>
@@ -7488,6 +7516,9 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
             <Clock size={14} /> View History
           </button>
         </div>
+
+        {/* Technical Mockup Console */}
+        <MockupTerminal />
       </motion.div>
 
       {/* Feature CTA Grid */}
@@ -7508,8 +7539,8 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
             onClick={() => { vibrate(); setActiveTab("file"); }}
             className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent pointer-events-none" />
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
               <FileUp size={22} />
             </div>
             <div className="space-y-1">
@@ -7529,8 +7560,8 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
             onClick={() => { vibrate(); setActiveTab("text"); }}
             className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent pointer-events-none" />
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
               <Code size={22} />
             </div>
             <div className="space-y-1">
@@ -7550,8 +7581,8 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
             onClick={() => { vibrate(); setActiveTab("chat"); }}
             className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/[0.03] to-transparent pointer-events-none" />
-            <div className="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
               <MessageSquare size={22} />
             </div>
             <div className="space-y-1">
@@ -7571,8 +7602,8 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
             onClick={() => { vibrate(); setActiveTab("board"); }}
             className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent pointer-events-none" />
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
               <Palette size={22} />
             </div>
             <div className="space-y-1">
@@ -7606,32 +7637,32 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
               title: "Pick Your Tool",
               desc: "Choose from sending a file, raw text, starting a live chat room, or opening a blank whiteboard.",
               icon: Zap,
-              color: "from-indigo-500/10 to-transparent",
-              accent: "text-indigo-400"
+              color: "from-white/5 to-transparent",
+              accent: "text-white/60"
             },
             {
               step: "02",
               title: "Set Timer",
               desc: "Determine how long you want your drop to exist. Options range from 10 minutes up to 24 hours.",
               icon: Clock,
-              color: "from-purple-500/10 to-transparent",
-              accent: "text-purple-400"
+              color: "from-white/5 to-transparent",
+              accent: "text-white/60"
             },
             {
               step: "03",
               title: "Share Access",
               desc: "Copy the unique 5-digit code or share the direct link with friends. No logins required to open.",
               icon: Link,
-              color: "from-pink-500/10 to-transparent",
-              accent: "text-pink-400"
+              color: "from-white/5 to-transparent",
+              accent: "text-white/60"
             },
             {
               step: "04",
               title: "Self-Destruct",
               desc: "When the countdown expires, files, messages, and whiteboard tracks are completely deleted.",
               icon: Shield,
-              color: "from-emerald-500/10 to-transparent",
-              accent: "text-emerald-400"
+              color: "from-white/5 to-transparent",
+              accent: "text-white/60"
             }
           ].map((item, idx) => {
             const Icon = item.icon;
@@ -7658,6 +7689,59 @@ function LandingPage({ setActiveTab, onOpenHistory }: any) {
       <motion.div variants={itemVariants}>
         <FAQSection />
       </motion.div>
+
+      {/* Separator, Like Widget, and Footer */}
+      <div className="flex flex-col items-center w-full pt-8">
+        <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
+        <LikeWidget showToast={showToast} likes={likesCount} />
+        
+        <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
+        <footer className="w-full max-w-[500px] text-center px-4 mb-12">
+          <p className="text-white/30 text-[11px] leading-relaxed font-medium italic mb-4">
+            Your instant web hub for quick file sharing, real-time messaging, and
+            live collaborative tools. Fast, lightweight, and works on any device.
+          </p>
+
+          <p className="text-white/35 text-[10px] mb-4">
+            Developed by{" "}
+            <a
+              href="https://hoangkhanhminh.pages.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/60 underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
+            >
+              Khanh Minh
+            </a>
+          </p>
+
+          {/* Policy Links */}
+          <div className="flex items-center justify-center gap-4 text-[10px]">
+            <button
+              onClick={() => {
+                vibrate();
+                setShowPolicy("privacy");
+              }}
+              className="text-white/20 hover:text-white/50 transition-colors underline decoration-white/10 underline-offset-2 cursor-pointer"
+            >
+              Privacy Policy
+            </button>
+            <span className="text-white/10">|</span>
+            <button
+              onClick={() => {
+                vibrate();
+                setShowPolicy("terms");
+              }}
+              className="text-white/20 hover:text-white/50 transition-colors underline decoration-white/10 underline-offset-2 cursor-pointer"
+            >
+              Terms of Service
+            </button>
+          </div>
+
+          <p className="text-white/15 text-[9px] mt-3">
+            © 2026 Hefimer. All rights reserved.
+          </p>
+        </footer>
+      </div>
     </motion.div>
   );
 }
@@ -8807,15 +8891,36 @@ export default function App() {
                   initial={{ opacity: 0, scale: 0.95, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                  className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-6 shadow-2xl relative"
+                  className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-6 shadow-2xl"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button
-                    onClick={() => setIsHistoryModalOpen(false)}
-                    className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"
-                  >
-                    <X size={20} />
-                  </button>
+                  <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-white/50" />
+                      <h3 className="text-sm font-bold text-white tracking-wide">Recent History</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {history.length > 0 && (
+                        <button
+                          onClick={() => {
+                            vibrate();
+                            setHistory([]);
+                            localStorage.removeItem("hefimer_history");
+                            showToast("History cleared", "success");
+                          }}
+                          className="text-white/40 hover:text-white hover:bg-white/10 transition-colors text-[10px] uppercase tracking-wider font-bold flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full cursor-pointer"
+                        >
+                          <Trash2 size={12} /> Clear
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setIsHistoryModalOpen(false)}
+                        className="text-white/40 hover:text-white transition-colors p-1.5 bg-white/5 rounded-full hover:bg-white/10 cursor-pointer flex items-center justify-center"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
                   <HistoryView
                     history={history}
                     setHistory={setHistory}
@@ -9062,6 +9167,9 @@ export default function App() {
                     <LandingPage
                       setActiveTab={setActiveTab}
                       onOpenHistory={() => setIsHistoryModalOpen(true)}
+                      likesCount={likesCount}
+                      showToast={showToast}
+                      setShowPolicy={setShowPolicy}
                     />
                   </motion.div>
                 )}
