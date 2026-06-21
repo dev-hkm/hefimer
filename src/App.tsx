@@ -7469,80 +7469,81 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
       className="w-full flex flex-col space-y-16 py-10"
     >
       {/* Hero Section */}
-      <div className="text-center max-w-[800px] mx-auto space-y-8 px-4">
-        {/* Brand Logo & Title */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8, y: -20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 100, damping: 15 }}
-          className="flex flex-col items-center gap-2 select-none"
-        >
-          <motion.img
-            src="/hefimer-orbit.svg"
-            alt="Hefimer Logo"
-            draggable="false"
-            animate={{ rotate: 360 }}
-            transition={{
-              repeat: Infinity,
-              duration: 30,
-              ease: "linear",
-            }}
-            className="w-36 h-36 sm:w-44 sm:h-44 object-contain drop-shadow-[0_0_35px_rgba(255,255,255,0.15)] opacity-95 pointer-events-none"
-          />
-          <h2 className="text-5xl sm:text-7xl font-black tracking-[-0.06em] text-white leading-none mt-2">
-            Hefimer
-          </h2>
-        </motion.div>
-
-        {/* Hero Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
-          className="text-2xl sm:text-4xl font-bold tracking-tight text-white/80 leading-normal max-w-2xl mx-auto font-sans"
-        >
-          Instant Ephemeral Sharing.<br />
-          <span className="text-white/30 text-xl sm:text-3xl font-medium block mt-1.5">
-            Connect via a simple 5-digit code.
-          </span>
-        </motion.h1>
-        
-        {/* Hero Description */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-          className="text-sm sm:text-base text-white/40 leading-relaxed max-w-2xl mx-auto"
-        >
-          Hefimer is a modern workspace for instant file transfers, raw text snippets, live chat rooms, and whiteboard collaboration. Set an expiration timer and watch your data disappear when its time is up.
-        </motion.p>
-
-        {/* Hero CTA Buttons */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", stiffness: 120, damping: 12, delay: 0.3 }}
-          className="flex flex-wrap items-center justify-center gap-4 pt-4"
-        >
-          <button
-            onClick={() => { vibrate(); setActiveTab("file"); }}
-            className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer"
+      {/* Hero Section */}
+      <div className="max-w-[1200px] mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center text-left">
+        {/* Left Column: Brand Info, Tagline, CTAs */}
+        <div className="lg:col-span-6 flex flex-col items-start space-y-6 text-left">
+          {/* Brand Badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 100, damping: 15 }}
+            className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-md hover:border-white/20 transition-all select-none"
           >
-            Start Sharing <ArrowRight size={14} />
-          </button>
-          <button
-            onClick={() => { vibrate(); onOpenHistory(); }}
-            className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-full font-bold text-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-          >
-            <Clock size={14} /> View History
-          </button>
-        </motion.div>
+            <motion.img
+              src="/hefimer-orbit.svg"
+              alt="Hefimer Logo"
+              draggable="false"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 25, ease: "linear" }}
+              className="w-4.5 h-4.5 object-contain"
+            />
+            <span className="text-[10px] tracking-[0.16em] font-black uppercase text-white/70">
+              HEFIMER INSTANT
+            </span>
+          </motion.div>
 
-        {/* Technical Mockup Console */}
+          {/* Hero Title */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 85, damping: 14, delay: 0.1 }}
+            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.08] font-sans"
+          >
+            Instant Ephemeral Sharing.<br />
+            <span className="text-white/30 text-2xl sm:text-3xl lg:text-4xl font-medium block mt-2">
+              Connect via a simple 5-digit code.
+            </span>
+          </motion.h1>
+
+          {/* Hero Description */}
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
+            className="text-sm sm:text-base text-white/40 leading-relaxed max-w-xl"
+          >
+            Hefimer is a modern workspace for instant file transfers, raw text snippets, live chat rooms, and whiteboard collaboration. Set a timer, share the code, and watch your data vanish.
+          </motion.p>
+
+          {/* Hero CTA Buttons */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 120, damping: 15, delay: 0.3 }}
+            className="flex flex-wrap items-center gap-4 pt-2"
+          >
+            <button
+              onClick={() => { vibrate(); setActiveTab("file"); }}
+              className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer"
+            >
+              Start Sharing <ArrowRight size={14} />
+            </button>
+            <button
+              onClick={() => { vibrate(); onOpenHistory(); }}
+              className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-full font-bold text-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <Clock size={14} /> View History
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Right Column: Terminal Mockup */}
         <motion.div
-          initial={{ opacity: 0, y: 50, scale: 0.98 }}
+          initial={{ opacity: 0, y: 40, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: "spring", stiffness: 60, damping: 15, delay: 0.4 }}
+          className="lg:col-span-6 w-full flex justify-center"
         >
           <MockupTerminal />
         </motion.div>
