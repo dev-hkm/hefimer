@@ -67,6 +67,7 @@ import {
   Hash,
   ArrowRight,
   Dices,
+  Home,
 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
@@ -7421,6 +7422,246 @@ const FAQ_ITEMS = [
   },
 ];
 
+function LandingPage({ setActiveTab, onOpenHistory }: any) {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 25 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring", stiffness: 100, damping: 15 }
+    }
+  };
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="w-full flex flex-col space-y-16 py-10"
+    >
+      {/* Hero Section */}
+      <motion.div variants={itemVariants} className="text-center max-w-[800px] mx-auto space-y-6 px-4">
+        {/* Glow Header Badge */}
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-md">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inset-0 rounded-full bg-indigo-400 animate-ping opacity-50" />
+            <span className="relative w-2 h-2 rounded-full bg-indigo-400" />
+          </span>
+          <span className="text-[10px] tracking-widest font-black uppercase text-white/50">
+            Real-time Ephemeral Sharing
+          </span>
+        </div>
+
+        <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-white leading-[1.05] font-sans">
+          Share Anything.<br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+            Vanish Permanently.
+          </span>
+        </h1>
+        
+        <p className="text-sm sm:text-base text-white/40 leading-relaxed max-w-2xl mx-auto">
+          Hefimer is a modern workspace for instant file transfers, raw text snippets, live chat rooms, and whiteboard collaboration. Set an expiration timer and watch your data disappear when its time is up.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+          <button
+            onClick={() => { vibrate(); setActiveTab("file"); }}
+            className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer"
+          >
+            Start Sharing <ArrowRight size={14} />
+          </button>
+          <button
+            onClick={() => { vibrate(); onOpenHistory(); }}
+            className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-full font-bold text-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <Clock size={14} /> View History
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Feature CTA Grid */}
+      <motion.div variants={itemVariants} className="space-y-6">
+        <div className="text-center space-y-1 px-4">
+          <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white/30">
+            Choose Your Tool
+          </h2>
+          <p className="text-xl font-bold tracking-tight text-white">
+            Four powerful features in one secure dock
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] mx-auto px-4">
+          {/* Card: Send File */}
+          <motion.div
+            whileHover={{ y: -6, scale: 1.01 }}
+            onClick={() => { vibrate(); setActiveTab("file"); }}
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.03] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+              <FileUp size={22} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                Send Files
+                <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </h3>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Securely drop images, PDFs, videos, or archives. Files are encrypted, downloaded via presigned URLs, and self-delete after your timer expires.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Card: Send Text */}
+          <motion.div
+            whileHover={{ y: -6, scale: 1.01 }}
+            onClick={() => { vibrate(); setActiveTab("text"); }}
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+              <Code size={22} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                Share Text & Code
+                <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </h3>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Paste logs, configurations, snippets, or draft notes. Includes real-time syntax highlighting for all major programming languages and clean markdown previews.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Card: Chat Room */}
+          <motion.div
+            whileHover={{ y: -6, scale: 1.01 }}
+            onClick={() => { vibrate(); setActiveTab("chat"); }}
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/[0.03] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
+              <MessageSquare size={22} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                Live Chat Rooms
+                <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </h3>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Spin up temporary chat spaces with custom 5-digit codes. Share messages, reactions, and communicate anonymously without account registrations.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Card: Drawing Board */}
+          <motion.div
+            whileHover={{ y: -6, scale: 1.01 }}
+            onClick={() => { vibrate(); setActiveTab("board"); }}
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+              <Palette size={22} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                Shared Board
+                <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </h3>
+              <p className="text-xs text-white/40 leading-relaxed">
+                Brainstorm, sketch designs, or draw with teams in real-time. Features collaborative whiteboards with immediate strokes syncing and zero lag.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* Guide Section */}
+      <motion.div variants={itemVariants} className="space-y-8 max-w-[900px] mx-auto px-4 w-full">
+        <div className="text-center space-y-1">
+          <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white/30">
+            How It Works
+          </h2>
+          <p className="text-xl font-bold tracking-tight text-white">
+            Simple sharing in four simple steps
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+          {[
+            {
+              step: "01",
+              title: "Pick Your Tool",
+              desc: "Choose from sending a file, raw text, starting a live chat room, or opening a blank whiteboard.",
+              icon: Zap,
+              color: "from-indigo-500/10 to-transparent",
+              accent: "text-indigo-400"
+            },
+            {
+              step: "02",
+              title: "Set Timer",
+              desc: "Determine how long you want your drop to exist. Options range from 10 minutes up to 24 hours.",
+              icon: Clock,
+              color: "from-purple-500/10 to-transparent",
+              accent: "text-purple-400"
+            },
+            {
+              step: "03",
+              title: "Share Access",
+              desc: "Copy the unique 5-digit code or share the direct link with friends. No logins required to open.",
+              icon: Link,
+              color: "from-pink-500/10 to-transparent",
+              accent: "text-pink-400"
+            },
+            {
+              step: "04",
+              title: "Self-Destruct",
+              desc: "When the countdown expires, files, messages, and whiteboard tracks are completely deleted.",
+              icon: Shield,
+              color: "from-emerald-500/10 to-transparent",
+              accent: "text-emerald-400"
+            }
+          ].map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <div key={idx} className="relative bg-zinc-950 border border-white/5 rounded-3xl p-5 space-y-3 overflow-hidden text-left">
+                <div className={`absolute inset-0 bg-gradient-to-b ${item.color} pointer-events-none`} />
+                <div className="flex justify-between items-center relative z-10">
+                  <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center ${item.accent}`}>
+                    <Icon size={16} />
+                  </div>
+                  <span className="text-xl font-black font-mono text-white/10 tracking-widest">{item.step}</span>
+                </div>
+                <div className="space-y-1 relative z-10">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">{item.title}</h4>
+                  <p className="text-[11px] text-white/35 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Landing FAQ Section */}
+      <motion.div variants={itemVariants}>
+        <FAQSection />
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -7486,36 +7727,53 @@ function FAQSection() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
-    "text" | "file" | "receive" | "history" | "chat" | "board"
+    "home" | "text" | "file" | "receive" | "history" | "chat" | "board"
   >(() => {
     const path = window.location.pathname;
     if (path === "/chat-room") return "chat";
     if (path === "/board") return "board";
-    return "file";
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("code")) return "file";
+    return "home";
   });
 
   // Sync activeTab state with history entries for browser navigation
   useEffect(() => {
     const currentPath = window.location.pathname;
-    if (activeTab === "chat" && currentPath !== "/chat-room") {
-      window.history.pushState({ tab: "chat" }, "", "/chat-room");
-    } else if (activeTab === "board" && currentPath !== "/board") {
-      window.history.pushState({ tab: "board" }, "", "/board");
-    } else if ((activeTab === "file" || activeTab === "text") && currentPath !== "/") {
-      window.history.pushState({ tab: "file" }, "", "/");
+    const currentState = window.history.state;
+
+    if (activeTab === "chat") {
+      if (currentPath !== "/chat-room") {
+        window.history.pushState({ tab: "chat" }, "", "/chat-room");
+      }
+    } else if (activeTab === "board") {
+      if (currentPath !== "/board") {
+        window.history.pushState({ tab: "board" }, "", "/board");
+      }
+    } else {
+      // Path is "/"
+      if (currentPath !== "/") {
+        window.history.pushState({ tab: activeTab }, "", "/");
+      } else if (!currentState || currentState.tab !== activeTab) {
+        window.history.pushState({ tab: activeTab }, "", "/");
+      }
     }
   }, [activeTab]);
 
   // Handle browser back/forward buttons
   useEffect(() => {
-    const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
       const path = window.location.pathname;
       if (path === "/chat-room") {
         setActiveTab("chat");
       } else if (path === "/board") {
         setActiveTab("board");
       } else {
-        setActiveTab("file");
+        if (event.state && event.state.tab) {
+          setActiveTab(event.state.tab);
+        } else {
+          setActiveTab("home");
+        }
       }
     };
     window.addEventListener("popstate", handlePopState);
@@ -8093,7 +8351,7 @@ export default function App() {
     (noticeExpiresAt === 0 || Date.now() < noticeExpiresAt) &&
     !isNoticeDismissed;
   const isDedicatedToolScreen =
-    activeTab === "chat" || activeTab === "board";
+    activeTab === "chat" || activeTab === "board" || activeTab === "home";
 
   const NOTICE_THEMES: Record<string, string> = {
     blue: "bg-blue-600/90",
@@ -8654,6 +8912,7 @@ export default function App() {
               }
             >
               {[
+                { id: "home", label: "Home", icon: Home },
                 { id: "file", label: "Send File", icon: FileUp },
                 { id: "text", label: "Send Text", icon: Code },
               ].map((tab) => {
@@ -8752,13 +9011,13 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {isDedicatedToolScreen && (
+            {isDedicatedToolScreen && activeTab !== "home" && (
               <div className="mb-10 flex flex-col gap-6 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex items-start gap-4">
                   <button
                     onClick={() => {
                       vibrate();
-                      setActiveTab("file");
+                      setActiveTab("home");
                       setChatTabClicks(0);
                       setR2TabClicks(0);
                     }}
@@ -8792,6 +9051,20 @@ export default function App() {
               className="relative"
             >
               <AnimatePresence mode="wait">
+                {activeTab === "home" && (
+                  <motion.div
+                    key="home"
+                    initial={{ opacity: 0, scale: 0.97, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: -15 }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <LandingPage
+                      setActiveTab={setActiveTab}
+                      onOpenHistory={() => setIsHistoryModalOpen(true)}
+                    />
+                  </motion.div>
+                )}
                 {activeTab === "file" && (
                   <motion.div
                     key="file"
