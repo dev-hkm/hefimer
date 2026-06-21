@@ -7475,7 +7475,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           initial={{ opacity: 0, scale: 0.8, y: -20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
-          className="flex flex-col items-center gap-4 select-none"
+          className="flex flex-col items-center gap-2 select-none"
         >
           <motion.img
             src="/hefimer-orbit.svg"
@@ -7487,9 +7487,9 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
               duration: 30,
               ease: "linear",
             }}
-            className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.12)] opacity-95 pointer-events-none"
+            className="w-36 h-36 sm:w-44 sm:h-44 object-contain drop-shadow-[0_0_35px_rgba(255,255,255,0.15)] opacity-95 pointer-events-none"
           />
-          <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.05em] text-white">
+          <h2 className="text-5xl sm:text-7xl font-black tracking-[-0.06em] text-white leading-none mt-2">
             Hefimer
           </h2>
         </motion.div>
@@ -7499,10 +7499,10 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
-          className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1] font-sans"
+          className="text-2xl sm:text-4xl font-bold tracking-tight text-white/80 leading-normal max-w-2xl mx-auto font-sans"
         >
           Instant Ephemeral Sharing.<br />
-          <span className="text-white/40">
+          <span className="text-white/30 text-xl sm:text-3xl font-medium block mt-1.5">
             Connect via a simple 5-digit code.
           </span>
         </motion.h1>
