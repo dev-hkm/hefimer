@@ -4185,6 +4185,10 @@ function Chat({
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
   const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
   const [activeLobbyTab, setActiveLobbyTab] = useState<"join" | "create">("join");
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [downloadQRFn, setDownloadQRFn] = useState<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -4442,50 +4446,121 @@ function Chat({
   };
 
   if (showCreatedModal) {
+    const handleCopyCode = () => {
+      vibrate();
+      navigator.clipboard.writeText(roomId);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+      showToast("Room ID copied", "success");
+    };
+
+    const handleCopyLink = () => {
+      vibrate();
+      const directLink = `${window.location.origin}/?code=${roomId}`;
+      navigator.clipboard.writeText(directLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      showToast("Direct link copied", "success");
+    };
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center justify-center p-8 bg-[#0a0a0a] border border-white/10 rounded-[32px] shadow-2xl space-y-8 text-center min-h-[400px] max-w-[440px] mx-auto w-full"
+        className="relative flex flex-col items-center p-8 bg-[#0a0a0a] border border-white/10 rounded-[32px] shadow-2xl space-y-6 text-center max-w-[440px] mx-auto w-full"
       >
-        <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20">
-          <Check size={40} className="text-green-500" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="text-2xl font-black tracking-tighter">
-            Room Created!
+        {/* Back and Action Buttons */}
+        <button
+          onClick={() => {
+            vibrate();
+            setState((prev: any) => ({ ...prev, showCreatedModal: false }));
+          }}
+          className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+        >
+          <ArrowLeft size={10} /> Back
+        </button>
+        <button
+          onClick={() => {
+            vibrate();
+            setState((prev: any) => ({ ...prev, showCreatedModal: false }));
+          }}
+          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+        >
+          New Room <Plus size={10} />
+        </button>
+
+        <div className="flex flex-col items-center space-y-1.5 pt-6">
+          <h3 className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">
+            Your Room Code
           </h3>
-          <p className="text-white/40 text-sm">
-            Share this code with your friends to start chatting
+          <div className="h-0.5 w-6 bg-white/10 rounded-full" />
+        </div>
+
+        {/* 5 digit boxes */}
+        <div className="flex items-center justify-center gap-2.5">
+          {roomId.split("").map((digit: string, i: number) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.5, rotate: -15, y: 20 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 15,
+                delay: i * 0.08 + 0.2,
+              }}
+              whileHover={{ scale: 1.05, y: -5, transition: { duration: 0.2 } }}
+              className="w-12 h-16 sm:w-14 sm:h-20 bg-white/[0.04] border-white/10 text-white border rounded-[28px] flex items-center justify-center text-3xl sm:text-4xl font-black font-sans relative group cursor-default shadow-lg"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent rounded-[28px] pointer-events-none" />
+              <span className="relative z-10 tracking-tight drop-shadow-sm">
+                {digit}
+              </span>
+              <div className="absolute inset-0 rounded-[28px] border border-white/0 group-hover:border-white/20 transition-all duration-300" />
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="flex flex-col items-center space-y-3 w-full pt-2">
+          <p className="text-white/30 text-[10px] font-medium tracking-wide leading-relaxed px-4">
+            Share this 5-digit code or direct link with others to start chatting.
           </p>
         </div>
 
-        <div className="flex flex-col gap-4 w-full">
-          <div
-            className="flex items-center justify-center gap-2.5 py-4 cursor-pointer group"
+        {/* Copy Buttons */}
+        <div className="flex gap-3 w-full pt-1">
+          <button
+            onClick={handleCopyLink}
+            className={`flex-1 border rounded-full px-6 py-3 transition-all flex items-center justify-center gap-2 text-xs font-bold ${
+              copiedLink ? "bg-white text-black border-white" : "bg-white/10 hover:bg-white/20 text-white/75 border-white/10 active:scale-98"
+            }`}
+          >
+            {copiedLink ? <Check size={14} /> : <Link size={14} />}
+            {copiedLink ? "Copied!" : "Copy Link"}
+          </button>
+          <button
+            onClick={handleCopyCode}
+            className={`flex-1 border rounded-full px-6 py-3 transition-all flex items-center justify-center gap-2 text-xs font-bold ${
+              copiedCode ? "bg-white text-black border-white" : "bg-white/10 hover:bg-white/20 text-white/75 border-white/10 active:scale-98"
+            }`}
+          >
+            {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+            {copiedCode ? "Copied!" : "Copy Code"}
+          </button>
+        </div>
+
+        {/* QR Section */}
+        <div className="flex flex-col space-y-4 w-full">
+          <button
             onClick={() => {
               vibrate();
-              navigator.clipboard.writeText(roomId);
-              showToast("Room ID copied", "success");
+              setShowQR(true);
             }}
+            className="w-full py-3 border border-white/10 bg-white/5 hover:bg-white/10 text-white/75 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
           >
-            {roomId.split("").map((digit: string, i: number) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.5, rotate: -15, y: 20 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 15,
-                  delay: i * 0.08 + 0.2,
-                }}
-                className="w-10 h-14 bg-white/5 border border-white/10 text-white rounded-xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:border-white/30 transition-all"
-              >
-                {digit}
-              </motion.div>
-            ))}
-          </div>
+            <QrCode size={14} />
+            Share via QR Code
+          </button>
 
           <button
             onClick={() => {
@@ -4496,12 +4571,78 @@ function Chat({
                 inRoom: true,
               }));
             }}
-            className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+            className="w-full bg-white text-black py-3.5 rounded-full font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
           >
             Enter Room
             <ArrowRight size={14} />
           </button>
         </div>
+
+        {/* Beautiful QR Modal */}
+        <AnimatePresence>
+          {showQR && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowQR(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-[32px] p-6 flex flex-col items-center gap-5 shadow-2xl relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setShowQR(false)}
+                  className="absolute top-4 right-4 text-white/40 hover:text-white/80 p-1.5 hover:bg-white/5 rounded-full transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+
+                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-b from-indigo-500/[0.02] to-transparent pointer-events-none" />
+                
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  Share Room Link
+                </h4>
+
+                <BeautifulQRCode
+                  value={`${window.location.origin}/?code=${roomId}`}
+                  size={200}
+                  theme="default"
+                  onDownloadReady={setDownloadQRFn}
+                />
+
+                <div className="flex gap-2 w-full mt-2">
+                  <button
+                    onClick={() => {
+                      vibrate();
+                      navigator.clipboard.writeText(`${window.location.origin}/?code=${roomId}`);
+                      showToast("Link copied", "success");
+                    }}
+                    className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all"
+                  >
+                    Copy Link
+                  </button>
+                  {downloadQRFn && (
+                    <button
+                      onClick={() => {
+                        vibrate();
+                        downloadQRFn();
+                      }}
+                      className="flex-1 bg-white text-black py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all hover:scale-102 active:scale-98"
+                    >
+                      Download
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
@@ -5815,6 +5956,10 @@ function Board({ showToast, addToHistory, state, setState }: any) {
   } = state;
   const [loading, setLoading] = useState(false);
   const [paths, setPaths] = useState<any[]>([]);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [downloadQRFn, setDownloadQRFn] = useState<(() => void) | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentColor, setCurrentColor] = useState("#ffffff");
   const [currentSize, setCurrentSize] = useState(4);
@@ -6149,50 +6294,121 @@ function Board({ showToast, addToHistory, state, setState }: any) {
   };
 
   if (showCreatedModal) {
+    const handleCopyCode = () => {
+      vibrate();
+      navigator.clipboard.writeText(boardId);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+      showToast("Board ID copied", "success");
+    };
+
+    const handleCopyLink = () => {
+      vibrate();
+      const directLink = `${window.location.origin}/?code=${boardId}`;
+      navigator.clipboard.writeText(directLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      showToast("Direct link copied", "success");
+    };
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center justify-center p-8 bg-[#0a0a0a] border border-white/10 rounded-[32px] shadow-2xl space-y-8 text-center min-h-[400px]"
+        className="relative flex flex-col items-center p-8 bg-[#0a0a0a] border border-white/10 rounded-[32px] shadow-2xl space-y-6 text-center max-w-[440px] mx-auto w-full"
       >
-        <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
-          <Check size={40} className="text-emerald-500" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="text-2xl font-black tracking-tighter">
-            Board Created!
+        {/* Back and Action Buttons */}
+        <button
+          onClick={() => {
+            vibrate();
+            setState((prev: any) => ({ ...prev, showCreatedModal: false }));
+          }}
+          className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+        >
+          <ArrowLeft size={10} /> Back
+        </button>
+        <button
+          onClick={() => {
+            vibrate();
+            setState((prev: any) => ({ ...prev, showCreatedModal: false }));
+          }}
+          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+        >
+          New Board <Plus size={10} />
+        </button>
+
+        <div className="flex flex-col items-center space-y-1.5 pt-6">
+          <h3 className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">
+            Your Board Code
           </h3>
-          <p className="text-white/40 text-sm">
-            Share this code with your friends to start drawing
+          <div className="h-0.5 w-6 bg-white/10 rounded-full" />
+        </div>
+
+        {/* 5 digit boxes */}
+        <div className="flex items-center justify-center gap-2.5">
+          {boardId.split("").map((digit: string, i: number) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.5, rotate: -15, y: 20 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 15,
+                delay: i * 0.08 + 0.2,
+              }}
+              whileHover={{ scale: 1.05, y: -5, transition: { duration: 0.2 } }}
+              className="w-12 h-16 sm:w-14 sm:h-20 bg-white/[0.04] border-white/10 text-white border rounded-[28px] flex items-center justify-center text-3xl sm:text-4xl font-black font-sans relative group cursor-default shadow-lg"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent rounded-[28px] pointer-events-none" />
+              <span className="relative z-10 tracking-tight drop-shadow-sm">
+                {digit}
+              </span>
+              <div className="absolute inset-0 rounded-[28px] border border-white/0 group-hover:border-white/20 transition-all duration-300" />
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="flex flex-col items-center space-y-3 w-full pt-2">
+          <p className="text-white/30 text-[10px] font-medium tracking-wide leading-relaxed px-4">
+            Share this 5-digit code or direct link with others to start drawing.
           </p>
         </div>
 
-        <div className="flex flex-col gap-4 w-full">
-          <div
-            className="flex items-center justify-center gap-2.5 py-4 cursor-pointer group"
+        {/* Copy Buttons */}
+        <div className="flex gap-3 w-full pt-1">
+          <button
+            onClick={handleCopyLink}
+            className={`flex-1 border rounded-full px-6 py-3 transition-all flex items-center justify-center gap-2 text-xs font-bold ${
+              copiedLink ? "bg-white text-black border-white" : "bg-white/10 hover:bg-white/20 text-white/75 border-white/10 active:scale-98"
+            }`}
+          >
+            {copiedLink ? <Check size={14} /> : <Link size={14} />}
+            {copiedLink ? "Copied!" : "Copy Link"}
+          </button>
+          <button
+            onClick={handleCopyCode}
+            className={`flex-1 border rounded-full px-6 py-3 transition-all flex items-center justify-center gap-2 text-xs font-bold ${
+              copiedCode ? "bg-white text-black border-white" : "bg-white/10 hover:bg-white/20 text-white/75 border-white/10 active:scale-98"
+            }`}
+          >
+            {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+            {copiedCode ? "Copied!" : "Copy Code"}
+          </button>
+        </div>
+
+        {/* QR Section */}
+        <div className="flex flex-col space-y-4 w-full">
+          <button
             onClick={() => {
               vibrate();
-              navigator.clipboard.writeText(boardId);
-              showToast("Board ID copied", "success");
+              setShowQR(true);
             }}
+            className="w-full py-3 border border-white/10 bg-white/5 hover:bg-white/10 text-white/75 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
           >
-            {boardId.split("").map((digit: string, i: number) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.5, rotate: -15, y: 20 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 15,
-                  delay: i * 0.08 + 0.2,
-                }}
-                className="w-10 h-14 bg-white/5 border border-white/10 text-white rounded-xl flex items-center justify-center text-2xl font-black shadow-lg group-hover:border-white/30 transition-all"
-              >
-                {digit}
-              </motion.div>
-            ))}
-          </div>
+            <QrCode size={14} />
+            Share via QR Code
+          </button>
 
           <button
             onClick={() => {
@@ -6203,11 +6419,78 @@ function Board({ showToast, addToHistory, state, setState }: any) {
                 inBoard: true,
               }));
             }}
-            className="w-full bg-white text-black py-4 rounded-full font-bold tracking-widest text-xs hover:scale-105 active:scale-95 transition-all"
+            className="w-full bg-white text-black py-3.5 rounded-full font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
           >
             Enter Board
+            <ArrowRight size={14} />
           </button>
         </div>
+
+        {/* Beautiful QR Modal */}
+        <AnimatePresence>
+          {showQR && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowQR(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-[32px] p-6 flex flex-col items-center gap-5 shadow-2xl relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setShowQR(false)}
+                  className="absolute top-4 right-4 text-white/40 hover:text-white/80 p-1.5 hover:bg-white/5 rounded-full transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+
+                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-b from-indigo-500/[0.02] to-transparent pointer-events-none" />
+                
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  Share Board Link
+                </h4>
+
+                <BeautifulQRCode
+                  value={`${window.location.origin}/?code=${boardId}`}
+                  size={200}
+                  theme="default"
+                  onDownloadReady={setDownloadQRFn}
+                />
+
+                <div className="flex gap-2 w-full mt-2">
+                  <button
+                    onClick={() => {
+                      vibrate();
+                      navigator.clipboard.writeText(`${window.location.origin}/?code=${boardId}`);
+                      showToast("Link copied", "success");
+                    }}
+                    className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all"
+                  >
+                    Copy Link
+                  </button>
+                  {downloadQRFn && (
+                    <button
+                      onClick={() => {
+                        vibrate();
+                        downloadQRFn();
+                      }}
+                      className="flex-1 bg-white text-black py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all hover:scale-102 active:scale-98"
+                    >
+                      Download
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
@@ -7071,7 +7354,41 @@ function FAQSection() {
 export default function App() {
   const [activeTab, setActiveTab] = useState<
     "text" | "file" | "receive" | "history" | "chat" | "board"
-  >("file");
+  >(() => {
+    const path = window.location.pathname;
+    if (path === "/chat-room") return "chat";
+    if (path === "/board") return "board";
+    return "file";
+  });
+
+  // Sync activeTab state with history entries for browser navigation
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    if (activeTab === "chat" && currentPath !== "/chat-room") {
+      window.history.pushState({ tab: "chat" }, "", "/chat-room");
+    } else if (activeTab === "board" && currentPath !== "/board") {
+      window.history.pushState({ tab: "board" }, "", "/board");
+    } else if ((activeTab === "file" || activeTab === "text") && currentPath !== "/") {
+      window.history.pushState({ tab: "file" }, "", "/");
+    }
+  }, [activeTab]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === "/chat-room") {
+        setActiveTab("chat");
+      } else if (path === "/board") {
+        setActiveTab("board");
+      } else {
+        setActiveTab("file");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [chatTabClicks, setChatTabClicks] = useState(0);
   const [logoClicks, setLogoClicks] = useState(0);
