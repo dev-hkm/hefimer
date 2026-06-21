@@ -7971,11 +7971,20 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.remove("light-theme");
     localStorage.removeItem("themeMode");
+    
+    // Disable automatic browser scroll restoration on refresh/load
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
   }, []);
 
   // Reset scroll to top on tab changes to avoid layout displacement
   useEffect(() => {
     window.scrollTo(0, 0);
+    const timer = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 50);
+    return () => clearTimeout(timer);
   }, [activeTab]);
 
   // R2 Secret Mode States
