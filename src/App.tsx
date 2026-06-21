@@ -7462,47 +7462,68 @@ const MockupTerminal = () => {
 };
 
 function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy }: any) {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.05
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 25 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", stiffness: 100, damping: 15 }
-    }
-  };
-
   return (
     <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className="w-full flex flex-col space-y-16 py-10"
     >
       {/* Hero Section */}
-      <motion.div variants={itemVariants} className="text-center max-w-[800px] mx-auto space-y-6 px-4">
-        <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-white leading-[1.05] font-sans">
-          Share Anything.<br />
-          <span className="text-white/40">
-            Vanish Permanently.
-          </span>
-        </h1>
-        
-        <p className="text-sm sm:text-base text-white/40 leading-relaxed max-w-2xl mx-auto">
-          Hefimer is a modern workspace for instant file transfers, raw text snippets, live chat rooms, and whiteboard collaboration. Set an expiration timer and watch your data disappear when its time is up.
-        </p>
+      <div className="text-center max-w-[800px] mx-auto space-y-8 px-4">
+        {/* Brand Logo & Title */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: -20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 100, damping: 15 }}
+          className="flex flex-col items-center gap-4 select-none"
+        >
+          <motion.img
+            src="/hefimer-orbit.svg"
+            alt="Hefimer Logo"
+            draggable="false"
+            animate={{ rotate: 360 }}
+            transition={{
+              repeat: Infinity,
+              duration: 30,
+              ease: "linear",
+            }}
+            className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.12)] opacity-95 pointer-events-none"
+          />
+          <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.05em] text-white">
+            Hefimer
+          </h2>
+        </motion.div>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+        {/* Hero Title */}
+        <motion.h1
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
+          className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1] font-sans"
+        >
+          Instant Ephemeral Sharing.<br />
+          <span className="text-white/40">
+            Connect via a simple 5-digit code.
+          </span>
+        </motion.h1>
+        
+        {/* Hero Description */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+          className="text-sm sm:text-base text-white/40 leading-relaxed max-w-2xl mx-auto"
+        >
+          Hefimer is a modern workspace for instant file transfers, raw text snippets, live chat rooms, and whiteboard collaboration. Set an expiration timer and watch your data disappear when its time is up.
+        </motion.p>
+
+        {/* Hero CTA Buttons */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 120, damping: 12, delay: 0.3 }}
+          className="flex flex-wrap items-center justify-center gap-4 pt-4"
+        >
           <button
             onClick={() => { vibrate(); setActiveTab("file"); }}
             className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer"
@@ -7515,29 +7536,45 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           >
             <Clock size={14} /> View History
           </button>
-        </div>
+        </motion.div>
 
         {/* Technical Mockup Console */}
-        <MockupTerminal />
-      </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 50, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 60, damping: 15, delay: 0.4 }}
+        >
+          <MockupTerminal />
+        </motion.div>
+      </div>
 
       {/* Feature CTA Grid */}
-      <motion.div variants={itemVariants} className="space-y-6">
-        <div className="text-center space-y-1 px-4">
+      <div className="space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center space-y-1 px-4"
+        >
           <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white/30">
             Choose Your Tool
           </h2>
           <p className="text-xl font-bold tracking-tight text-white">
             Four powerful features in one secure dock
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] mx-auto px-4">
           {/* Card: Send File */}
           <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ type: "spring", stiffness: 80, damping: 15 }}
             whileHover={{ y: -6, scale: 1.01 }}
             onClick={() => { vibrate(); setActiveTab("file"); }}
-            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden text-left"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
@@ -7556,9 +7593,13 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
 
           {/* Card: Send Text */}
           <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.1 }}
             whileHover={{ y: -6, scale: 1.01 }}
             onClick={() => { vibrate(); setActiveTab("text"); }}
-            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden text-left"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
@@ -7577,9 +7618,13 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
 
           {/* Card: Chat Room */}
           <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.2 }}
             whileHover={{ y: -6, scale: 1.01 }}
             onClick={() => { vibrate(); setActiveTab("chat"); }}
-            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden text-left"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
@@ -7598,9 +7643,13 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
 
           {/* Card: Drawing Board */}
           <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ type: "spring", stiffness: 80, damping: 15, delay: 0.3 }}
             whileHover={{ y: -6, scale: 1.01 }}
             onClick={() => { vibrate(); setActiveTab("board"); }}
-            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden"
+            className="group relative bg-zinc-950/70 border border-white/10 rounded-[32px] p-6 space-y-4 hover:border-white/20 transition-all cursor-pointer shadow-xl overflow-hidden text-left"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white transition-all">
@@ -7617,18 +7666,24 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             </div>
           </motion.div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Guide Section */}
-      <motion.div variants={itemVariants} className="space-y-8 max-w-[900px] mx-auto px-4 w-full">
-        <div className="text-center space-y-1">
+      <div className="space-y-8 max-w-[900px] mx-auto px-4 w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center space-y-1"
+        >
           <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white/30">
             How It Works
           </h2>
           <p className="text-xl font-bold tracking-tight text-white">
             Simple sharing in four simple steps
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
           {[
@@ -7667,7 +7722,14 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
-              <div key={idx} className="relative bg-zinc-950 border border-white/5 rounded-3xl p-5 space-y-3 overflow-hidden text-left">
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ type: "spring", stiffness: 80, damping: 15, delay: idx * 0.1 }}
+                className="relative bg-zinc-950 border border-white/5 rounded-3xl p-5 space-y-3 overflow-hidden text-left"
+              >
                 <div className={`absolute inset-0 bg-gradient-to-b ${item.color} pointer-events-none`} />
                 <div className="flex justify-between items-center relative z-10">
                   <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center ${item.accent}`}>
@@ -7679,15 +7741,45 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">{item.title}</h4>
                   <p className="text-[11px] text-white/35 leading-relaxed">{item.desc}</p>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
-      </motion.div>
+      </div>
 
       {/* Landing FAQ Section */}
-      <motion.div variants={itemVariants}>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      >
         <FAQSection />
+      </motion.div>
+
+      {/* Bottom CTA Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.96 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ type: "spring", stiffness: 60, damping: 15 }}
+        className="w-full max-w-[800px] mx-auto px-4 text-center py-16 border border-white/10 bg-zinc-950/40 rounded-[32px] space-y-6 relative overflow-hidden backdrop-blur-md"
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          Ready to drop some files?
+        </h2>
+        <p className="text-xs sm:text-sm text-white/40 max-w-md mx-auto leading-relaxed">
+          No signups, no profiles, no permanent logs. Share files, text snippets, live chat rooms, or whiteboard collaborations instantly via a simple 5-digit code.
+        </p>
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={() => { vibrate(); setActiveTab("file"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer"
+          >
+            Start Sharing Now <ArrowRight size={14} />
+          </button>
+        </div>
       </motion.div>
 
       {/* Separator, Like Widget, and Footer */}
