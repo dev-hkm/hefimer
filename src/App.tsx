@@ -63,6 +63,7 @@ import {
   Monitor,
   QrCode,
   Share2,
+  Link,
 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
@@ -543,12 +544,21 @@ function ResultView({
   onReset,
   showToast,
   isR2,
+  onBack,
 }: any) {
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
   const [showQR, setShowQR] = useState(false);
   const [downloadQRFn, setDownloadQRFn] = useState<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyLink = () => {
+    vibrate();
+    navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   useEffect(() => {
     if (!expiresAt) return;
@@ -586,8 +596,34 @@ function ResultView({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="flex flex-col items-center py-6 space-y-6"
+      className="flex flex-col items-center py-6 space-y-6 relative w-full pt-14"
     >
+      {onBack && (
+        <button
+          onClick={onBack}
+          className={`absolute top-0 left-0 flex items-center gap-1.5 px-3 py-1.5 border rounded-full font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer ${
+            isR2
+              ? "border-emerald-500/10 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400/60 hover:text-emerald-400 active:scale-95"
+              : "border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white active:scale-95"
+          }`}
+        >
+          <ArrowLeft size={10} /> Back
+        </button>
+      )}
+      <button
+        onClick={() => {
+          vibrate();
+          onReset();
+        }}
+        className={`absolute top-0 right-0 flex items-center gap-1.5 px-3 py-1.5 border rounded-full font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer ${
+          isR2
+            ? "border-emerald-500/10 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400/60 hover:text-emerald-400 active:scale-95"
+            : "border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white active:scale-95"
+        }`}
+      >
+        New Drop <Plus size={10} />
+      </button>
+
       <div className="flex flex-col items-center space-y-1.5">
         <h3
           className={`${isR2 ? "text-emerald-400/60" : "text-white/40"} text-[10px] font-bold uppercase tracking-[0.2em]`}
@@ -652,22 +688,20 @@ function ResultView({
         )}
       </div>
 
-      <div className="flex flex-col gap-3 w-full pt-2">
+      <div className="flex gap-3 w-full pt-2">
+        <button
+          onClick={handleCopyLink}
+          className={`flex-1 border rounded-full px-6 py-3.5 font-bold text-xs transition-all flex items-center justify-center gap-2 ${copiedLink ? (isR2 ? "bg-emerald-500 text-black border-emerald-500" : "bg-white text-black border-white") : isR2 ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20" : "bg-white/10 hover:bg-white/20 text-white/60 border-white/10"}`}
+        >
+          {copiedLink ? <Check size={16} /> : <Link size={16} />}
+          {copiedLink ? "Copied!" : "Copy Link"}
+        </button>
         <button
           onClick={handleCopy}
-          className={`w-full border rounded-full px-6 py-3.5 font-bold text-xs transition-all flex items-center justify-center gap-2 ${copied ? (isR2 ? "bg-emerald-500 text-black border-emerald-500" : "bg-white text-black border-white") : isR2 ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20" : "bg-white/10 hover:bg-white/20 text-white/60 border-white/10"}`}
+          className={`flex-1 border rounded-full px-6 py-3.5 font-bold text-xs transition-all flex items-center justify-center gap-2 ${copied ? (isR2 ? "bg-emerald-500 text-black border-emerald-500" : "bg-white text-black border-white") : isR2 ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20" : "bg-white/10 hover:bg-white/20 text-white/60 border-white/10"}`}
         >
           {copied ? <Check size={16} /> : <Copy size={16} />}
           {copied ? "Copied!" : "Copy Code"}
-        </button>
-        <button
-          onClick={() => {
-            vibrate();
-            onReset();
-          }}
-          className={`w-full ${isR2 ? "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400/60 hover:text-emerald-400 border-emerald-500/10" : "bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border-white/10"} border rounded-full py-3.5 font-bold text-xs transition-all`}
-        >
-          New Drop
         </button>
       </div>
 
@@ -676,24 +710,39 @@ function ResultView({
         <button
           onClick={() => {
             vibrate();
-            setShowQR(!showQR);
+            setShowQR(true);
           }}
-          className={`w-full py-3.5 border rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 ${showQR ? "bg-white/20 text-white border-white/20" : isR2 ? "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400/60 border-emerald-500/10" : "bg-white/5 hover:bg-white/10 text-white/75 border-white/10 active:scale-98"}`}
+          className={`w-full py-3.5 border rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 ${isR2 ? "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400/60 border-emerald-500/10" : "bg-white/5 hover:bg-white/10 text-white/75 border-white/10 active:scale-98"}`}
         >
           <QrCode size={16} />
-          {showQR ? "Hide Share QR Code" : "Share via QR Code"}
+          Share via QR Code
         </button>
 
-        <AnimatePresence initial={false}>
+        <AnimatePresence>
           {showQR && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden w-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowQR(false)}
             >
-              <div className="bg-white/[0.03] border border-white/10 rounded-[32px] p-6 flex flex-col items-center gap-5 shadow-2xl relative mt-2 w-full">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-[32px] p-6 flex flex-col items-center gap-5 shadow-2xl relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowQR(false)}
+                  className="absolute top-4 right-4 text-white/40 hover:text-white/80 p-1.5 hover:bg-white/5 rounded-full transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+
                 <div className={`absolute inset-0 rounded-[32px] bg-gradient-to-b ${isR2 ? "from-emerald-500/[0.02]" : "from-indigo-500/[0.02]"} to-transparent pointer-events-none`} />
                 
                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
@@ -702,7 +751,7 @@ function ResultView({
 
                 <BeautifulQRCode
                   value={`${window.location.origin}/?code=${code}`}
-                  size={190}
+                  size={200}
                   theme={isR2 ? "emerald" : "default"}
                   onDownloadReady={setDownloadQRFn}
                 />
@@ -712,7 +761,7 @@ function ResultView({
                     Scan to open & retrieve this drop
                   </p>
                   <p className="text-[10px] text-white/30">
-                    Compatible with any smartphone camera or reader app
+                    Compatible with any smartphone camera
                   </p>
                 </div>
 
@@ -723,7 +772,7 @@ function ResultView({
                       if (downloadQRFn) downloadQRFn();
                     }}
                     disabled={!downloadQRFn}
-                    className="flex-1 bg-white hover:bg-white/90 text-black border border-white/20 rounded-full py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                    className="flex-1 bg-white hover:bg-white/90 text-black border border-white/20 rounded-full py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     <Download size={12} /> Save QR Image
                   </button>
@@ -731,14 +780,16 @@ function ResultView({
                     onClick={() => {
                       vibrate();
                       navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
-                      showToast("Link copied to clipboard", "success");
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
                     }}
-                    className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                    className={`flex-1 border rounded-full py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer ${copiedLink ? (isR2 ? "bg-emerald-500 text-black border-emerald-500 animate-pulse" : "bg-white text-black border-white animate-pulse") : "bg-white/5 hover:bg-white/10 text-white border-white/10"}`}
                   >
-                    <Copy size={12} /> Copy Link
+                    {copiedLink ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedLink ? "Copied!" : "Copy Link"}
                   </button>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1151,7 +1202,6 @@ function ReceiveResult({
       return;
     }
     try {
-      showToast("Generating secret link...", "info");
       const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`;
 
       console.log("Fetching copy link URL from:", apiUrl);
@@ -1176,7 +1226,6 @@ function ReceiveResult({
       navigator.clipboard.writeText(linkToCopy);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-      showToast("Secret link copied (valid for 10m)", "success");
     } catch (err: any) {
       console.error("R2 Copy Link Error:", err);
       showToast(err.message || "Failed to copy link", "error");
@@ -1585,7 +1634,6 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    showToast("Copied to clipboard", "success");
   };
 
   const handleClear = () => {
@@ -1662,6 +1710,14 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
               resultCode: "",
               expiresAt: null,
             });
+          }}
+          onBack={() => {
+            vibrate();
+            setState((prev: any) => ({
+              ...prev,
+              resultCode: "",
+              expiresAt: null,
+            }));
           }}
           showToast={showToast}
         />
@@ -2233,6 +2289,14 @@ function R2SendFile({
           onReset={() => {
             vibrate();
             setState({ file: null, resultCode: "", expiresAt: null });
+          }}
+          onBack={() => {
+            vibrate();
+            setState((prev: any) => ({
+              ...prev,
+              resultCode: "",
+              expiresAt: null,
+            }));
           }}
           showToast={showToast}
           isR2={true}
@@ -3289,6 +3353,14 @@ function SendFile({
             vibrate();
             setState({ file: null, resultCode: "", expiresAt: null });
           }}
+          onBack={() => {
+            vibrate();
+            setState((prev: any) => ({
+              ...prev,
+              resultCode: "",
+              expiresAt: null,
+            }));
+          }}
           showToast={showToast}
         />
       ) : (
@@ -3925,6 +3997,7 @@ function Receive({
 }
 
 function HistoryView({ history, setHistory, showToast }: any) {
+  const [copiedItemCode, setCopiedItemCode] = useState<string | null>(null);
   const clearHistory = () => {
     vibrate();
     setHistory([]);
@@ -4036,11 +4109,13 @@ function HistoryView({ history, setHistory, showToast }: any) {
               onClick={() => {
                 vibrate();
                 navigator.clipboard.writeText(item.code);
-                showToast("Code copied!", "success");
+                setCopiedItemCode(item.code);
+                setTimeout(() => setCopiedItemCode(null), 2000);
               }}
-              className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/60 hover:text-black hover:bg-white transition-all shrink-0"
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer ${copiedItemCode === item.code ? "bg-emerald-500 text-black hover:bg-emerald-400" : "bg-white/5 text-white/60 hover:text-black hover:bg-white"}`}
+              title={copiedItemCode === item.code ? "Copied!" : "Copy Code"}
             >
-              <Copy size={16} />
+              {copiedItemCode === item.code ? <Check size={16} /> : <Copy size={16} />}
             </button>
           </motion.div>
         ))}
@@ -6914,40 +6989,11 @@ export default function App() {
     null,
   );
 
-  // Theme State
-  const [themeMode, setThemeMode] = useState<"night" | "light" | "auto">(() => {
-    return (
-      (localStorage.getItem("themeMode") as "night" | "light" | "auto") ||
-      "night"
-    );
-  });
-
+  // Clean up legacy light theme and force dark mode
   useEffect(() => {
-    localStorage.setItem("themeMode", themeMode);
-
-    const applyTheme = () => {
-      const root = document.documentElement;
-      const isDarkOS = window.matchMedia(
-        "(prefers-color-scheme: dark)",
-      ).matches;
-      const isLight =
-        themeMode === "light" || (themeMode === "auto" && !isDarkOS);
-
-      if (isLight) {
-        root.classList.add("light-theme");
-      } else {
-        root.classList.remove("light-theme");
-      }
-    };
-
-    applyTheme();
-
-    if (themeMode === "auto") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      mediaQuery.addEventListener("change", applyTheme);
-      return () => mediaQuery.removeEventListener("change", applyTheme);
-    }
-  }, [themeMode]);
+    document.documentElement.classList.remove("light-theme");
+    localStorage.removeItem("themeMode");
+  }, []);
 
   // R2 Secret Mode States
   const [isR2Mode, setIsR2Mode] = useState(false);
@@ -7597,33 +7643,6 @@ export default function App() {
         >
           <Clock size={16} />
         </button>
-        <button
-          onClick={() => {
-            vibrate();
-            const nextMode =
-              themeMode === "night"
-                ? "light"
-                : themeMode === "light"
-                  ? "auto"
-                  : "night";
-            setThemeMode(nextMode);
-            showToast(
-              `Theme: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} Mode`,
-              "success",
-            );
-          }}
-          className="flex w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-white/70 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 shadow-lg cursor-pointer select-none"
-          title={`Current Theme: ${themeMode}`}
-          style={{ WebkitTapHighlightColor: "transparent" }}
-        >
-          {themeMode === "night" ? (
-            <Moon size={16} fill="currentColor" />
-          ) : themeMode === "light" ? (
-            <Sun size={16} fill="currentColor" />
-          ) : (
-            <Monitor size={16} />
-          )}
-        </button>
       </div>
 
       {/* Admin Password Override Modal */}
@@ -7913,96 +7932,12 @@ export default function App() {
             title="History"
           >
             <Clock size={18} />
-          </button>
-          <button
-            onClick={() => {
-              vibrate();
-              const nextMode =
-                themeMode === "night"
-                  ? "light"
-                  : themeMode === "light"
-                    ? "auto"
-                    : "night";
-              setThemeMode(nextMode);
-              showToast(
-                `Theme: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} Mode`,
-                "success",
-              );
-            }}
-            className="flex w-9 h-9 sm:w-10 sm:h-10 items-center justify-center rounded-xl sm:rounded-2xl border border-white/[0.12] bg-white/[0.06] text-white/75 transition-all hover:bg-white/[0.12] hover:text-white active:scale-90"
-            title={`Current Theme: ${themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}`}
-          >
-            {themeMode === "night" ? (
-              <Moon size={18} fill="currentColor" className="opacity-80" />
-            ) : themeMode === "light" ? (
-              <Sun size={18} fill="currentColor" className="opacity-80" />
-            ) : (
-              <Monitor size={18} />
-            )}
-          </button>
         </div>
           </motion.div>
         )}
       </AnimatePresence>
       */}
 
-      {/* Theme Toggle Button */}
-      <motion.button
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        onClick={() => {
-          vibrate();
-          const nextMode =
-            themeMode === "night"
-              ? "light"
-              : themeMode === "light"
-                ? "auto"
-                : "night";
-          setThemeMode(nextMode);
-          showToast(
-            `Theme: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} Mode`,
-            "success",
-          );
-        }}
-        className="hidden"
-        title={`Current Theme: ${themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}`}
-      >
-        <AnimatePresence mode="wait">
-          {themeMode === "night" && (
-            <motion.div
-              key="night"
-              initial={{ opacity: 0, rotate: -90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: 90 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Moon size={20} fill="currentColor" className="opacity-80" />
-            </motion.div>
-          )}
-          {themeMode === "light" && (
-            <motion.div
-              key="light"
-              initial={{ opacity: 0, rotate: -90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: 90 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Sun size={20} fill="currentColor" className="opacity-80" />
-            </motion.div>
-          )}
-          {themeMode === "auto" && (
-            <motion.div
-              key="auto"
-              initial={{ opacity: 0, rotate: -90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: 90 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Monitor size={20} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.button>
 
       <div className="w-full flex flex-col items-center justify-start pt-0 pb-16 sm:pb-12">
         <div className="w-full max-w-[1280px] z-10 flex flex-col">
@@ -8320,7 +8255,8 @@ export default function App() {
                         }`}
                       >
                         <Icon size={15} />
-                        {tool.label}
+                        <span>{tool.label}</span>
+                        <span className={`px-1 py-[1px] text-[7px] font-black tracking-wider uppercase rounded ${isActive ? "bg-amber-500/10 text-amber-700 border border-amber-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/15"}`}>BETA</span>
                       </button>
                     );
                   })}
@@ -8571,8 +8507,9 @@ export default function App() {
                       <ChevronDown size={20} className="-rotate-90 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold tracking-[-0.03em] text-white">
+                      <h3 className="text-xl font-bold tracking-[-0.03em] text-white flex items-center gap-2">
                         {tool.label}
+                        <span className="px-1.5 py-0.5 text-[8px] font-black tracking-widest uppercase rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.05)]">BETA</span>
                       </h3>
                       <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/40">
                         {tool.description}
