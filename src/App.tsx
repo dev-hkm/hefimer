@@ -7469,7 +7469,6 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
       className="w-full flex flex-col space-y-16 py-10"
     >
       {/* Hero Section */}
-      {/* Hero Section */}
       <div className="max-w-[1200px] mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center text-left">
         {/* Left Column: Brand Info, Tagline, CTAs */}
         <div className="lg:col-span-6 flex flex-col items-start space-y-6 text-left">
@@ -7478,7 +7477,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             initial={{ opacity: 0, scale: 0.9, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 100, damping: 15 }}
-            className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-md hover:border-white/20 transition-all select-none"
+            className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md hover:border-white/20 transition-all select-none"
           >
             <motion.img
               src="/hefimer-orbit.svg"
@@ -7486,10 +7485,10 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
               draggable="false"
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 25, ease: "linear" }}
-              className="w-4.5 h-4.5 object-contain"
+              className="w-6 h-6 object-contain"
             />
-            <span className="text-[10px] tracking-[0.16em] font-black uppercase text-white/70">
-              HEFIMER INSTANT
+            <span className="text-[10px] tracking-[0.2em] font-black uppercase text-white/70">
+              HEFIMER
             </span>
           </motion.div>
 
