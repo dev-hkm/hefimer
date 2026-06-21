@@ -64,6 +64,8 @@ import {
   QrCode,
   Share2,
   Link,
+  Hash,
+  ArrowRight,
 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
@@ -4181,6 +4183,8 @@ function Chat({
   const [isCriticalTime, setIsCriticalTime] = useState(false);
   const [roomExpiresAt, setRoomExpiresAt] = useState<number | null>(null);
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
+  const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
+  const [activeLobbyTab, setActiveLobbyTab] = useState<"join" | "create">("join");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -4442,7 +4446,7 @@ function Chat({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center justify-center p-8 bg-[#0a0a0a] border border-white/10 rounded-[32px] shadow-2xl space-y-8 text-center min-h-[400px]"
+        className="flex flex-col items-center justify-center p-8 bg-[#0a0a0a] border border-white/10 rounded-[32px] shadow-2xl space-y-8 text-center min-h-[400px] max-w-[440px] mx-auto w-full"
       >
         <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20">
           <Check size={40} className="text-green-500" />
@@ -4492,9 +4496,10 @@ function Chat({
                 inRoom: true,
               }));
             }}
-            className="w-full bg-white text-black py-4 rounded-full font-bold tracking-widest text-xs hover:scale-105 active:scale-95 transition-all"
+            className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
           >
             Enter Room
+            <ArrowRight size={14} />
           </button>
         </div>
       </motion.div>
@@ -4504,90 +4509,98 @@ function Chat({
   if (inRoom) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col h-[calc(100dvh-190px)] min-h-[480px] max-h-[820px] sm:h-[calc(100vh-230px)] sm:min-h-[560px] bg-[#000000] border border-white/10 rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-2xl"
+        className="flex flex-col h-[calc(100dvh-190px)] min-h-[480px] max-h-[820px] sm:h-[calc(100vh-230px)] sm:min-h-[560px] bg-[#000000] border border-white/10 rounded-[28px] overflow-hidden shadow-2xl max-w-[800px] mx-auto w-full"
       >
-        <div className="bg-[#0a0a0a] px-5 py-4 flex items-center justify-between border-b border-white/10">
+        {/* Chat Room Header */}
+        <div className="bg-[#0a0a0a]/90 backdrop-blur-md px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
                 vibrate();
                 setState((prev: any) => ({ ...prev, inRoom: false }));
               }}
-              className="text-white/40 hover:text-white transition-colors"
+              className="text-white/40 hover:text-white hover:bg-white/5 p-2 rounded-xl transition-all"
+              title="Back"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={16} />
             </button>
             <div>
-              <h3 className="font-bold text-sm flex items-center gap-2">
+              <h3 className="font-bold text-sm flex items-center gap-2 text-white">
                 {roomName || `Room: ${roomId}`}
-                <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-white/60 font-normal">
+                <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded-full text-white/60 font-semibold border border-white/5">
                   {memberCount}/50
                 </span>
               </h3>
-              <div className="flex items-center gap-2">
-                <p className="text-[10px] text-white/40 tracking-widest font-bold">
-                  Chatting as {userName}
-                </p>
-                <div className="w-1 h-1 rounded-full bg-white/20"></div>
-                <p
-                  className={`text-[10px] font-sans font-bold tracking-tighter ${isCriticalTime ? "text-red-400" : "text-white/60"}`}
-                >
-                  {timeLeft}
-                </p>
-              </div>
+              <p className="text-[9px] text-white/40 tracking-wider font-bold">
+                Identity: {userName}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Copyable Room ID badge */}
             <div
-              className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/5 group cursor-pointer"
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-xl group cursor-pointer transition-all"
               onClick={() => {
                 vibrate();
                 navigator.clipboard.writeText(roomId);
                 showToast("Room ID copied", "success");
               }}
+              title="Copy Room ID"
             >
-              <span className="text-[10px] font-sans font-bold text-white/40 group-hover:text-white transition-colors">
+              <span className="text-[10px] font-sans font-bold text-white/50 group-hover:text-white transition-colors">
                 {roomId}
               </span>
               <Copy
-                size={12}
-                className="text-white/20 group-hover:text-white transition-colors"
+                size={11}
+                className="text-white/30 group-hover:text-white transition-colors"
               />
             </div>
+            
+            {/* Countdown timer */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-sans font-bold tracking-tight ${
+              isCriticalTime ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-white/60 bg-white/5 border-white/10"
+            }`}>
+              <Clock size={11} />
+              <span>{timeLeft}</span>
+            </div>
+
+            {/* Exit Room button */}
             <button
               onClick={() => {
                 vibrate();
                 setState((prev: any) => ({ ...prev, inRoom: false }));
               }}
-              className="text-red-500/40 hover:text-red-500 transition-colors"
-              title="Exit Room"
+              className="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-xl transition-all"
+              title="Leave Room"
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
             </button>
           </div>
         </div>
 
+        {/* Message Stream */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto p-4 pt-12 space-y-4 custom-scrollbar bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_0%,transparent_100%)]"
+          className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_0%,transparent_100%)]"
         >
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/20 gap-2">
-              <MessageSquare size={40} strokeWidth={1} />
-              <p className="text-xs font-bold uppercase tracking-widest">
+              <MessageSquare size={36} strokeWidth={1.5} className="opacity-40" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">
                 No messages yet
               </p>
             </div>
           ) : (
             messages.map((msg) => (
               <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 key={msg.id}
                 className={`flex flex-col ${msg.sender === userName ? "items-end" : "items-start"} group/msg w-full`}
               >
+                {/* Message Meta Info */}
                 <div className="flex items-center gap-2 mb-1 px-1">
                   <span
                     className={`text-[9px] font-bold tracking-tight ${msg.isAdmin ? "text-yellow-500" : "text-white/40"}`}
@@ -4595,7 +4608,7 @@ function Chat({
                     {msg.isAdmin && <Zap size={10} className="inline mr-1" />}
                     {msg.sender}
                   </span>
-                  <span className="text-[8px] text-white/40">
+                  <span className="text-[8px] text-white/30">
                     {new Date(msg.timestamp).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -4604,64 +4617,81 @@ function Chat({
                   {adminRoomId && (
                     <button
                       onClick={() => handleDeleteMessage(msg.id)}
-                      className="opacity-0 group-hover/msg:opacity-100 text-red-500 hover:text-red-400 transition-all"
+                      className="opacity-0 group-hover/msg:opacity-100 text-red-500 hover:text-red-400 transition-all p-0.5"
                     >
                       <Trash2 size={10} />
                     </button>
                   )}
                 </div>
+
+                {/* Message Bubble + Reaction Trigger */}
                 <div
-                  className="relative group/react max-w-[85%]"
-                  onMouseEnter={() => setHoveredMsg(msg.id)}
-                  onMouseLeave={() => setHoveredMsg(null)}
+                  className="relative group/react max-w-[85%] cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    vibrate();
+                    setActiveReactionMsgId(activeReactionMsgId === msg.id ? null : msg.id);
+                  }}
                 >
                   <div
-                    className={`px-4 py-2.5 rounded-[20px] text-sm shadow-lg whitespace-pre-wrap break-words ${
+                    className={`px-3.5 py-2 rounded-2xl text-[13px] sm:text-sm shadow-md whitespace-pre-wrap break-words transition-all ${
                       msg.isAdmin
-                        ? "bg-yellow-500 text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.3)]"
+                        ? "bg-yellow-500 text-black font-bold shadow-[0_0_15px_rgba(234,179,8,0.2)]"
                         : msg.sender === userName
-                          ? "bg-white text-black rounded-tr-none font-medium"
-                          : "bg-[#1a1a1a] text-white rounded-tl-none border border-white/10"
+                          ? "bg-white text-black rounded-tr-none font-medium hover:bg-zinc-100"
+                          : "bg-white/[0.04] text-white rounded-tl-none border border-white/5 hover:bg-white/[0.06] hover:border-white/10"
                     }`}
                   >
                     {msg.text}
                   </div>
 
-                  {/* Reaction Picker */}
+                  {/* Reaction Picker Overlay */}
                   <AnimatePresence>
-                    {hoveredMsg === msg.id && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.8 }}
-                        className={`absolute top-[calc(100%+8px)] bg-[#1a1a1a] border border-white/10 rounded-full p-1 flex gap-1 shadow-2xl z-[100] ${msg.sender === userName ? "right-0" : "left-0"}`}
-                      >
-                        {/* Hover Bridge to prevent disappearing */}
-                        <div className="absolute bottom-full left-0 right-0 h-3 bg-transparent" />
-
-                        {REACTIONS.map((r) => {
-                          const Icon = r.icon;
-                          return (
-                            <motion.button
-                              key={r.id}
-                              onClick={() => handleReaction(msg.id, r.id)}
-                              whileHover={{ scale: 1.4, y: -8 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
-                            >
-                              <Icon size={16} className={r.color} />
-                            </motion.button>
-                          );
-                        })}
-                      </motion.div>
+                    {activeReactionMsgId === msg.id && (
+                      <>
+                        {/* Click Shield to close the picker when tapping outside */}
+                        <div
+                          className="fixed inset-0 z-40 bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveReactionMsgId(null);
+                          }}
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: msg.sender === userName ? 5 : -5 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: msg.sender === userName ? 5 : -5 }}
+                          className={`absolute bottom-full mb-2 bg-zinc-950/95 border border-white/10 backdrop-blur-xl rounded-2xl p-1.5 flex gap-1 shadow-2xl z-50 ${msg.sender === userName ? "right-0" : "left-0"}`}
+                        >
+                          {REACTIONS.map((r) => {
+                            const Icon = r.icon;
+                            return (
+                              <motion.button
+                                key={r.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReaction(msg.id, r.id);
+                                  setActiveReactionMsgId(null);
+                                }}
+                                whileHover={{ scale: 1.3, y: -4 }}
+                                whileTap={{ scale: 0.9 }}
+                                className="w-7.5 h-7.5 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors"
+                                title={r.label}
+                              >
+                                <Icon size={14} className={r.color} />
+                              </motion.button>
+                            );
+                          })}
+                        </motion.div>
+                      </>
                     )}
                   </AnimatePresence>
                 </div>
 
-                {/* Reaction Display */}
+                {/* Reaction Badges List */}
                 {msg.reactions && (
                   <div
-                    className={`flex flex-wrap gap-1 mt-1 ${msg.sender === userName ? "justify-end" : "justify-start"}`}
+                    className={`flex flex-wrap gap-1 mt-1.5 ${msg.sender === userName ? "justify-end" : "justify-start"}`}
                   >
                     {Object.entries(msg.reactions).map(([id, count]: any) => {
                       const reaction = REACTIONS.find((r) => r.id === id);
@@ -4670,9 +4700,9 @@ function Chat({
                       return (
                         <div
                           key={id}
-                          className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-1.5 py-0.5 text-[9px] font-bold animate-in fade-in zoom-in duration-300"
+                          className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 text-[9px] font-bold animate-in fade-in zoom-in duration-300"
                         >
-                          <Icon size={10} className={reaction.color} />
+                          <Icon size={9} className={reaction.color} />
                           <span className="text-white/60">{count}</span>
                         </div>
                       );
@@ -4684,26 +4714,30 @@ function Chat({
           )}
         </div>
 
+        {/* Input Bar Form */}
         <form
           onSubmit={handleSendMessage}
-          className="p-4 bg-[#0a0a0a] border-t border-white/10 flex gap-2"
+          className="p-3 bg-[#0a0a0a] border-t border-white/10 flex items-center justify-center"
         >
-          <input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-full px-5 py-2.5 text-sm focus:outline-none focus:border-white/30 transition-all placeholder:text-white/20"
-          />
-          <button
-            type="submit"
-            className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] group"
-          >
-            <ArrowUp
-              size={20}
-              strokeWidth={2.5}
-              className="group-hover:-translate-y-0.5 transition-transform"
+          <div className="relative flex items-center w-full max-w-[700px]">
+            <input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-white/25 focus:bg-white/[0.06] transition-all placeholder:text-white/25 text-white"
             />
-          </button>
+            <button
+              type="submit"
+              disabled={!newMessage.trim()}
+              className="absolute right-1.5 w-9 h-9 bg-white text-black disabled:bg-white/5 disabled:text-white/20 rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all group"
+            >
+              <ArrowUp
+                size={18}
+                strokeWidth={2.5}
+                className="group-hover:-translate-y-0.5 transition-transform"
+              />
+            </button>
+          </div>
         </form>
       </motion.div>
     );
@@ -4713,95 +4747,114 @@ function Chat({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
+      className="max-w-[450px] mx-auto w-full px-1"
     >
-      <div className="space-y-6">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative"
-        >
-          <User
-            className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20"
-            size={20}
-          />
-          <input
-            value={userName}
-            onChange={(e) =>
-              setState((prev: any) => ({ ...prev, userName: e.target.value }))
-            }
-            placeholder="Your Display Name"
-            className="w-full bg-white/5 border border-white/10 rounded-full pl-14 pr-6 py-5 text-white focus:outline-none focus:border-white/30 transition-all placeholder:text-white/20 font-bold text-lg"
-          />
-        </motion.div>
+      <div className="bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-[32px] p-6 sm:p-7 space-y-6 shadow-2xl">
+        {/* Display Name Input */}
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+            Your Identity
+          </label>
+          <div className="relative">
+            <User
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
+              size={18}
+            />
+            <input
+              value={userName}
+              onChange={(e) =>
+                setState((prev: any) => ({ ...prev, userName: e.target.value }))
+              }
+              placeholder="Your Display Name"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold"
+            />
+          </div>
+        </div>
 
-        <div className="flex flex-col gap-6">
-          {/* Join Room - Compact and at the top */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="p-6 bg-white/5 border border-white/10 rounded-[32px] flex flex-col items-center gap-4 group transition-all"
+        {/* Tab switcher / Segmented Control */}
+        <div className="grid grid-cols-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl">
+          <button
+            onClick={() => {
+              vibrate();
+              setActiveLobbyTab("join");
+            }}
+            className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeLobbyTab === "join"
+                ? "bg-white text-black shadow-md shadow-white/5"
+                : "text-white/40 hover:text-white/70"
+            }`}
           >
-            <div className="flex items-center gap-4 w-full">
-              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center border border-white/10 shrink-0">
-                <LogIn size={20} />
-              </div>
-              <div className="flex-1 text-left">
-                <h4 className="font-bold text-sm uppercase tracking-widest">
-                  Join Room
-                </h4>
-                <p className="text-[10px] text-white/40">
-                  Enter an existing room ID
-                </p>
-              </div>
-            </div>
-            <div className="flex w-full gap-2">
-              <input
-                value={roomId}
-                onChange={(e) =>
-                  setState((prev: any) => ({
-                    ...prev,
-                    roomId: e.target.value.replace(/\D/g, "").slice(0, 5),
-                  }))
-                }
-                placeholder="5-digit Room ID"
-                className="flex-1 bg-black/40 border border-white/10 rounded-full px-6 py-3.5 text-sm focus:outline-none focus:border-white/30 transition-all placeholder:text-white/20 font-sans font-bold tracking-widest"
-              />
-              <button
-                onClick={handleJoinRoom}
-                disabled={loading}
-                className="bg-white text-black px-8 py-3.5 rounded-full font-bold text-sm hover:scale-[1.05] active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-white/5 whitespace-nowrap"
-              >
-                {loading ? "..." : "Join"}
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Create Room - Compact and below */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="p-6 bg-white/5 border border-white/10 rounded-[32px] flex flex-col gap-6 group transition-all"
+            <LogIn size={14} />
+            Join Room
+          </button>
+          <button
+            onClick={() => {
+              vibrate();
+              setActiveLobbyTab("create");
+            }}
+            className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeLobbyTab === "create"
+                ? "bg-white text-black shadow-md shadow-white/5"
+                : "text-white/40 hover:text-white/70"
+            }`}
           >
-            <div className="flex items-center gap-4 w-full">
-              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center border border-white/10 shrink-0">
-                <Plus size={20} />
-              </div>
-              <div className="flex-1 text-left">
-                <h4 className="font-bold text-sm uppercase tracking-widest">
-                  Create Room
-                </h4>
-                <p className="text-[10px] text-white/40">
-                  Start a new private chat session
-                </p>
-              </div>
-            </div>
+            <Plus size={14} />
+            Create Room
+          </button>
+        </div>
 
-            <div className="w-full space-y-6">
-              <div className="flex flex-col text-left">
-                <label className="text-xs font-bold text-white/60 ml-4 mb-2.5">
+        {/* Tab contents */}
+        <AnimatePresence mode="wait">
+          {activeLobbyTab === "join" ? (
+            <motion.div
+              key="join"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+                  Room Access Code
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                    <input
+                      value={roomId}
+                      onChange={(e) =>
+                        setState((prev: any) => ({
+                          ...prev,
+                          roomId: e.target.value.replace(/\D/g, "").slice(0, 5),
+                        }))
+                      }
+                      placeholder="5-digit Room ID"
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold tracking-widest font-sans"
+                    />
+                  </div>
+                  <button
+                    onClick={handleJoinRoom}
+                    disabled={loading}
+                    className="bg-white text-black px-6 rounded-2xl font-bold text-xs hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5"
+                  >
+                    {loading ? "..." : "Join"}
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="create"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-5"
+            >
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
                   Room Name
                 </label>
                 <input
@@ -4813,22 +4866,27 @@ function Chat({
                     }))
                   }
                   placeholder="Enter room name..."
-                  className="w-full bg-black/40 border border-white/10 rounded-full px-6 py-3.5 text-sm focus:outline-none focus:border-white/30 transition-all placeholder:text-white/20 font-bold"
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold"
                 />
               </div>
 
-              <div className="flex flex-col text-left">
-                <label className="text-xs font-bold text-white/60 ml-4 mb-2.5">
-                  Expiration Time
+              <div className="space-y-2.5">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+                  Expiration Duration
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   {["10m", "30m", "1h", "6h", "24h"].map((opt) => (
                     <button
                       key={opt}
-                      onClick={() =>
-                        setState((prev: any) => ({ ...prev, roomExpire: opt }))
-                      }
-                      className={`px-1 py-2.5 text-[11px] font-bold rounded-full border transition-all ${roomExpire === opt ? "bg-white text-black border-white shadow-lg" : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"}`}
+                      onClick={() => {
+                        vibrate();
+                        setState((prev: any) => ({ ...prev, roomExpire: opt }));
+                      }}
+                      className={`py-2 text-[10px] font-bold rounded-xl border transition-all ${
+                        roomExpire === opt
+                          ? "bg-white text-black border-white shadow-md shadow-white/5"
+                          : "bg-white/[0.04] text-white/40 border-white/5 hover:border-white/10 hover:text-white/60"
+                      }`}
                     >
                       {opt}
                     </button>
@@ -4836,7 +4894,7 @@ function Chat({
                   <input
                     type="text"
                     placeholder="Custom"
-                    className="bg-white/5 border border-white/10 rounded-full px-1 py-2.5 text-[11px] text-center focus:outline-none focus:border-white/30 transition-all placeholder:text-white/20 font-bold"
+                    className="bg-white/[0.04] border border-white/5 rounded-xl px-1 py-2 text-[10px] text-center focus:outline-none focus:border-white/10 focus:bg-white/[0.06] transition-all placeholder:text-white/20 font-bold"
                     onChange={(e) =>
                       setState((prev: any) => ({
                         ...prev,
@@ -4846,17 +4904,18 @@ function Chat({
                   />
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={handleCreateRoom}
-              disabled={loading}
-              className="w-full bg-white text-black py-4 rounded-full font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-xl shadow-white/5"
-            >
-              {loading ? "Creating..." : "Launch Room"}
-            </button>
-          </motion.div>
-        </div>
+              <button
+                onClick={handleCreateRoom}
+                disabled={loading}
+                className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5 mt-2"
+              >
+                {loading ? "Creating..." : "Launch Room"}
+                <ArrowRight size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
