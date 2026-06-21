@@ -4747,112 +4747,97 @@ function Chat({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-[450px] mx-auto w-full px-1"
+      className="w-full max-w-[900px] mx-auto px-4"
     >
-      <div className="bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-[32px] p-6 sm:p-7 space-y-6 shadow-2xl">
-        {/* Display Name Input */}
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
-            Your Identity
+      <div className="space-y-10">
+        {/* User Identity Header block */}
+        <div className="max-w-[400px] mx-auto text-center space-y-2.5 bg-[#0a0a0a]/90 border border-white/10 rounded-3xl p-5 shadow-xl">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/40 block">
+            Your Display Name
           </label>
           <div className="relative">
-            <User
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
-              size={18}
-            />
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
             <input
               value={userName}
-              onChange={(e) =>
-                setState((prev: any) => ({ ...prev, userName: e.target.value }))
-              }
-              placeholder="Your Display Name"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold"
+              onChange={(e) => setState((prev: any) => ({ ...prev, userName: e.target.value }))}
+              placeholder="Enter your name..."
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 text-center font-bold"
             />
           </div>
         </div>
 
-        {/* Tab switcher / Segmented Control */}
-        <div className="grid grid-cols-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl">
-          <button
-            onClick={() => {
-              vibrate();
-              setActiveLobbyTab("join");
-            }}
-            className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeLobbyTab === "join"
-                ? "bg-white text-black shadow-md shadow-white/5"
-                : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            <LogIn size={14} />
-            Join Room
-          </button>
-          <button
-            onClick={() => {
-              vibrate();
-              setActiveLobbyTab("create");
-            }}
-            className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeLobbyTab === "create"
-                ? "bg-white text-black shadow-md shadow-white/5"
-                : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            <Plus size={14} />
-            Create Room
-          </button>
-        </div>
+        {/* Two Columns Split Grid */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-0 relative">
+          {/* Vertical Separator Line */}
+          <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px bg-white/10 -translate-x-1/2 origin-top pointer-events-none" />
 
-        {/* Tab contents */}
-        <AnimatePresence mode="wait">
-          {activeLobbyTab === "join" ? (
-            <motion.div
-              key="join"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              transition={{ duration: 0.15 }}
-              className="space-y-4"
-            >
+          {/* Left Column: Join Room */}
+          <div className="space-y-6 md:pr-12 text-left flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/60">
+                  <LogIn size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-white">Join Room</h3>
+                  <p className="text-xs text-white/40">Access an existing room</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-white/30 leading-relaxed pt-1">
+                Enter the 5-digit room ID shared by your friend to join their active session.
+              </p>
+            </div>
+
+            <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
                   Room Access Code
                 </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
-                    <input
-                      value={roomId}
-                      onChange={(e) =>
-                        setState((prev: any) => ({
-                          ...prev,
-                          roomId: e.target.value.replace(/\D/g, "").slice(0, 5),
-                        }))
-                      }
-                      placeholder="5-digit Room ID"
-                      className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold tracking-widest font-sans"
-                    />
-                  </div>
-                  <button
-                    onClick={handleJoinRoom}
-                    disabled={loading}
-                    className="bg-white text-black px-6 rounded-2xl font-bold text-xs hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5"
-                  >
-                    {loading ? "..." : "Join"}
-                    <ArrowRight size={14} />
-                  </button>
+                <div className="relative">
+                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                  <input
+                    value={roomId}
+                    onChange={(e) =>
+                      setState((prev: any) => ({
+                        ...prev,
+                        roomId: e.target.value.replace(/\D/g, "").slice(0, 5),
+                      }))
+                    }
+                    placeholder="5-digit Room ID"
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold tracking-widest font-sans"
+                  />
                 </div>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="create"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.15 }}
-              className="space-y-5"
-            >
+
+              <button
+                onClick={handleJoinRoom}
+                disabled={loading}
+                className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5"
+              >
+                {loading ? "Joining..." : "Join Chat Room"}
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Create Room */}
+          <div className="space-y-6 md:pl-12 text-left border-t border-white/10 pt-8 md:border-t-0 md:pt-0">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/60">
+                  <Plus size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-white">Create Room</h3>
+                  <p className="text-xs text-white/40">Start a new chat session</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-white/30 leading-relaxed pt-1">
+                Launch a secure, private room with customized expiration settings.
+              </p>
+            </div>
+
+            <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
                   Room Name
@@ -4908,14 +4893,14 @@ function Chat({
               <button
                 onClick={handleCreateRoom}
                 disabled={loading}
-                className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5 mt-2"
+                className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5"
               >
                 {loading ? "Creating..." : "Launch Room"}
                 <ArrowRight size={14} />
               </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -6408,133 +6393,183 @@ function Board({ showToast, addToHistory, state, setState }: any) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2 p-1 bg-white/5 rounded-full border border-white/5">
-        <button
-          onClick={() =>
-            setState((prev: any) => ({ ...prev, boardMode: "create" }))
-          }
-          className={`flex-1 py-2.5 rounded-full text-xs font-bold transition-all ${state.boardMode === "create" ? "bg-white text-black" : "text-white/40"}`}
-        >
-          Create Board
-        </button>
-        <button
-          onClick={() =>
-            setState((prev: any) => ({ ...prev, boardMode: "join" }))
-          }
-          className={`flex-1 py-2.5 rounded-full text-xs font-bold transition-all ${state.boardMode === "join" ? "bg-white text-black" : "text-white/40"}`}
-        >
-          Join Board
-        </button>
-      </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full max-w-[900px] mx-auto px-4"
+    >
+      <div className="space-y-10">
+        {/* User Identity Header block */}
+        <div className="max-w-[400px] mx-auto text-center space-y-2.5 bg-[#0a0a0a]/90 border border-white/10 rounded-3xl p-5 shadow-xl">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/40 block">
+            Your Display Name
+          </label>
+          <div className="relative">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
+            <input
+              value={userName}
+              onChange={(e) =>
+                setState((prev: any) => ({
+                  ...prev,
+                  userName: e.target.value,
+                }))
+              }
+              placeholder="Enter your name..."
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 text-center font-bold"
+            />
+          </div>
+        </div>
 
-      <AnimatePresence mode="wait">
-        {state.boardMode === "create" ? (
-          <motion.form
-            key="create"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            onSubmit={handleCreateBoard}
-            className="space-y-4"
-          >
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Board Name"
-                value={boardNameInput}
-                onChange={(e) =>
-                  setState((prev: any) => ({
-                    ...prev,
-                    boardNameInput: e.target.value,
-                  }))
-                }
-                className={glassInput}
-              />
-              <input
-                type="text"
-                placeholder="Your Name"
-                value={userName}
-                onChange={(e) =>
-                  setState((prev: any) => ({
-                    ...prev,
-                    userName: e.target.value,
-                  }))
-                }
-                className={glassInput}
-              />
+        {/* Two Columns Split Grid */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-0 relative">
+          {/* Vertical Separator Line */}
+          <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px bg-white/10 -translate-x-1/2 origin-top pointer-events-none" />
 
-              <div className="flex flex-wrap gap-2">
-                {["1h", "6h", "12h", "24h"].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() =>
-                      setState((prev: any) => ({ ...prev, boardExpire: t }))
-                    }
-                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${boardExpire === t ? "bg-white text-black" : "bg-white/5 text-white/40 border border-white/10"}`}
-                  >
-                    {t}
-                  </button>
-                ))}
+          {/* Left Column: Join Board */}
+          <div className="space-y-6 md:pr-12 text-left flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/60">
+                  <LogIn size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-white">Join Board</h3>
+                  <p className="text-xs text-white/40">Access an existing canvas</p>
+                </div>
               </div>
+              <p className="text-[11px] text-white/30 leading-relaxed pt-1">
+                Enter the 5-digit board ID to join a live shared drawing board.
+              </p>
             </div>
-            <button type="submit" disabled={loading} className={glassButton}>
-              {loading ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <Plus size={20} />
-              )}
-              {loading ? "Creating..." : "Create Board"}
-            </button>
-          </motion.form>
-        ) : (
-          <motion.form
-            key="join"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            onSubmit={handleJoinBoard}
-            className="space-y-4"
-          >
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Board ID (5 digits)"
-                value={boardId}
-                onChange={(e) =>
-                  setState((prev: any) => ({
-                    ...prev,
-                    boardId: e.target.value.replace(/\D/g, "").slice(0, 5),
-                  }))
-                }
-                className={glassInput}
-              />
-              <input
-                type="text"
-                placeholder="Your Name"
-                value={userName}
-                onChange={(e) =>
-                  setState((prev: any) => ({
-                    ...prev,
-                    userName: e.target.value,
-                  }))
-                }
-                className={glassInput}
-              />
+
+            <form onSubmit={handleJoinBoard} className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+                  Board Access Code
+                </label>
+                <div className="relative">
+                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                  <input
+                    value={boardId}
+                    onChange={(e) =>
+                      setState((prev: any) => ({
+                        ...prev,
+                        boardId: e.target.value.replace(/\D/g, "").slice(0, 5),
+                      }))
+                    }
+                    placeholder="5-digit Board ID"
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold tracking-widest font-sans"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5"
+              >
+                {loading ? (
+                  <Loader2 className="animate-spin" size={14} />
+                ) : (
+                  <>
+                    <span>Join Board</span>
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Right Column: Create Board */}
+          <div className="space-y-6 md:pl-12 text-left border-t border-white/10 pt-8 md:border-t-0 md:pt-0">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/60">
+                  <Plus size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-white">Create Board</h3>
+                  <p className="text-xs text-white/40">Start a new shared canvas</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-white/30 leading-relaxed pt-1">
+                Launch a collaborative workspace for brainstorming, annotations, and real-time sketching.
+              </p>
             </div>
-            <button type="submit" disabled={loading} className={glassButton}>
-              {loading ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <LogIn size={20} />
-              )}
-              {loading ? "Joining..." : "Join Board"}
-            </button>
-          </motion.form>
-        )}
-      </AnimatePresence>
-    </div>
+
+            <form onSubmit={handleCreateBoard} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+                  Board Name
+                </label>
+                <input
+                  value={boardNameInput}
+                  onChange={(e) =>
+                    setState((prev: any) => ({
+                      ...prev,
+                      boardNameInput: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter board name..."
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold"
+                />
+              </div>
+
+              <div className="space-y-2.5">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+                  Expiration Duration
+                </label>
+                <div className="grid grid-cols-5 gap-1">
+                  {["1h", "6h", "12h", "24h"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        vibrate();
+                        setState((prev: any) => ({ ...prev, boardExpire: t }));
+                      }}
+                      className={`py-2 text-[10px] font-bold rounded-xl border transition-all ${
+                        boardExpire === t
+                          ? "bg-white text-black border-white shadow-md shadow-white/5"
+                          : "bg-white/[0.04] text-white/40 border-white/5 hover:border-white/10 hover:text-white/60"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                  <input
+                    type="text"
+                    placeholder="Custom"
+                    className="bg-white/[0.04] border border-white/5 rounded-xl px-1 py-2 text-[10px] text-center focus:outline-none focus:border-white/10 focus:bg-white/[0.06] transition-all placeholder:text-white/20 font-bold"
+                    onChange={(e) =>
+                      setState((prev: any) => ({
+                        ...prev,
+                        boardExpire: `custom:${e.target.value}`,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-white text-black py-3 rounded-2xl font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-md shadow-white/5 flex items-center justify-center gap-1.5"
+              >
+                {loading ? (
+                  <Loader2 className="animate-spin" size={14} />
+                ) : (
+                  <>
+                    <span>Launch Board</span>
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -8290,35 +8325,6 @@ export default function App() {
                         : "Create a shared canvas or join a board in progress."}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] p-1.5 self-start sm:self-auto">
-                  {[
-                    { id: "chat", label: "Chat", icon: MessageSquare },
-                    { id: "board", label: "Board", icon: Palette },
-                  ].map((tool) => {
-                    const Icon = tool.icon;
-                    const isActive = activeTab === tool.id;
-                    return (
-                      <button
-                        key={tool.id}
-                        onClick={() => {
-                          vibrate();
-                          setActiveTab(tool.id as any);
-                          setChatTabClicks(0);
-                          setR2TabClicks(0);
-                        }}
-                        className={`flex h-9 items-center gap-2 rounded-full px-3 text-[11px] font-bold transition-colors ${
-                          isActive
-                            ? "bg-white text-black"
-                            : "text-white/45 hover:bg-white/[0.08] hover:text-white"
-                        }`}
-                      >
-                        <Icon size={15} />
-                        <span>{tool.label}</span>
-                        <span className={`px-1 py-[1px] text-[7px] font-black tracking-wider uppercase rounded ${isActive ? "bg-amber-500/10 text-amber-700 border border-amber-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/15"}`}>BETA</span>
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
             )}
