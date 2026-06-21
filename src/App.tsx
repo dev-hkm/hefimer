@@ -7565,7 +7565,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] mx-auto px-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1200px] mx-auto px-4">
           {/* Card: Send File */}
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.96 }}
@@ -7669,7 +7669,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
       </div>
 
       {/* Guide Section */}
-      <div className="space-y-8 max-w-[900px] mx-auto px-4 w-full">
+      <div className="space-y-8 max-w-[1200px] mx-auto px-4 w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -7763,19 +7763,21 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ type: "spring", stiffness: 60, damping: 15 }}
-        className="w-full max-w-[800px] mx-auto px-4 text-center py-16 border border-white/10 bg-zinc-950/40 rounded-[32px] space-y-6 relative overflow-hidden backdrop-blur-md"
+        className="w-full max-w-[1200px] mx-auto px-6 sm:px-12 py-12 border border-white/10 bg-zinc-950/40 rounded-[32px] flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative overflow-hidden backdrop-blur-md text-left"
       >
         <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-          Ready to drop some files?
-        </h2>
-        <p className="text-xs sm:text-sm text-white/40 max-w-md mx-auto leading-relaxed">
-          No signups, no profiles, no permanent logs. Share files, text snippets, live chat rooms, or whiteboard collaborations instantly via a simple 5-digit code.
-        </p>
-        <div className="flex justify-center pt-2">
+        <div className="space-y-2 max-w-2xl relative z-10">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Ready to drop some files?
+          </h2>
+          <p className="text-xs sm:text-sm text-white/40 leading-relaxed">
+            No signups, no profiles, no permanent logs. Share files, text snippets, live chat rooms, or whiteboard collaborations instantly via a simple 5-digit code.
+          </p>
+        </div>
+        <div className="shrink-0 relative z-10">
           <button
             onClick={() => { vibrate(); setActiveTab("file"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-            className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer"
+            className="px-8 py-4 bg-white text-black rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 cursor-pointer whitespace-nowrap"
           >
             Start Sharing Now <ArrowRight size={14} />
           </button>
@@ -7843,7 +7845,7 @@ function FAQSection() {
 
   return (
     <div className="w-full px-4 mb-4">
-      <div className="max-w-[800px] mx-auto">
+      <div className="max-w-[1200px] mx-auto">
         <motion.h2
           initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
