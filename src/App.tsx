@@ -66,6 +66,7 @@ import {
   Link,
   Hash,
   ArrowRight,
+  Dices,
 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
@@ -4190,6 +4191,61 @@ function Chat({
   const [showQR, setShowQR] = useState(false);
   const [downloadQRFn, setDownloadQRFn] = useState<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [customCode, setCustomCode] = useState("");
+  const [checkingCode, setCheckingCode] = useState(false);
+  const [codeStatus, setCodeStatus] = useState<"available" | "taken" | "idle">("idle");
+
+  useEffect(() => {
+    // Generate a random 5-digit code on mount
+    const initialCode = Math.floor(10000 + Math.random() * 90000).toString();
+    setCustomCode(initialCode);
+  }, []);
+
+  useEffect(() => {
+    if (customCode.length !== 5) {
+      setCodeStatus("idle");
+      return;
+    }
+
+    const checkCodeAvailability = async () => {
+      setCheckingCode(true);
+      try {
+        const snapshot = await get(child(ref(rtdb), `chats/${customCode}`));
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          if (data.expiresAt && data.expiresAt < Date.now()) {
+            setCodeStatus("available");
+          } else {
+            setCodeStatus("taken");
+          }
+        } else {
+          setCodeStatus("available");
+        }
+      } catch (err) {
+        console.error("Availability check failed:", err);
+        setCodeStatus("available");
+      } finally {
+        setCheckingCode(false);
+      }
+    };
+
+    const delayDebounce = setTimeout(() => {
+      checkCodeAvailability();
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [customCode]);
+
+  const handleCustomCodeChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, "").slice(0, 5);
+    setCustomCode(cleaned);
+  };
+
+  const generateRandomCustomCode = () => {
+    vibrate();
+    const newCode = Math.floor(10000 + Math.random() * 90000).toString();
+    setCustomCode(newCode);
+  };
 
   useEffect(() => {
     if (inRoom && roomId) {
@@ -4307,10 +4363,29 @@ function Chat({
       showToast("Please enter a room name", "error");
       return;
     }
+    if (customCode.length !== 5) {
+      showToast("Room code must be exactly 5 digits", "error");
+      return;
+    }
+    if (codeStatus === "taken") {
+      showToast("Room code is already in use", "error");
+      return;
+    }
     setLoading(true);
     try {
-      const newRoomId = Math.floor(10000 + Math.random() * 90000).toString();
-      const roomRef = ref(rtdb, `chats/${newRoomId}`);
+      const roomRef = ref(rtdb, `chats/${customCode}`);
+
+      // Final sanity check before writing to database
+      const snapshot = await get(roomRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (data.expiresAt && data.expiresAt >= Date.now()) {
+          showToast("Room code is already taken", "error");
+          setCodeStatus("taken");
+          setLoading(false);
+          return;
+        }
+      }
 
       let duration = 60 * 60 * 1000; // default 1h
       const match = roomExpire.match(/^(\d+)([mh])$/);
@@ -4331,14 +4406,14 @@ function Chat({
 
       setState((prev: any) => ({
         ...prev,
-        roomId: newRoomId,
+        roomId: customCode,
         roomName: roomNameInput.trim(),
         showCreatedModal: true,
       }));
 
       // Add to history
       const historyObj: any = {
-        code: newRoomId,
+        code: customCode,
         roomName: roomNameInput.trim(),
         type: "room",
         action: "sent",
@@ -4995,6 +5070,62 @@ function Chat({
                   placeholder="Enter room name..."
                   className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-white/40 block ml-3">
+                  Room Code (5 digits)
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                    <input
+                      value={customCode}
+                      onChange={(e) => handleCustomCodeChange(e.target.value)}
+                      placeholder="Enter 5-digit code..."
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-all placeholder:text-white/25 font-bold tracking-widest font-sans"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateRandomCustomCode}
+                    className="px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white/60 hover:text-white transition-all flex items-center justify-center cursor-pointer active:scale-95"
+                    title="Randomize Code"
+                  >
+                    <Dices size={16} />
+                  </button>
+                </div>
+                {/* Real-time Status */}
+                {customCode.length === 5 && (
+                  <p
+                    className={`text-[10px] font-bold ml-3 flex items-center gap-1.5 transition-all ${
+                      checkingCode
+                        ? "text-white/40 animate-pulse"
+                        : codeStatus === "available"
+                        ? "text-emerald-400"
+                        : "text-rose-400"
+                    }`}
+                  >
+                    {checkingCode ? (
+                      <>
+                        <Loader2 className="animate-spin" size={12} /> Checking availability...
+                      </>
+                    ) : codeStatus === "available" ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" /> Room code is available
+                      </>
+                    ) : (
+                      <>
+                        <X size={12} className="text-rose-400" /> Room code is already in use
+                      </>
+                    )}
+                  </p>
+                )}
+                {customCode.length > 0 && customCode.length < 5 && (
+                  <p className="text-[10px] text-white/30 ml-3 font-semibold">
+                    Code must be exactly 5 digits
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2.5">
