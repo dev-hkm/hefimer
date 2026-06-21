@@ -7089,6 +7089,11 @@ export default function App() {
     localStorage.removeItem("themeMode");
   }, []);
 
+  // Reset scroll to top on tab changes to avoid layout displacement
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   // R2 Secret Mode States
   const [isR2Mode, setIsR2Mode] = useState(false);
   const [showR2Auth, setShowR2Auth] = useState(false);
@@ -8430,10 +8435,10 @@ export default function App() {
                 {activeTab === "chat" && (
                   <motion.div
                     key="chat"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    transition={{ duration: 0.2 }}
+                    initial={{ opacity: 0, scale: 0.97, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: 15 }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <Chat
                       showToast={showToast}
@@ -8448,10 +8453,10 @@ export default function App() {
                 {activeTab === "board" && (
                   <motion.div
                     key="board"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    transition={{ duration: 0.2 }}
+                    initial={{ opacity: 0, scale: 0.97, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: 15 }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <Board
                       showToast={showToast}
@@ -8595,72 +8600,76 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Separator */}
-      <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
+      {!isDedicatedToolScreen && (
+        <>
+          {/* Separator */}
+          <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
 
-      {/* FAQ Section */}
-      <FAQSection />
+          {/* FAQ Section */}
+          <FAQSection />
 
-      {/* Separator */}
-      <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
+          {/* Separator */}
+          <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
 
-      {/* Like Widget */}
-      <LikeWidget showToast={showToast} likes={likesCount} />
+          {/* Like Widget */}
+          <LikeWidget showToast={showToast} likes={likesCount} />
 
-      {/* Separator */}
-      <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
+          {/* Separator */}
+          <div className="w-full max-w-[500px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
 
-      {/* Footer */}
-      <motion.footer
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1, duration: 1 }}
-        className="max-w-[500px] text-center px-4 mb-12"
-      >
-        <p className="text-white/30 text-[11px] leading-relaxed font-medium italic mb-4">
-          Your instant web hub for quick file sharing, real-time messaging, and
-          live collaborative tools. Fast, lightweight, and works on any device.
-        </p>
-
-        <p className="text-white/35 text-[10px] mb-4">
-          Developed by{" "}
-          <a
-            href="https://hoangkhanhminh.pages.dev"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/60 underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
+          {/* Footer */}
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1, duration: 1 }}
+            className="max-w-[500px] text-center px-4 mb-12"
           >
-            Khanh Minh
-          </a>
-        </p>
+            <p className="text-white/30 text-[11px] leading-relaxed font-medium italic mb-4">
+              Your instant web hub for quick file sharing, real-time messaging, and
+              live collaborative tools. Fast, lightweight, and works on any device.
+            </p>
 
-        {/* Policy Links */}
-        <div className="flex items-center justify-center gap-4 text-[10px]">
-          <button
-            onClick={() => {
-              vibrate();
-              setShowPolicy("privacy");
-            }}
-            className="text-white/20 hover:text-white/50 transition-colors underline decoration-white/10 underline-offset-2"
-          >
-            Privacy Policy
-          </button>
-          <span className="text-white/10">|</span>
-          <button
-            onClick={() => {
-              vibrate();
-              setShowPolicy("terms");
-            }}
-            className="text-white/20 hover:text-white/50 transition-colors underline decoration-white/10 underline-offset-2"
-          >
-            Terms of Service
-          </button>
-        </div>
+            <p className="text-white/35 text-[10px] mb-4">
+              Developed by{" "}
+              <a
+                href="https://hoangkhanhminh.pages.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/60 underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
+              >
+                Khanh Minh
+              </a>
+            </p>
 
-        <p className="text-white/15 text-[9px] mt-3">
-          © 2026 Hefimer. All rights reserved.
-        </p>
-      </motion.footer>
+            {/* Policy Links */}
+            <div className="flex items-center justify-center gap-4 text-[10px]">
+              <button
+                onClick={() => {
+                  vibrate();
+                  setShowPolicy("privacy");
+                }}
+                className="text-white/20 hover:text-white/50 transition-colors underline decoration-white/10 underline-offset-2"
+              >
+                Privacy Policy
+              </button>
+              <span className="text-white/10">|</span>
+              <button
+                onClick={() => {
+                  vibrate();
+                  setShowPolicy("terms");
+                }}
+                className="text-white/20 hover:text-white/50 transition-colors underline decoration-white/10 underline-offset-2"
+              >
+                Terms of Service
+              </button>
+            </div>
+
+            <p className="text-white/15 text-[9px] mt-3">
+              © 2026 Hefimer. All rights reserved.
+            </p>
+          </motion.footer>
+        </>
+      )}
     </div>
   );
 }
