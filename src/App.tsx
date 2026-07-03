@@ -68,6 +68,12 @@ import {
   ArrowRight,
   Dices,
   Home,
+  Files,
+  Image,
+  Video,
+  Music,
+  Archive,
+  Box,
 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
@@ -102,6 +108,7 @@ import "prismjs/components/prism-scss";
 import "prismjs/components/prism-kotlin";
 import "prismjs/components/prism-swift";
 import QRCode from "qrcode";
+import { Space } from "./Space";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -966,6 +973,106 @@ function ReceiveResult({
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const formatTotalSize = (filesList: any[]) => {
+    const total = filesList.reduce((acc, f) => acc + (f.fileSize || f.size || 0), 0);
+    return formatBytes(total);
+  };
+
+  const getFileIcon = (fileName: string, isR2Drop: boolean) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic'].includes(ext || '')) {
+      return <Image size={18} className="text-blue-400" />;
+    }
+    if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext || '')) {
+      return <Video size={18} className="text-purple-400" />;
+    }
+    if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext || '')) {
+      return <Music size={18} className="text-pink-400" />;
+    }
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '')) {
+      return <Archive size={18} className="text-yellow-400" />;
+    }
+    if (['pdf'].includes(ext || '')) {
+      return <FileText size={18} className="text-red-400" />;
+    }
+    return <File size={18} className={isR2Drop ? "text-emerald-400" : "text-white/60"} />;
+  };
+
+  const handleDownloadR2File = async (fileEntry: any) => {
+    vibrate();
+    if (!fileEntry.objectKey) {
+      showToast("Error: Object key is missing", "error");
+      return;
+    }
+    try {
+      showToast(`Generating download link for ${fileEntry.fileName}...`, "info");
+      const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(fileEntry.objectKey)}`;
+      const res = await fetch(apiUrl);
+      const contentType = res.headers.get("Content-Type") || "";
+      let downloadUrl = "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Server returned ${res.status}`);
+        downloadUrl = data.url;
+      } else {
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        downloadUrl = apiUrl;
+      }
+      if (!downloadUrl) throw new Error("No download URL returned");
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = fileEntry.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast("Download started", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to download file", "error");
+    }
+  };
+
+  const handleDownloadStandardFile = (fileEntry: any) => {
+    vibrate();
+    const url = fileEntry.fileUrl;
+    const name = fileEntry.fileName;
+    if (url && !url.includes("gofile.io")) {
+      triggerDirectDownload(url, name);
+    } else {
+      window.open(url, "_blank");
+      showToast("Opening download link", "success");
+    }
+  };
+
+  const handleDownloadAll = async (files: any[]) => {
+    vibrate();
+    showToast("Starting download of all files...", "info");
+    for (let i = 0; i < files.length; i++) {
+      const fileEntry = files[i];
+      if (fileEntry.objectKey) {
+        await handleDownloadR2File(fileEntry);
+      } else {
+        handleDownloadStandardFile(fileEntry);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+    showToast("All files downloaded", "success");
+  };
+
+  const handleCopyReceiveLink = () => {
+    vibrate();
+    navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   const getProviderNameFromUrl = (url: string): string => {
     if (!url) return "File";
     if (item.objectKey) return "Cloudflare R2";
@@ -1000,6 +1107,7 @@ function ReceiveResult({
     } catch (err) {
       console.warn("Direct fetch download failed (likely CORS), falling back to open in tab:", err);
       window.open(url, "_blank");
+      showToast("Opening download link in new tab", "success");
     }
   };
   const [showLineNumbers, setShowLineNumbers] = useState(false);
@@ -1062,8 +1170,24 @@ function ReceiveResult({
     }
   }
 
+  if (item.text && item.text.startsWith("__HEFIMER_FILES__")) {
+    try {
+      const parsed = JSON.parse(item.text.replace("__HEFIMER_FILES__", ""));
+      if (Array.isArray(parsed)) {
+        item = {
+          ...item,
+          files: parsed,
+          text: undefined,
+        };
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+
   const smartAction = getSmartAction(item.text || "");
   const fileSize = formatFileSize(item.text || "");
+  const isR2Drop = item.files && item.files.some((f: any) => !!f.objectKey);
 
   const handleCopyText = () => {
     vibrate();
@@ -1256,7 +1380,81 @@ function ReceiveResult({
         </button>
       </div>
 
-      {item.type === "r2_file" && (
+      {item.files && Array.isArray(item.files) ? (
+        <div className="space-y-6 flex flex-col">
+          <div className="bg-white/5 border border-white/20 rounded-[40px] p-6 sm:p-8 flex flex-col gap-4 shadow-lg w-full">
+            <div className="flex items-center gap-4 border-b border-white/10 pb-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center border shrink-0 ${isR2Drop ? "bg-emerald-400/20 border-emerald-400/30 text-emerald-400" : "bg-white/10 border-white/10 text-white"}`}>
+                <Files size={24} className={isR2Drop ? "text-emerald-400" : "text-white"} />
+              </div>
+              <div className="text-left">
+                <h3 className="text-lg font-bold text-white leading-tight">Shared Files</h3>
+                <p className="text-white/40 text-xs">Contains {item.files.length} items • {formatTotalSize(item.files)}</p>
+              </div>
+            </div>
+            
+            <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              {item.files.map((fileEntry: any, index: number) => {
+                const isR2 = !!fileEntry.objectKey;
+                return (
+                  <div key={index} className="flex items-center justify-between gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-all">
+                    <div className="flex items-center gap-3 overflow-hidden text-left">
+                      <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center border border-white/5 shrink-0">
+                        {getFileIcon(fileEntry.fileName || fileEntry.name, isR2Drop)}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-semibold text-white/90 truncate max-w-[200px] sm:max-w-[250px]">
+                          {fileEntry.fileName || fileEntry.name}
+                        </p>
+                        <p className="text-[10px] text-white/30 font-medium">
+                          {formatBytes(fileEntry.fileSize || fileEntry.size || 0)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => isR2 ? handleDownloadR2File(fileEntry) : handleDownloadStandardFile(fileEntry)}
+                      className={`px-3.5 py-1.5 bg-white text-black rounded-xl text-[10px] font-bold transition-all shrink-0 cursor-pointer ${isR2Drop ? "hover:bg-emerald-400 hover:text-black" : "hover:bg-white/80"}`}
+                    >
+                      Download
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => handleDownloadAll(item.files)}
+              className={`flex-1 rounded-full px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-center shadow-lg cursor-pointer ${
+                isR2Drop
+                  ? "bg-emerald-400 text-black hover:bg-emerald-300 border border-emerald-400/20 shadow-emerald-400/20"
+                  : "bg-white text-black hover:bg-zinc-200 border border-white/20 shadow-white/5"
+              }`}
+            >
+              <Download size={18} /> Download All
+            </button>
+            <button
+              onClick={handleCopyReceiveLink}
+              className={`flex-1 border rounded-full px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                isR2Drop
+                  ? copiedLink
+                    ? "bg-emerald-400 text-black border-emerald-400"
+                    : "bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/30 border-emerald-500/20 text-emerald-400"
+                  : copiedLink
+                    ? "bg-white text-black border-white"
+                    : "bg-white/10 hover:bg-white/20 active:bg-white/30 border-white/20 text-white"
+              }`}
+            >
+              {copiedLink ? <Check size={18} /> : <Copy size={18} />}{" "}
+              {copiedLink ? "Copied!" : "Copy Link"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {item.type === "r2_file" && (
         <div className="space-y-6 flex flex-col">
           <div className="bg-emerald-500/[0.03] border border-emerald-500/20 rounded-[40px] p-8 flex flex-col items-center justify-center text-center gap-4 shadow-lg shadow-emerald-500/5">
             <div className="w-16 h-16 bg-emerald-400/20 rounded-full flex items-center justify-center border border-emerald-400/30 shrink-0">
@@ -1446,6 +1644,7 @@ function ReceiveResult({
                   triggerDirectDownload(item.fileUrl, item.fileName);
                 } else {
                   window.open(item.fileUrl, "_blank");
+                  showToast("Opening download link", "success");
                 }
               }}
               className="flex-1 bg-white text-black hover:bg-white/90 border border-white/20 rounded-full px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-center"
@@ -1464,6 +1663,8 @@ function ReceiveResult({
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
 
 
@@ -2198,9 +2399,49 @@ function R2SendFile({
         });
 
       let objectKey = "";
-      const { url, objectKey: singleObjectKey } = await getPresignedUpload();
-      objectKey = singleObjectKey;
-      await putFile(url, fileToUpload);
+      let uploadedFilesList: any[] = [];
+      const isMulti = (file as any).isMultiFile;
+
+      if (isMulti) {
+        const filesToUpload = (file as any).originalFiles;
+        const totalFiles = filesToUpload.length;
+        const fileProgresses = new Array(totalFiles).fill(0);
+
+        for (let i = 0; i < totalFiles; i++) {
+          const currentFile = filesToUpload[i];
+          const currentName = currentFile.name;
+          const currentType = currentFile.type || "application/octet-stream";
+
+          showToast(`Uploading file ${i + 1} of ${totalFiles}: ${currentName}`, "info");
+
+          const apiUrl = `/api/r2/upload-url?filename=${encodeURIComponent(currentName)}&contentType=${encodeURIComponent(currentType)}`;
+          const presignRes = await fetch(apiUrl, { cache: "no-store" });
+          if (!presignRes.ok) {
+            const errorData = await presignRes.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to prepare R2 upload for ${currentName}`);
+          }
+          const { url, objectKey: currentObjectKey } = await presignRes.json();
+
+          await putFile(url, currentFile, (loaded) => {
+            fileProgresses[i] = (loaded / currentFile.size) * 100;
+            const avgProgress = Math.round(
+              fileProgresses.reduce((acc, p) => acc + p, 0) / totalFiles
+            );
+            setProgress(avgProgress);
+          });
+
+          uploadedFilesList.push({
+            objectKey: currentObjectKey,
+            fileName: currentName,
+            fileSize: currentFile.size,
+            contentType: currentType,
+          });
+        }
+      } else {
+        const { url, objectKey: singleObjectKey } = await getPresignedUpload();
+        objectKey = singleObjectKey;
+        await putFile(url, fileToUpload);
+      }
 
       // 3. Save metadata to Firebase
       let generatedCode = "";
@@ -2229,14 +2470,19 @@ function R2SendFile({
 
       const dropData: any = {
         type: "r2_file",
-        objectKey,
-        fileName: finalName,
+        fileName: isMulti ? `${uploadedFilesList.length} files` : finalName,
         fileSize: file.size,
-        contentType: file.type || "application/octet-stream",
+        contentType: isMulti ? "application/octet-stream" : finalType,
         description: description.trim(),
         expiresAt: expiresAtDate.getTime(),
         timestamp: { ".sv": "timestamp" },
       };
+
+      if (isMulti) {
+        dropData.files = uploadedFilesList;
+      } else {
+        dropData.objectKey = objectKey;
+      }
 
       if (password.trim()) {
         dropData.password = password.trim();
@@ -2247,7 +2493,7 @@ function R2SendFile({
 
       await set(ref(rtdb, `drops/${generatedCode}`), dropData);
 
-      updateStats(finalName, file.size, true);
+      updateStats(isMulti ? `${uploadedFilesList.length} files` : finalName, file.size, true);
       setState((prev: any) => ({
         ...prev,
         resultCode: generatedCode,
@@ -2341,10 +2587,19 @@ function R2SendFile({
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              if (!uploading && e.dataTransfer.files && e.dataTransfer.files[0]) {
+              if (!uploading && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const filesList = e.dataTransfer.files;
+                const fileToSet = filesList.length > 1
+                  ? {
+                      name: `${filesList.length} files`,
+                      size: Array.from(filesList).reduce((acc, f) => acc + f.size, 0),
+                      originalFiles: Array.from(filesList),
+                      isMultiFile: true,
+                    }
+                  : filesList[0];
                 setState((prev: any) => ({
                   ...prev,
-                  file: e.dataTransfer.files[0],
+                  file: fileToSet,
                 }));
                 vibrate();
               }
@@ -2365,7 +2620,7 @@ function R2SendFile({
               ref={fileInputRef}
               {...(isFolderMode
                 ? ({ webkitdirectory: "", directory: "" } as any)
-                : {})}
+                : { multiple: true })}
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0) {
                   const firstFile = e.target.files[0];
@@ -2382,6 +2637,16 @@ function R2SendFile({
                           0,
                         ),
                         originalFiles: e.target.files,
+                      }
+                    : e.target.files.length > 1
+                    ? {
+                        name: `${e.target.files.length} files`,
+                        size: Array.from(e.target.files).reduce(
+                          (acc, f) => acc + f.size,
+                          0,
+                        ),
+                        originalFiles: Array.from(e.target.files),
+                        isMultiFile: true,
                       }
                     : firstFile;
 
@@ -2411,6 +2676,8 @@ function R2SendFile({
                   <div className="w-16 h-16 bg-emerald-400/10 rounded-full flex items-center justify-center border border-emerald-400/20 shadow-xl transition-transform group-hover/file:scale-105">
                     {isFolderMode ? (
                       <Folder size={28} className="text-emerald-400" />
+                    ) : (file as any).isMultiFile ? (
+                      <Files size={28} className="text-emerald-400" />
                     ) : (
                       <File size={28} className="text-emerald-400" />
                     )}
@@ -2456,7 +2723,7 @@ function R2SendFile({
                   <p className="text-white font-bold text-base text-left leading-tight mb-1">
                     {isFolderMode
                       ? "Tap to select a folder"
-                      : "Tap to select a file"}
+                      : "Tap to select file(s)"}
                   </p>
                   <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-[0.05em] text-emerald-400/40 mt-1">
                     <span>
@@ -2845,8 +3112,224 @@ function SendFile({
     setLoading(true);
     setProgress(0);
     try {
-      let fileToUpload: File | Blob = file;
-      let finalName = file.name;
+      let fileUrl = "";
+      let uploadedFilesList: any[] = [];
+      const isMulti = (file as any).isMultiFile;
+
+      if (isMulti) {
+        const filesToUpload = (file as any).originalFiles;
+        const totalFiles = filesToUpload.length;
+        const fileProgresses = new Array(totalFiles).fill(0);
+
+        for (let i = 0; i < totalFiles; i++) {
+          const currentFile = filesToUpload[i];
+          const currentName = currentFile.name;
+          const currentType = currentFile.type || "application/octet-stream";
+
+          showToast(`Uploading file ${i + 1} of ${totalFiles}: ${currentName}`, "info");
+
+          const updateOverallProgress = (pct: number) => {
+            fileProgresses[i] = pct;
+            const avgProgress = Math.round(
+              fileProgresses.reduce((acc, p) => acc + p, 0) / totalFiles
+            );
+            setProgress(avgProgress);
+          };
+
+          let currentFileUrl = "";
+
+          if (selectedProvider === "gofile") {
+            let serverName = "";
+            const cachedServer = sessionStorage.getItem("gofile_server");
+            try {
+              const serverRes = await fetch("https://api.gofile.io/servers");
+              if (serverRes.ok) {
+                const serverData = await serverRes.json();
+                if (serverData.status === "ok" && serverData.data?.servers?.[0]?.name) {
+                  serverName = serverData.data.servers[0].name;
+                  sessionStorage.setItem("gofile_server", serverName);
+                }
+              }
+            } catch (err) {
+              console.warn("Failed to fetch Gofile server list:", err);
+            }
+            if (!serverName) {
+              serverName = cachedServer || "store1";
+            }
+
+            const gofileData = new FormData();
+            gofileData.append("file", currentFile, currentName);
+
+            const uploadJson = await new Promise<any>((resolve, reject) => {
+              const xhr = bindXhr(new XMLHttpRequest());
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  const pct = Math.round((e.loaded / e.total) * 100);
+                  updateOverallProgress(pct);
+                }
+              };
+              xhr.onload = () => {
+                clearActiveXhr(xhr);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve(JSON.parse(xhr.responseText));
+                } else reject(new Error(`Gofile returned status ${xhr.status}`));
+              };
+              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
+              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
+              xhr.open("POST", `https://${serverName}.gofile.io/contents/uploadfile`);
+              xhr.send(gofileData);
+            });
+
+            if (uploadJson.status !== "ok") {
+              throw new Error(uploadJson.status || "Gofile upload failed");
+            }
+            const gofileCode = uploadJson.data.parentFolderCode || uploadJson.data.id;
+            currentFileUrl = `https://gofile.io/d/${gofileCode}`;
+          } 
+          else if (selectedProvider === "litterbox") {
+            const lbData = new FormData();
+            lbData.append("reqtype", "fileupload");
+            const lbTime = expire === "12h" || expire === "24h" || expire === "72h" ? expire : (expire === "48h" ? "72h" : "1h");
+            lbData.append("time", lbTime);
+            lbData.append("fileToUpload", currentFile, currentName);
+
+            const uploadResult = await new Promise<any>((resolve, reject) => {
+              const xhr = bindXhr(new XMLHttpRequest());
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  const pct = Math.round((e.loaded / e.total) * 100);
+                  updateOverallProgress(pct);
+                }
+              };
+              xhr.onload = () => {
+                clearActiveXhr(xhr);
+                resolve(xhr.responseText);
+              };
+              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
+              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
+              xhr.open("POST", "/api/proxy/litterbox");
+              xhr.send(lbData);
+            });
+
+            if (typeof uploadResult === "string" && uploadResult.startsWith("https://")) {
+              currentFileUrl = uploadResult.trim();
+            } else if (typeof uploadResult === "string" && uploadResult.includes("https://")) {
+              const match = uploadResult.match(/(https:\/\/litterbox\.catbox\.moe\/files\/[a-zA-Z0-9.\-_]+)/);
+              if (match) currentFileUrl = match[1];
+            }
+            if (!currentFileUrl) throw new Error("Litterbox upload failed");
+          } 
+          else if (selectedProvider === "storageto") {
+            let visitorToken = localStorage.getItem("hefimer_storageto_visitor_token");
+            if (!visitorToken) {
+              visitorToken = Math.random().toString(36).substring(2, 18) + Math.random().toString(36).substring(2, 18);
+              localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
+            }
+
+            const initRes = await fetch("/api/proxy/storageto/upload/init", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Visitor-Token": visitorToken,
+              },
+              body: JSON.stringify({
+                filename: currentName,
+                content_type: currentType,
+                size: currentFile.size,
+              }),
+            });
+            if (!initRes.ok) throw new Error(`Init storage.to upload failed for ${currentName}`);
+            const initData = await initRes.json();
+            if (!initData.success) throw new Error(initData.error || "Init storage.to failed");
+
+            const r2Key = initData.r2_key;
+            const uploadUrl = initData.upload_url;
+            if (!uploadUrl) throw new Error("Upload URL missing from storage.to");
+
+            await new Promise<void>((resolve, reject) => {
+              const xhr = bindXhr(new XMLHttpRequest());
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  const pct = Math.round((e.loaded / e.total) * 100);
+                  updateOverallProgress(pct);
+                }
+              };
+              xhr.onload = () => {
+                clearActiveXhr(xhr);
+                if (xhr.status >= 200 && xhr.status < 300) resolve();
+                else reject(new Error(`storage.to PUT failed (status ${xhr.status})`));
+              };
+              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
+              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
+              xhr.open("PUT", uploadUrl);
+              xhr.setRequestHeader("Content-Type", currentType);
+              xhr.send(currentFile);
+            });
+
+            const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Visitor-Token": visitorToken,
+              },
+              body: JSON.stringify({
+                filename: currentName,
+                size: currentFile.size,
+                content_type: currentType,
+                r2_key: r2Key,
+              }),
+            });
+            if (!confirmRes.ok) throw new Error("Confirm failed");
+            const confirmData = await confirmRes.json();
+            currentFileUrl = confirmData.file?.raw_url || confirmData.file?.url;
+            if (!currentFileUrl) throw new Error("Confirm URL missing");
+          } 
+          else if (selectedProvider === "tmpfiles") {
+            const tfData = new FormData();
+            tfData.append("file", currentFile, currentName);
+
+            const uploadResult = await new Promise<any>((resolve, reject) => {
+              const xhr = bindXhr(new XMLHttpRequest());
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  const pct = Math.round((e.loaded / e.total) * 100);
+                  updateOverallProgress(pct);
+                }
+              };
+              xhr.onload = () => {
+                clearActiveXhr(xhr);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    resolve(JSON.parse(xhr.responseText));
+                  } catch {
+                    resolve(xhr.responseText);
+                  }
+                } else reject(new Error(`tmpfiles returned status ${xhr.status}`));
+              };
+              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
+              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
+              xhr.open("POST", "/api/proxy/tmpfiles");
+              xhr.send(tfData);
+            });
+
+            if (uploadResult && uploadResult.status === "success" && uploadResult.data?.url) {
+              const viewUrl = uploadResult.data.url;
+              currentFileUrl = viewUrl.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+            } else {
+              throw new Error(uploadResult.error || "tmpfiles upload failed");
+            }
+          }
+
+          uploadedFilesList.push({
+            fileUrl: currentFileUrl,
+            fileName: currentName,
+            fileSize: currentFile.size,
+            mimeType: currentType,
+          });
+        }
+      } else {
+        let fileToUpload: File | Blob = file;
+        let finalName = file.name;
 
       if (isFolderMode && (file as any).originalFiles) {
         showToast("Zipping folder contents...", "info");
@@ -3264,6 +3747,7 @@ function SendFile({
         console.error(`${selectedProvider} upload error:`, e);
         throw new Error(e.message || "File upload failed");
       }
+    }
 
       showToast("Saving code...", "info");
 
@@ -3296,15 +3780,21 @@ function SendFile({
 
       const dropData: any = {
         isDirectFile: true,
-        fileName: file.name,
-        fileUrl: fileUrl,
-        mimeType: file.type || "application/octet-stream",
+        fileName: isMulti ? `${uploadedFilesList.length} files` : file.name,
+        fileUrl: isMulti ? uploadedFilesList[0].fileUrl : fileUrl,
+        mimeType: isMulti ? "application/octet-stream" : (file.type || "application/octet-stream"),
         type: "file",
         expire: expire,
-        text: `__HEFIMER_FILE__${JSON.stringify({ isDirectFile: true, fileName: file.name, fileUrl: fileUrl })}`,
+        text: isMulti
+          ? `__HEFIMER_FILES__${JSON.stringify(uploadedFilesList)}`
+          : `__HEFIMER_FILE__${JSON.stringify({ isDirectFile: true, fileName: file.name, fileUrl: fileUrl })}`,
         expiresAt: expiresAtDate.getTime(),
         timestamp: { ".sv": "timestamp" },
       };
+
+      if (isMulti) {
+        dropData.files = uploadedFilesList;
+      }
 
       if (password.trim()) {
         dropData.password = password.trim();
@@ -3327,12 +3817,12 @@ function SendFile({
       }));
       addToHistory({
         code: generatedCode,
-        fileName: file.name,
+        fileName: isMulti ? `${uploadedFilesList.length} files` : file.name,
         fileSize: file.size,
         type: "file",
         action: "sent",
       });
-      updateStats(file.name, file.size, false);
+      updateStats(isMulti ? `${uploadedFilesList.length} files` : file.name, file.size, false);
       showToast("File uploaded and code generated!", "success");
     } catch (err: any) {
       if (err?.message !== "UPLOAD_CANCELED" && !uploadCancelledRef.current) {
@@ -3389,10 +3879,19 @@ function SendFile({
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              if (!loading && e.dataTransfer.files && e.dataTransfer.files[0]) {
+              if (!loading && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const filesList = e.dataTransfer.files;
+                const fileToSet = filesList.length > 1
+                  ? {
+                      name: `${filesList.length} files`,
+                      size: Array.from(filesList).reduce((acc, f) => acc + f.size, 0),
+                      originalFiles: Array.from(filesList),
+                      isMultiFile: true,
+                    }
+                  : filesList[0];
                 setState((prev: any) => ({
                   ...prev,
-                  file: e.dataTransfer.files[0],
+                  file: fileToSet,
                 }));
                 vibrate();
               }
@@ -3413,7 +3912,7 @@ function SendFile({
               ref={fileInputRef}
               {...(isFolderMode
                 ? ({ webkitdirectory: "", directory: "" } as any)
-                : {})}
+                : { multiple: true })}
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0) {
                   const firstFile = e.target.files[0];
@@ -3433,6 +3932,16 @@ function SendFile({
                         ),
                         originalFiles: e.target.files, // just in case
                       }
+                    : e.target.files.length > 1
+                    ? {
+                        name: `${e.target.files.length} files`,
+                        size: Array.from(e.target.files).reduce(
+                          (acc, f) => acc + f.size,
+                          0,
+                        ),
+                        originalFiles: Array.from(e.target.files),
+                        isMultiFile: true,
+                      }
                     : firstFile;
 
                   setState((prev: any) => ({
@@ -3445,13 +3954,13 @@ function SendFile({
             />
 
             {loading ? (
-              <div className="flex items-center gap-6 w-fit mx-auto transition-all">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center transition-all border border-white/10 shadow-inner shrink-0">
-                  <Loader2 size={28} className="text-white/70 animate-spin" />
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full px-6 py-4 justify-center transition-all text-center sm:text-left">
+                <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center transition-all border border-white/10 shadow-inner shrink-0">
+                  <Loader2 size={24} className="text-white/70 animate-spin" />
                 </div>
 
-                <div className="flex flex-col items-start justify-center">
-                  <p className="text-white font-bold text-base text-left leading-tight mb-1 truncate max-w-[200px]">
+                <div className="flex flex-col items-center sm:items-start justify-center">
+                  <p className="text-white font-bold text-base leading-tight mb-1 truncate max-w-[240px]">
                     Uploading... {progress}%
                   </p>
                   <button
@@ -3468,13 +3977,15 @@ function SendFile({
                 </div>
               </div>
             ) : file ? (
-              <div className="flex items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-fit mx-auto">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full px-6 py-4 justify-center text-center sm:text-left">
                 <div className="relative group/file shrink-0">
-                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center border border-white/10 shadow-xl transition-transform group-hover/file:scale-105">
+                  <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center border border-white/10 shadow-xl transition-transform group-hover/file:scale-105">
                     {isFolderMode ? (
-                      <Folder size={28} className="text-white/80" />
+                      <Folder size={24} className="text-white/80" />
+                    ) : (file as any).isMultiFile ? (
+                      <Files size={24} className="text-white/80" />
                     ) : (
-                      <File size={28} className="text-white/80" />
+                      <File size={24} className="text-white/80" />
                     )}
                   </div>
                   <button
@@ -3483,14 +3994,14 @@ function SendFile({
                       setState((prev: any) => ({ ...prev, file: null }));
                       vibrate();
                     }}
-                    className="absolute -top-2 -right-2 w-7 h-7 bg-white text-black rounded-full flex items-center justify-center border border-black shadow-lg hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all z-20"
+                    className="absolute -top-1 -right-1 w-6 h-6 bg-white text-black rounded-full flex items-center justify-center border border-black shadow-lg hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all z-20"
                     title="Remove File"
                   >
-                    <X size={14} strokeWidth={3} />
+                    <X size={12} strokeWidth={3} />
                   </button>
                 </div>
-                <div className="text-left w-[200px]">
-                  <h4 className="text-white font-bold text-base break-words leading-tight mb-1 line-clamp-2">
+                <div className="flex flex-col items-center sm:items-start justify-center max-w-[220px]">
+                  <h4 className="text-white font-bold text-sm break-all leading-tight mb-1 line-clamp-2">
                     {file.name}
                   </h4>
                   <p className="text-white/40 text-xs font-medium tracking-wide">
@@ -3499,46 +4010,45 @@ function SendFile({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-6 w-fit mx-auto transition-all">
-                <div className="w-16 h-16 bg-white/5 group-hover:bg-white/10 rounded-full flex items-center justify-center transition-all border border-white/10 shrink-0 shadow-inner">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full px-4 py-4 justify-center text-center sm:text-left transition-all">
+                <div className="w-14 h-14 bg-white/5 group-hover:bg-white/10 rounded-full flex items-center justify-center transition-all border border-white/10 shrink-0 shadow-inner">
                   {isFolderMode ? (
                     <FolderPlus
-                      size={28}
+                      size={24}
                       className="text-white/70 group-hover:text-white group-hover:scale-110 transition-all"
                     />
                   ) : (
                     <FileUp
-                      size={28}
+                      size={24}
                       className="text-white/70 group-hover:text-white group-hover:scale-110 transition-all"
                     />
                   )}
                 </div>
 
-                <div className="flex flex-col items-start justify-center">
-                  <p className="text-white font-bold text-base text-left leading-tight mb-1">
+                <div className="flex flex-col items-center sm:items-start justify-center">
+                  <p className="text-white font-bold text-base leading-tight">
                     {isFolderMode
                       ? "Tap to select a folder"
-                      : "Tap to select a file"}
+                      : "Tap to select file(s)"}
                   </p>
                   {!loading && (
-                    <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-[0.05em] text-white/40 mt-1">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/10 px-2 py-1 text-[9px] tracking-[0.16em] text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1.5 text-[9px] uppercase font-bold tracking-[0.05em] text-white/40 mt-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/15 bg-emerald-400/10 px-1.5 py-0.5 text-[8px] tracking-[0.1em] text-emerald-300">
+                        <span className="h-1 w-1 rounded-full bg-emerald-300" />
                         {selectedProviderInfo.name}
                       </span>
-                      <div className="w-1 h-1 rounded-full bg-white/20" />
+                      <div className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
                       <span>
-                        Max size:{" "}
-                        <span className="text-white/70 tracking-normal text-[11px] font-mono">
+                        Max:{" "}
+                        <span className="text-white/70 tracking-normal text-[10px] font-mono">
                           {getMaxSizeText()}
                         </span>
                       </span>
-                      <div className="w-1 h-1 rounded-full bg-white/20" />
+                      <div className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
                       <span>
                         Today:{" "}
-                        <span className="text-white/70 tracking-normal text-[11px] font-mono">
-                          {((stats?.totalSize || 0) / 1024 / 1024).toFixed(2)}{" "}
-                          MB
+                        <span className="text-white/70 tracking-normal text-[10px] font-mono">
+                          {((stats?.totalSize || 0) / 1024 / 1024).toFixed(2)} MB
                         </span>
                       </span>
                     </div>
@@ -4278,6 +4788,14 @@ function Chat({
         onDisconnect(userMemberRef).remove();
       }
 
+      const statsRef = ref(rtdb, "stats");
+      const unsubscribeStats = onValue(statsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          // Sync app context if needed
+        }
+      });
+
       const unsubscribeMessages = onValue(messagesRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -4299,6 +4817,7 @@ function Chat({
         unsubscribeRoom();
         unsubscribeMessages();
         unsubscribeMembers();
+        unsubscribeStats();
         if (!adminRoomId) remove(userMemberRef);
       };
     }
@@ -5865,6 +6384,34 @@ function AdminPanel({
         </div>
       </div>
 
+      {/* App Branding Settings */}
+      <div className="p-5 bg-white/5 border border-white/10 rounded-3xl space-y-4">
+        <div className="flex items-center gap-2 text-white/60">
+          <Monitor size={14} />
+          <span className="text-[10px] font-bold">App Branding</span>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+          <div>
+            <h4 className="text-white/80 font-semibold text-xs mb-1">Developer Branding</h4>
+            <p className="text-[10px] text-white/40 font-bold">Current: <span className="text-white">{globalStats.developer || "Khanh Minh"}</span></p>
+          </div>
+          <div className="flex items-center gap-1 bg-black/40 rounded-full p-1 border border-white/10">
+            <button 
+              onClick={() => update(ref(rtdb, "stats"), { developer: "Khanh Minh" })}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${(!globalStats.developer || globalStats.developer === "Khanh Minh") ? "bg-white text-black" : "text-white/40 hover:text-white"}`}
+            >
+              Khanh Minh
+            </button>
+            <button 
+              onClick={() => update(ref(rtdb, "stats"), { developer: "Minh Ngoc" })}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${globalStats.developer === "Minh Ngoc" ? "bg-white text-black" : "text-white/40 hover:text-white"}`}
+            >
+              Minh Ngoc
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Security Settings */}
       <div className="p-5 bg-white/5 border border-white/10 rounded-3xl space-y-4">
         <div className="flex items-center gap-2 text-white/60">
@@ -7097,7 +7644,6 @@ function LikeWidget({
     </motion.div>
   );
 }
-
 function PolicyModal({
   type,
   onClose,
@@ -7106,7 +7652,6 @@ function PolicyModal({
   onClose: () => void;
 }) {
   const isPrivacy = type === "privacy";
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -7243,7 +7788,9 @@ function PolicyModal({
               </p>
               <p className="mt-1">
                 📧{" "}
-                <strong className="text-white/70">contact@hefimer.com</strong>
+                <strong className="text-white/70">
+                  contact@hefimer.com
+                </strong>
               </p>
               <p className="mt-1 text-white/40 text-[11px] italic">
                 (Please replace with your actual email address)
@@ -7274,7 +7821,7 @@ function PolicyModal({
               <p>
                 Hefimer is designed for sharing files, text, and online
                 collaboration for personal, educational, and lawful work
-                purposes.
+                purposes. You may not use it to distribute illegal content.
               </p>
             </div>
 
@@ -7419,57 +7966,227 @@ const FAQ_ITEMS = [
   },
 ];
 
-const MockupTerminal = () => {
+const MockupAppWindow = () => {
+  const containerVariants = {
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.07, delayChildren: 0.5 } },
+  };
+  const rowVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+  };
+  const fadeIn = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
+  };
+
   return (
-    <div className="w-full max-w-[720px] mx-auto border border-white/10 bg-zinc-950/60 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl mt-12 text-left">
-      {/* Title Bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-zinc-900/60 border-b border-white/5">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/5" />
-        </div>
-        <span className="text-[10px] font-mono text-white/40 tracking-wider">hefimer-terminal ~ bash</span>
-        <div className="w-12" />
-      </div>
-      
-      {/* Terminal Content */}
-      <div className="p-6 font-mono text-xs space-y-3 leading-relaxed text-white/70">
-        <div>
-          <span className="text-white/30">guest@hefimer:~$</span> <span className="text-white font-medium">hefimer drop --file="src.zip" --expire="10m"</span>
-        </div>
-        <div className="space-y-1 pl-3 border-l border-white/10 text-white/50">
-          <p>✔ Connecting to peer-to-peer network... [OK]</p>
-          <p>✔ Generating ephemeral AES-256-GCM key... [OK]</p>
-          <p>✔ Encrypting payload (12.4 MB)... [OK]</p>
-          <p className="text-white font-bold">✔ Drop created: Code <span className="text-black bg-white px-1.5 py-0.5 rounded font-mono font-black">92813</span></p>
-        </div>
-        <div className="pt-2 text-white/30">
-          <p># Real-time WebSocket connection state:</p>
-          <p>[13:42:01] info: channel established with signaling server</p>
-          <p>[13:42:05] info: peer connected from 192.168.1.45</p>
-          <p className="text-white/50">[13:42:06] info: chunk transmission started █ █ █ █ █ █ █ █ ░ ░  80%</p>
-          <p className="text-white/70 font-semibold">[13:42:07] success: file decrypted on receiver end</p>
-          <p className="text-white/50">[13:42:08] warning: self-destruction sequence armed (expires in 09m 59s)</p>
-        </div>
-        <div className="flex items-center gap-1.5 pt-2">
-          <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-white/70" />
-          <span className="text-[10px] text-white/35 font-sans">Awaiting next secure handoff...</span>
-        </div>
-      </div>
+    <div
+      className="w-full max-w-[480px] mx-auto select-none"
+      style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
+    >
+      {/* 3D window — animate: slide from right + tilt settle */}
+      <motion.div
+        initial={{ opacity: 0, x: 60, rotateY: -28, rotateX: 8, scale: 0.92 }}
+        animate={{ opacity: 1, x: 0, rotateY: -12, rotateX: 4, scale: 1 }}
+        transition={{ type: "spring", stiffness: 55, damping: 16, delay: 0.3 }}
+        style={{
+          transformStyle: "preserve-3d",
+          boxShadow: "-24px 28px 80px rgba(0,0,0,0.85), -4px 0 0 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(255,255,255,0.07)",
+          borderRadius: "18px",
+          overflow: "hidden",
+          background: "#0a0a0a",
+          willChange: "transform",
+        }}
+      >
+        {/* ── Browser title bar ── */}
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          style={{ background: "#111", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}
+        >
+          <div style={{ display: "flex", gap: 5 }}>
+            <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(255,255,255,0.22)" }} />
+            <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(255,255,255,0.10)" }} />
+            <div style={{ width: 9, height: 9, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+          </div>
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.18)" }} />
+              <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.28)", letterSpacing: "0.04em" }}>hefimer.pages.dev</span>
+            </div>
+          </div>
+          <div style={{ width: 50 }} />
+        </motion.div>
+
+        {/* ── App top-bar: logo ── */}
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          transition={{ delay: 0.55 }}
+          style={{ background: "#0d0d0d", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
+              style={{ width: 18, height: 18, flexShrink: 0 }}
+            >
+              <img src="/hefimer-orbit.svg" alt="Hefimer" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain", opacity: 0.7 }} />
+            </motion.div>
+            <span style={{ fontSize: 9, fontWeight: 900, color: "rgba(255,255,255,0.7)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Hefimer</span>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {["Chat", "Board"].map((label) => (
+              <div key={label} style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center" }}>
+                <span style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,0.25)", letterSpacing: "0.05em" }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Main content ── */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          style={{ padding: "20px 20px 22px", background: "#0a0a0a", display: "flex", flexDirection: "column", gap: 12 }}
+        >
+
+          {/* Page title */}
+          <motion.div variants={rowVariants}>
+            <h2 style={{ fontSize: 26, fontWeight: 900, color: "white", margin: 0, letterSpacing: "-0.04em", lineHeight: 1 }}>Send</h2>
+            <p style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", margin: "4px 0 0", letterSpacing: "0.01em" }}>Share a file or text that disappears when its moment is over.</p>
+          </motion.div>
+
+          {/* Nav tabs — Send File | Send Text (no Home) */}
+          <motion.div variants={rowVariants} style={{ display: "flex", gap: 20, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 0 }}>
+            {[
+              { label: "Send File", active: true },
+              { label: "Send Text", active: false },
+            ].map(({ label, active }) => (
+              <div key={label} style={{ position: "relative", paddingBottom: 8, cursor: "pointer" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: active ? "white" : "rgba(255,255,255,0.4)", letterSpacing: "0.01em", display: "flex", alignItems: "center", gap: 5 }}>
+                  {label}
+                </span>
+                {active && (
+                  <motion.div
+                    layoutId="mock-tab-indicator"
+                    style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "white", borderRadius: 1 }}
+                  />
+                )}
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Drop zone */}
+          <motion.div
+            variants={rowVariants}
+            whileHover={{ scale: 1.01, borderColor: "rgba(255,255,255,0.3)" }}
+            style={{
+              border: "1.5px dashed rgba(255,255,255,0.18)",
+              borderRadius: 24,
+              height: 110,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 14,
+              padding: "0 16px",
+              background: "rgba(255,255,255,0.015)",
+              position: "relative",
+              overflow: "hidden",
+              cursor: "pointer",
+            }}
+          >
+            {/* Subtle shimmer sweep */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: "200%" }}
+              transition={{ repeat: Infinity, duration: 2.4, ease: "linear", delay: 1.2 }}
+              style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)", pointerEvents: "none" }}
+            />
+            <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyCenter: "center", flexShrink: 0, justifyContent: "center" }}>
+              <motion.div
+                animate={{ y: [-2, 2, -2] }}
+                transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </motion.div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start", minWidth: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "white", letterSpacing: "-0.01em" }}>Tap to select file(s)</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                <motion.span
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  style={{ fontSize: 7, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(52,211,153,0.85)", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.15)", borderRadius: 99, padding: "1.5px 5.5px", display: "flex", alignItems: "center", gap: 3.5, textTransform: "uppercase" }}
+                >
+                  <span style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: "rgba(52,211,153,0.9)", display: "inline-block" }} />
+                  storage.to
+                </motion.span>
+                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.15)" }} />
+                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>Max 25 GB</span>
+                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.15)" }} />
+                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>Today: 0.00 MB</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Advanced Options row */}
+          <motion.div
+            variants={rowVariants}
+            style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px" }}
+          >
+            <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.02em" }}>Advanced Options</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: 2 }}>
+                <span style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", background: "rgba(255,255,255,0.15)", color: "white", borderRadius: 8, padding: "3px 8px" }}>File</span>
+                <span style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.3)", padding: "3px 8px" }}>Folder</span>
+              </div>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+          </motion.div>
+
+          {/* Upload / Send button */}
+          <motion.div
+            variants={rowVariants}
+            whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(255,255,255,0.15)" }}
+            style={{ background: "white", borderRadius: 99, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, cursor: "pointer" }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "black", letterSpacing: "0.04em" }}>Upload &amp; Get Code</span>
+          </motion.div>
+        </motion.div>
+
+        {/* Bottom reflection */}
+        <div style={{ height: 2, background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)" }} />
+      </motion.div>
     </div>
   );
 };
 
-function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy }: any) {
+function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy, developer }: any) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full flex flex-col space-y-16 py-10"
+      className="w-full flex flex-col space-y-16 pt-2 pb-10"
     >
       {/* Hero Section */}
-      <div className="max-w-[1200px] mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center text-left">
+      <div className="max-w-[1200px] mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center text-left">
         {/* Left Column: Brand Info, Tagline, CTAs */}
         <div className="lg:col-span-6 flex flex-col items-start space-y-6 text-left">
           {/* Brand Badge */}
@@ -7488,7 +8205,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
               className="w-6 h-6 object-contain"
             />
             <span className="text-[10px] tracking-[0.2em] font-black uppercase text-white/70">
-              HEFIMER
+              Hefimer
             </span>
           </motion.div>
 
@@ -7499,9 +8216,9 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             transition={{ type: "spring", stiffness: 85, damping: 14, delay: 0.1 }}
             className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.08] font-sans"
           >
-            Instant Ephemeral Sharing.<br />
+            Instant Transfer,<br />
             <span className="text-white/30 text-2xl sm:text-3xl lg:text-4xl font-medium block mt-2">
-              Connect via a simple 5-digit code.
+              No signup. No storage. Just a 5-digit code.
             </span>
           </motion.h1>
 
@@ -7512,8 +8229,25 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
             className="text-sm sm:text-base text-white/40 leading-relaxed max-w-xl"
           >
-            Hefimer is a modern workspace for instant file transfers, raw text snippets, live chat rooms, and whiteboard collaboration. Set a timer, share the code, and watch your data vanish.
+            Hefimer is a <span className="text-white/70 font-semibold">transfer tool</span>, not a storage service. Send files, text, and messages instantly — they disappear after the timer ends. Nothing is saved permanently.
           </motion.p>
+
+          {/* Not-storage disclaimer */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.35 }}
+            className="flex items-center gap-2 text-[10px] font-bold tracking-[0.15em] uppercase text-white/30"
+          >
+            <span className="flex items-center gap-1.5 border border-white/10 bg-white/[0.03] rounded-full px-3 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+              Not a cloud storage
+            </span>
+            <span className="flex items-center gap-1.5 border border-white/10 bg-white/[0.03] rounded-full px-3 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+              Auto-deletes on expiry
+            </span>
+          </motion.div>
 
           {/* Hero CTA Buttons */}
           <motion.div
@@ -7537,15 +8271,10 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           </motion.div>
         </div>
 
-        {/* Right Column: Terminal Mockup */}
-        <motion.div
-          initial={{ opacity: 0, y: 40, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: "spring", stiffness: 60, damping: 15, delay: 0.4 }}
-          className="lg:col-span-6 w-full flex justify-center"
-        >
-          <MockupTerminal />
-        </motion.div>
+        {/* Right Column: App UI Mockup */}
+        <div className="lg:col-span-6 w-full flex justify-center items-center py-6" style={{ overflow: "visible" }}>
+          <MockupAppWindow />
+        </div>
       </div>
 
       {/* Feature CTA Grid */}
@@ -7558,10 +8287,10 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           className="text-center space-y-1 px-4"
         >
           <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white/30">
-            Choose Your Tool
+            Transfer Tools
           </h2>
           <p className="text-xl font-bold tracking-tight text-white">
-            Four powerful features in one secure dock
+            Pick a method — everything auto-deletes after transfer
           </p>
         </motion.div>
 
@@ -7586,7 +8315,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
                 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
               <p className="text-xs text-white/40 leading-relaxed">
-                Securely drop images, PDFs, videos, or archives. Files are encrypted, downloaded via presigned URLs, and self-delete after your timer expires.
+                Drop any file — images, PDFs, videos, or archives. Transferred via a one-time presigned URL. <span className="text-white/60">Not stored permanently.</span> Auto-deleted when the timer runs out.
               </p>
             </div>
           </motion.div>
@@ -7611,7 +8340,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
                 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
               <p className="text-xs text-white/40 leading-relaxed">
-                Paste logs, configurations, snippets, or draft notes. Includes real-time syntax highlighting for all major programming languages and clean markdown previews.
+                Paste logs, snippets, or notes. The receiver reads it through the 5-digit code. <span className="text-white/60">Expires and vanishes</span> — never stored beyond the timer.
               </p>
             </div>
           </motion.div>
@@ -7636,7 +8365,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
                 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
               <p className="text-xs text-white/40 leading-relaxed">
-                Spin up temporary chat spaces with custom 5-digit codes. Share messages, reactions, and communicate anonymously without account registrations.
+                Spin up a temporary chat room with a 5-digit code. <span className="text-white/60">Real-time, anonymous</span>, and gone when the session ends. No account needed.
               </p>
             </div>
           </motion.div>
@@ -7661,7 +8390,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
                 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
               <p className="text-xs text-white/40 leading-relaxed">
-                Brainstorm, sketch designs, or draw with teams in real-time. Features collaborative whiteboards with immediate strokes syncing and zero lag.
+                Collaborate on a shared whiteboard in real-time. <span className="text-white/60">Session-based only</span> — strokes sync live and disappear with the session.
               </p>
             </div>
           </motion.div>
@@ -7681,7 +8410,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             How It Works
           </h2>
           <p className="text-xl font-bold tracking-tight text-white">
-            Simple sharing in four simple steps
+            Transfer in seconds, gone after it lands
           </p>
         </motion.div>
 
@@ -7689,16 +8418,16 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           {[
             {
               step: "01",
-              title: "Pick Your Tool",
-              desc: "Choose from sending a file, raw text, starting a live chat room, or opening a blank whiteboard.",
+              title: "Pick Transfer Type",
+              desc: "File, text snippet, live chat, or whiteboard — choose what you need to transfer right now.",
               icon: Zap,
               color: "from-white/5 to-transparent",
               accent: "text-white/60"
             },
             {
               step: "02",
-              title: "Set Timer",
-              desc: "Determine how long you want your drop to exist. Options range from 10 minutes up to 24 hours.",
+              title: "Set Expiry Timer",
+              desc: "Pick how long before it auto-deletes. 10 minutes is enough for a quick handoff. Max 72 hours.",
               icon: Clock,
               color: "from-white/5 to-transparent",
               accent: "text-white/60"
@@ -7797,15 +8526,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           </p>
 
           <p className="text-white/35 text-[10px] mb-4">
-            Developed by{" "}
-            <a
-              href="https://hoangkhanhminh.pages.dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/60 underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
-            >
-              Khanh Minh
-            </a>
+            Developed by <span className="text-white/60">{developer}</span>
           </p>
 
           {/* Policy Links */}
@@ -7905,14 +8626,21 @@ function FAQSection() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
-    "home" | "text" | "file" | "receive" | "history" | "chat" | "board"
+    "home" | "text" | "file" | "receive" | "history" | "chat" | "board" | "space"
   >(() => {
     const path = window.location.pathname;
     if (path === "/chat-room") return "chat";
     if (path === "/board") return "board";
+    if (path === "/space") return "space";
     const params = new URLSearchParams(window.location.search);
     if (params.get("code")) return "file";
-    return "home";
+    // Show landing page only on the very first visit
+    const hasVisited = localStorage.getItem("hefimer_visited");
+    if (!hasVisited) {
+      localStorage.setItem("hefimer_visited", "1");
+      return "home";
+    }
+    return "file";
   });
 
   // Sync activeTab state with history entries for browser navigation
@@ -7928,12 +8656,16 @@ export default function App() {
       if (currentPath !== "/board") {
         window.history.pushState({ tab: "board" }, "", "/board");
       }
+    } else if (activeTab === "space") {
+      if (currentPath !== "/space") {
+        window.history.pushState({ tab: "space" }, "", "/space");
+      }
     } else {
       // Path is "/"
       if (currentPath !== "/") {
         window.history.pushState({ tab: activeTab }, "", "/");
       } else if (!currentState || currentState.tab !== activeTab) {
-        window.history.pushState({ tab: activeTab }, "", "/");
+        window.history.pushState({ tab: activeTab }, "", "/" + window.location.search);
       }
     }
   }, [activeTab]);
@@ -7946,6 +8678,8 @@ export default function App() {
         setActiveTab("chat");
       } else if (path === "/board") {
         setActiveTab("board");
+      } else if (path === "/space") {
+        setActiveTab("space");
       } else {
         if (event.state && event.state.tab) {
           setActiveTab(event.state.tab);
@@ -7968,6 +8702,7 @@ export default function App() {
   const [showPolicy, setShowPolicy] = useState<"privacy" | "terms" | null>(
     null,
   );
+  const [globalDeveloper, setGlobalDeveloper] = useState("Khanh Minh");
 
   // Clean up legacy light theme and force dark mode
   useEffect(() => {
@@ -8032,7 +8767,28 @@ export default function App() {
     boardMode: "create",
   });
 
+  const [spaceState, setSpaceState] = useState<{
+    spaceId: string;
+    spaceName: string;
+    spaceNameInput: string;
+    spaceExpire: string;
+    userName: string;
+    inSpace: boolean;
+    showCreatedModal: boolean;
+    spaceMode: "create" | "join";
+  }>({
+    spaceId: "",
+    spaceName: "",
+    spaceNameInput: "",
+    spaceExpire: "1h",
+    userName: "",
+    inSpace: false,
+    showCreatedModal: false,
+    spaceMode: "create",
+  });
+
   const [globalNotice, setGlobalNotice] = useState("");
+  const [globalNoticeEnabled, setGlobalNoticeEnabled] = useState(false);
   const [noticeTheme, setNoticeTheme] = useState("blue");
   const [noticeExpiresAt, setNoticeExpiresAt] = useState(0);
   const [activeBroadcast, setActiveBroadcast] = useState<any>(null);
@@ -8107,7 +8863,7 @@ export default function App() {
     window.addEventListener("beforeunload", cleanup);
 
     return () => {
-      connectedUnsubscribe();
+      clearInterval(heartbeatInterval);
       presenceUnsubscribe();
       window.removeEventListener("beforeunload", cleanup);
       cleanup();
@@ -8472,6 +9228,8 @@ export default function App() {
       const data = snapshot.val();
       if (data) {
         setGlobalNotice(data.notice || "");
+        setGlobalNoticeEnabled(data.noticeEnabled || false);
+        setGlobalDeveloper(data.developer || "Khanh Minh");
         setNoticeTheme(data.noticeTheme || "blue");
         setNoticeExpiresAt(data.noticeExpiresAt || 0);
         setIsFrozen(data.isFrozen || false);
@@ -8495,7 +9253,7 @@ export default function App() {
       }
     });
 
-    // Timer for broadcast auto-clear
+    // Timer for auto-expiry of notice
     const broadcastTimer = setInterval(() => {
       if (
         activeBroadcast &&
@@ -8535,10 +9293,11 @@ export default function App() {
 
   const isNoticeActive =
     globalNotice &&
+    globalNoticeEnabled &&
     (noticeExpiresAt === 0 || Date.now() < noticeExpiresAt) &&
     !isNoticeDismissed;
   const isDedicatedToolScreen =
-    activeTab === "chat" || activeTab === "board" || activeTab === "home";
+    activeTab === "chat" || activeTab === "board" || activeTab === "space" || activeTab === "home";
 
   const NOTICE_THEMES: Record<string, string> = {
     blue: "bg-blue-600/90",
@@ -8732,7 +9491,9 @@ export default function App() {
                   boardState={boardState}
                   setBoardState={setBoardState}
                   globalStats={{
+                    developer: globalDeveloper,
                     notice: globalNotice,
+                    noticeEnabled: globalNoticeEnabled,
                     noticeTheme,
                     noticeExpiresAt,
                     isFrozen,
@@ -8897,14 +9658,7 @@ export default function App() {
           <span className="hidden sm:flex mt-1.5 items-center gap-2 text-[10px] tracking-[0.08em] font-medium text-white/35">
             <span className="block h-px w-4 bg-white/30" />
             <span>Developed by</span>
-            <a
-              href="https://hoangkhanhminh.pages.dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/60 underline decoration-white/20 underline-offset-2 transition-colors hover:text-white"
-            >
-              Khanh Minh
-            </a>
+            <span className="text-white/60">{globalDeveloper}</span>
           </span>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -8968,15 +9722,7 @@ export default function App() {
               }}
               className="text-white/40 text-xs mt-1"
             >
-              Developed by{" "}
-              <a
-                href="https://hoangkhanhminh.pages.dev/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-white/20 underline-offset-2 hover:text-white/60 transition-colors"
-              >
-                Khánh Minh
-              </a>
+              Developed by <span className="text-white/60">{globalDeveloper}</span>
             </motion.p>
           </div>
 
@@ -9120,7 +9866,6 @@ export default function App() {
               }
             >
               {[
-                { id: "home", label: "Home", icon: Home },
                 { id: "file", label: "Send File", icon: FileUp },
                 { id: "text", label: "Send Text", icon: Code },
               ].map((tab) => {
@@ -9273,6 +10018,7 @@ export default function App() {
                       likesCount={likesCount}
                       showToast={showToast}
                       setShowPolicy={setShowPolicy}
+                      developer={globalDeveloper}
                     />
                   </motion.div>
                 )}
@@ -9400,6 +10146,22 @@ export default function App() {
                     />
                   </motion.div>
                 )}
+                {activeTab === "space" && (
+                  <motion.div
+                    key="space"
+                    initial={{ opacity: 0, scale: 0.97, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: 15 }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <Space
+                      showToast={showToast}
+                      addToHistory={addToHistory}
+                      state={spaceState}
+                      setState={setSpaceState}
+                    />
+                  </motion.div>
+                )}
               </AnimatePresence>
             </motion.div>
             </section>
@@ -9481,6 +10243,12 @@ export default function App() {
                 description: "Draw, annotate and collaborate on a shared canvas.",
                 icon: Palette,
               },
+              {
+                id: "space",
+                label: "Space",
+                description: "An infinite collaborative canvas for dropping files and media.",
+                icon: Box,
+              },
             ].map((tool, idx) => {
               const Icon = tool.icon;
               return (
@@ -9493,6 +10261,13 @@ export default function App() {
                   onClick={() => {
                     if (tool.id === "chat") {
                       handleChatTabClick();
+                      return;
+                    }
+                    if (tool.id === "space") {
+                      vibrate();
+                      setActiveTab("space");
+                      setChatTabClicks(0);
+                      setR2TabClicks(0);
                       return;
                     }
                     vibrate();
@@ -9564,15 +10339,7 @@ export default function App() {
             </p>
 
             <p className="text-white/35 text-[10px] mb-4">
-              Developed by{" "}
-              <a
-                href="https://hoangkhanhminh.pages.dev"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/60 underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
-              >
-                Khanh Minh
-              </a>
+              Developed by <span className="text-white/60">{globalDeveloper}</span>
             </p>
 
             {/* Policy Links */}

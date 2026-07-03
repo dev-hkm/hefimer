@@ -1,12 +1,16 @@
 {
   "name": "Hefimer",
   "short_name": "Hefimer",
-  "description": "Your instant web hub for quick file sharing and collaborative tools.",
+  "description": "Share files and text between any devices in seconds.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "lang": "vi",
+  "categories": ["utilities", "productivity"],
+  "screenshots": [],
   "icons": [
     {
       "src": "/hefimer-orbit.png",
