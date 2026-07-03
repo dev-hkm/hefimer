@@ -1021,6 +1021,28 @@ function ReceiveResult({
 
   const isValidDownloadUrl = (url: string) => /^https?:\/\//i.test(url);
 
+  const getDirectDownloadMode = (url: string) => {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host === "storage.to" || host === "tmpfiles.org") return "anchor";
+      if (host === "litter.catbox.moe" || host === "litterbox.catbox.moe") return "fetch";
+      if (host === "gofile.io") return "tab";
+    } catch {
+      return "fetch";
+    }
+    return "fetch";
+  };
+
+  const triggerAnchorDownload = (url: string, fileName: string) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "download";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const getFileIcon = (fileName: string, isR2Drop: boolean) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic'].includes(ext || '')) {
@@ -1086,12 +1108,13 @@ function ReceiveResult({
       showToast("This file link is missing or invalid. Please re-upload the file.", "error");
       return;
     }
-    if (!url.includes("gofile.io")) {
-      await triggerDirectDownload(url, name);
-    } else {
-      window.open(url, "_blank");
+    const mode = getDirectDownloadMode(url);
+    if (mode === "tab") {
+      window.open(url, "_blank", "noopener,noreferrer");
       showToast("Opening download link", "success");
+      return;
     }
+    await triggerDirectDownload(url, name);
   };
 
   const handleDownloadAll = async (files: any[]) => {
@@ -1142,6 +1165,12 @@ function ReceiveResult({
       showToast("This file link is missing or invalid. Please re-upload the file.", "error");
       return;
     }
+    const mode = getDirectDownloadMode(url);
+    if (mode === "anchor") {
+      triggerAnchorDownload(url, fileName);
+      showToast("Download started", "success");
+      return;
+    }
     try {
       showToast("Downloading file...", "info");
       const response = await fetch(url);
@@ -1157,9 +1186,9 @@ function ReceiveResult({
       URL.revokeObjectURL(blobUrl);
       showToast("Download completed successfully", "success");
     } catch (err) {
-      console.warn("Direct fetch download failed (likely CORS), falling back to open in tab:", err);
-      window.open(url, "_blank", "noopener,noreferrer");
-      showToast("Opening download link in new tab", "success");
+      console.warn("Direct fetch download failed, falling back to direct anchor:", err);
+      triggerAnchorDownload(url, fileName);
+      showToast("Download started", "success");
     }
   };
   const [showLineNumbers, setShowLineNumbers] = useState(false);
