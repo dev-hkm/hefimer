@@ -3433,8 +3433,6 @@ function SendFile({
         return;
       }
 
-      let fileUrl = "";
-
       const uploadWithProgress = (
         url: string,
         formData: FormData,
