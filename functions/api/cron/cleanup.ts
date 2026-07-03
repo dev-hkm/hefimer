@@ -54,14 +54,21 @@ export const onRequest: any = async (context: any) => {
       if (data.expiresAt && data.expiresAt <= now) {
         let r2DeleteSuccess = true;
 
-        // If it's an R2 file, try to delete it first
-        if (data.objectKey) {
+        const objectKeys = [
+          data.objectKey,
+          ...(Array.isArray(data.files)
+            ? data.files.map((fileEntry: any) => fileEntry?.objectKey)
+            : []),
+        ].filter(Boolean);
+
+        // If it has R2-backed files, delete all objects before removing Firebase metadata.
+        for (const objectKey of objectKeys) {
           try {
-            await deleteR2Object(env, data.objectKey);
+            await deleteR2Object(env, objectKey);
           } catch (r2Err: any) {
             console.error(`R2 delete failed for ${code}:`, r2Err);
             r2DeleteSuccess = false;
-            errors.push(`R2 delete failed for ${code}: ${r2Err.message}`);
+            errors.push(`R2 delete failed for ${code}/${objectKey}: ${r2Err.message}`);
           }
         }
 

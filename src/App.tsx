@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, type Variants } from "motion/react";
 import {
   Send,
   FileUp,
@@ -548,6 +548,24 @@ const glassButton =
 const glassTab =
   "flex-1 py-3 text-center rounded-full transition-all font-bold text-sm sm:text-base";
 
+const copyToClipboard = async (text: string) => {
+  if (!text) throw new Error("Nothing to copy");
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    if (!copied) throw new Error("Clipboard copy was blocked");
+  }
+};
+
 function ResultView({
   code,
   fileName,
@@ -564,11 +582,16 @@ function ResultView({
   const [downloadQRFn, setDownloadQRFn] = useState<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     vibrate();
-    navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    try {
+      await copyToClipboard(`${window.location.origin}/?code=${code}`);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      showToast("Link copied", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to copy link", "error");
+    }
   };
 
   useEffect(() => {
@@ -986,6 +1009,18 @@ function ReceiveResult({
     return formatBytes(total);
   };
 
+  const getFileDownloadUrl = (fileEntry: any) => {
+    const value =
+      fileEntry?.fileUrl ||
+      fileEntry?.url ||
+      fileEntry?.raw_url ||
+      fileEntry?.downloadUrl ||
+      "";
+    return typeof value === "string" ? value.trim() : "";
+  };
+
+  const isValidDownloadUrl = (url: string) => /^https?:\/\//i.test(url);
+
   const getFileIcon = (fileName: string, isR2Drop: boolean) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic'].includes(ext || '')) {
@@ -1039,12 +1074,20 @@ function ReceiveResult({
     }
   };
 
-  const handleDownloadStandardFile = (fileEntry: any) => {
+  const handleDownloadStandardFile = async (fileEntry: any) => {
     vibrate();
-    const url = fileEntry.fileUrl;
+    if (fileEntry.objectKey) {
+      await handleDownloadR2File(fileEntry);
+      return;
+    }
+    const url = getFileDownloadUrl(fileEntry);
     const name = fileEntry.fileName;
-    if (url && !url.includes("gofile.io")) {
-      triggerDirectDownload(url, name);
+    if (!isValidDownloadUrl(url)) {
+      showToast("This file link is missing or invalid. Please re-upload the file.", "error");
+      return;
+    }
+    if (!url.includes("gofile.io")) {
+      await triggerDirectDownload(url, name);
     } else {
       window.open(url, "_blank");
       showToast("Opening download link", "success");
@@ -1059,18 +1102,23 @@ function ReceiveResult({
       if (fileEntry.objectKey) {
         await handleDownloadR2File(fileEntry);
       } else {
-        handleDownloadStandardFile(fileEntry);
+        await handleDownloadStandardFile(fileEntry);
       }
       await new Promise((resolve) => setTimeout(resolve, 600));
     }
     showToast("All files downloaded", "success");
   };
 
-  const handleCopyReceiveLink = () => {
+  const handleCopyReceiveLink = async () => {
     vibrate();
-    navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    try {
+      await copyToClipboard(`${window.location.origin}/?code=${code}`);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      showToast("Link copied", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to copy link", "error");
+    }
   };
 
   const getProviderNameFromUrl = (url: string): string => {
@@ -1090,6 +1138,10 @@ function ReceiveResult({
   };
 
   const triggerDirectDownload = async (url: string, fileName: string) => {
+    if (!isValidDownloadUrl(url)) {
+      showToast("This file link is missing or invalid. Please re-upload the file.", "error");
+      return;
+    }
     try {
       showToast("Downloading file...", "info");
       const response = await fetch(url);
@@ -1106,7 +1158,7 @@ function ReceiveResult({
       showToast("Download completed successfully", "success");
     } catch (err) {
       console.warn("Direct fetch download failed (likely CORS), falling back to open in tab:", err);
-      window.open(url, "_blank");
+      window.open(url, "_blank", "noopener,noreferrer");
       showToast("Opening download link in new tab", "success");
     }
   };
@@ -1143,6 +1195,13 @@ function ReceiveResult({
           if (item.objectKey) {
             await deleteR2Object(item.objectKey);
           }
+          if (Array.isArray(item.files)) {
+            await Promise.all(
+              item.files
+                .filter((fileEntry: any) => fileEntry.objectKey)
+                .map((fileEntry: any) => deleteR2Object(fileEntry.objectKey)),
+            );
+          }
           await remove(ref(rtdb, `drops/${code}`));
           showToast("This drop has self-destructed after viewing", "success");
         } catch (err) {
@@ -1162,6 +1221,11 @@ function ReceiveResult({
           type: "file",
           fileName: parsed.fileName,
           fileUrl: parsed.fileUrl,
+          objectKey: parsed.objectKey,
+          contentType: parsed.contentType,
+          fileSize: parsed.fileSize,
+          storageProvider: parsed.storageProvider,
+          isSecretR2: parsed.isSecretR2,
           text: undefined,
         };
       }
@@ -1187,7 +1251,7 @@ function ReceiveResult({
 
   const smartAction = getSmartAction(item.text || "");
   const fileSize = formatFileSize(item.text || "");
-  const isR2Drop = item.files && item.files.some((f: any) => !!f.objectKey);
+  const isR2Drop = item.type === "r2_file" || item.isSecretR2 === true;
 
   const handleCopyText = () => {
     vibrate();
@@ -1249,11 +1313,16 @@ function ReceiveResult({
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     vibrate();
-    navigator.clipboard.writeText(item.fileUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    try {
+      await copyToClipboard(`${window.location.origin}/?code=${code}`);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      showToast("Link copied", "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to copy link", "error");
+    }
   };
 
   const highlightCode = (code: string) => {
@@ -1626,7 +1695,7 @@ function ReceiveResult({
         </div>
       )}
 
-      {(item.type === "file" || (!item.type && item.fileUrl)) && (
+      {(item.type === "file" || (!item.type && getFileDownloadUrl(item))) && (
         <div className="space-y-6 flex flex-col">
           <div className="bg-white/5 border border-white/20 rounded-[40px] p-8 flex flex-col items-center justify-center text-center gap-4 overflow-hidden w-full">
             <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center border border-white/10 shrink-0">
@@ -1638,19 +1707,28 @@ function ReceiveResult({
           </div>
           <div className="flex gap-3 pt-2">
             <button
-              onClick={() => {
+              onClick={async () => {
                 vibrate();
-                if (item.fileUrl && !item.fileUrl.includes("gofile.io")) {
-                  triggerDirectDownload(item.fileUrl, item.fileName);
+                if (item.objectKey) {
+                  await handleDownloadR2File(item);
                 } else {
-                  window.open(item.fileUrl, "_blank");
-                  showToast("Opening download link", "success");
+                  const fileDownloadUrl = getFileDownloadUrl(item);
+                  if (!isValidDownloadUrl(fileDownloadUrl)) {
+                    showToast("This file link is missing or invalid. Please re-upload the file.", "error");
+                    return;
+                  }
+                  if (!fileDownloadUrl.includes("gofile.io")) {
+                    await triggerDirectDownload(fileDownloadUrl, item.fileName);
+                  } else {
+                    window.open(fileDownloadUrl, "_blank", "noopener,noreferrer");
+                    showToast("Opening download link", "success");
+                  }
                 }
               }}
               className="flex-1 bg-white text-black hover:bg-white/90 border border-white/20 rounded-full px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-center"
             >
               <Download size={18} />{" "}
-              {item.fileUrl && item.fileUrl.includes("gofile.io")
+              {getFileDownloadUrl(item).includes("gofile.io")
                 ? "Open in Gofile"
                 : "Download"}
             </button>
@@ -1666,8 +1744,6 @@ function ReceiveResult({
       )}
         </>
       )}
-
-
 
       <AnimatePresence>
         {renameData && (
@@ -2474,6 +2550,8 @@ function R2SendFile({
         fileSize: file.size,
         contentType: isMulti ? "application/octet-stream" : finalType,
         description: description.trim(),
+        storageProvider: "hefimer-r2",
+        isSecretR2: true,
         expiresAt: expiresAtDate.getTime(),
         timestamp: { ".sv": "timestamp" },
       };
@@ -3503,7 +3581,6 @@ function SendFile({
             localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
           }
 
-          // 1. Initialize upload to get presigned URL
           const initRes = await fetch("/api/proxy/storageto/upload/init", {
             method: "POST",
             headers: {
@@ -7967,15 +8044,15 @@ const FAQ_ITEMS = [
 ];
 
 const MockupAppWindow = () => {
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: {},
     visible: { transition: { staggerChildren: 0.07, delayChildren: 0.5 } },
   };
-  const rowVariants = {
+  const rowVariants: Variants = {
     hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
   };
-  const fadeIn = {
+  const fadeIn: Variants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
   };
@@ -8107,7 +8184,7 @@ const MockupAppWindow = () => {
               transition={{ repeat: Infinity, duration: 2.4, ease: "linear", delay: 1.2 }}
               style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)", pointerEvents: "none" }}
             />
-            <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyCenter: "center", flexShrink: 0, justifyContent: "center" }}>
+            <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", flexShrink: 0, justifyContent: "center" }}>
               <motion.div
                 animate={{ y: [-2, 2, -2] }}
                 transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
