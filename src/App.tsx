@@ -7649,8 +7649,11 @@ function LikeWidget({
   variant?: "default" | "landing";
 }) {
   const [dislikePos, setDislikePos] = useState({ x: 0, y: 0 });
+  const [landingDislikeRoaming, setLandingDislikeRoaming] = useState(false);
   const [showTrollText, setShowTrollText] = useState(false);
   const trollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const landingRatingRef = useRef<HTMLElement | null>(null);
+  const landingDislikeRef = useRef<HTMLButtonElement | null>(null);
 
   const handleLike = async () => {
     vibrate();
@@ -7682,9 +7685,32 @@ function LikeWidget({
     triggerTroll();
   };
 
+  const handleLandingDislikeInteraction = () => {
+    const card = landingRatingRef.current;
+    const button = landingDislikeRef.current;
+    if (!card || !button) {
+      handleDislikeInteraction();
+      return;
+    }
+
+    const cardRect = card.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const inset = cardRect.width < 520 ? 14 : 24;
+    const maxX = Math.max(inset, cardRect.width - buttonRect.width - inset);
+    const maxY = Math.max(inset, cardRect.height - buttonRect.height - inset);
+
+    setLandingDislikeRoaming(true);
+    setDislikePos({
+      x: inset + Math.random() * (maxX - inset),
+      y: inset + Math.random() * (maxY - inset),
+    });
+    triggerTroll();
+  };
+
   if (variant === "landing") {
     return (
       <motion.section
+        ref={landingRatingRef}
         className="hefimer-rating-console"
         initial={{ opacity: 0, y: 36 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -7711,14 +7737,15 @@ function LikeWidget({
               <ArrowRight size={16} />
             </button>
             <motion.div
-              animate={{ x: dislikePos.x, y: dislikePos.y }}
+              animate={landingDislikeRoaming ? { left: dislikePos.x, top: dislikePos.y } : undefined}
               transition={{ type: "spring", stiffness: 600, damping: 15 }}
-              className="hefimer-rating-no-runner"
+              className={`hefimer-rating-no-runner${landingDislikeRoaming ? " is-roaming" : ""}`}
             >
               <button
+                ref={landingDislikeRef}
                 className="hefimer-rating-no"
-                onMouseEnter={handleDislikeInteraction}
-                onClick={handleDislikeInteraction}
+                onMouseEnter={handleLandingDislikeInteraction}
+                onClick={handleLandingDislikeInteraction}
                 aria-label="Negative rating is currently unavailable"
               >
                 <ThumbsDown size={17} />
@@ -8957,33 +8984,6 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             </motion.button>
           ))}
         </div>
-      </section>
-
-      <section className="hefimer-final-callout">
-        <motion.div
-          className="hefimer-final-orbit"
-          initial={{ opacity: 0, scale: 0.7 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          aria-hidden="true"
-        >
-          <img src="/hefimer-orbit-clean.svg" alt="" draggable={false} />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <span className="hefimer-mono">READY WHEN YOU ARE</span>
-          <h2>Send the moment.<br />Not the baggage.</h2>
-          <p>Choose what you want to share, set its time, and pass on the code.</p>
-          <button className="hefimer-primary-action" onClick={() => openFeature("file")}>
-            <span>Start with a file</span>
-            <ArrowRight size={17} />
-          </button>
-        </motion.div>
       </section>
 
       <motion.div
