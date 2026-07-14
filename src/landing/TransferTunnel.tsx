@@ -138,7 +138,7 @@ export function TransferTunnel() {
 
           <div className="hefimer-orbit-core">
             <motion.img
-              src="/hefimer-orbit.svg"
+              src="/hefimer-orbit-clean.svg"
               alt=""
               draggable={false}
               style={{ rotate: tunnelRotate }}
