@@ -10088,12 +10088,14 @@ export default function App() {
                       Live workspace
                     </p>
                     <h1 className="mt-2 text-4xl sm:text-5xl font-bold tracking-[-0.05em] text-white">
-                      {activeTab === "chat" ? "Chat Room" : "Board"}
+                      {activeTab === "chat" ? "Chat Room" : activeTab === "space" ? "Space" : "Board"}
                     </h1>
                     <p className="mt-2 text-sm text-white/40">
                       {activeTab === "chat"
                         ? "Create a temporary room or join a live conversation."
-                        : "Create a shared canvas or join a board in progress."}
+                        : activeTab === "space"
+                          ? "An infinite collaborative canvas for dropping files and media."
+                          : "Create a shared canvas or join a board in progress."}
                     </p>
                   </div>
                 </div>
