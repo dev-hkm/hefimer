@@ -109,6 +109,7 @@ import "prismjs/components/prism-kotlin";
 import "prismjs/components/prism-swift";
 import QRCode from "qrcode";
 import { Space } from "./Space";
+import { FeatureStationVisual, TransferTunnel } from "./landing/TransferTunnel";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -8282,7 +8283,7 @@ const MockupAppWindow = () => {
   );
 };
 
-function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy, developer }: any) {
+function LegacyLandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy, developer }: any) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -8659,6 +8660,293 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           <p className="text-white/15 text-[9px] mt-3">
             © 2026 Hefimer. All rights reserved.
           </p>
+        </footer>
+      </div>
+    </motion.div>
+  );
+}
+
+const LANDING_FEATURES = [
+  {
+    id: "file",
+    eyebrow: "FILES",
+    title: "Move the file, not the friction.",
+    description: "Choose one or more files, set an expiry, and share the five-digit access code.",
+    accent: "cyan",
+    index: "01",
+  },
+  {
+    id: "text",
+    eyebrow: "TEXT + CODE",
+    title: "Pass the exact words along.",
+    description: "Paste text or code, choose how long it remains available, and share access.",
+    accent: "violet",
+    index: "02",
+  },
+  {
+    id: "chat",
+    eyebrow: "LIVE CHAT",
+    title: "A room for right now.",
+    description: "Create or join a temporary real-time chat room with a five-digit code.",
+    accent: "coral",
+    index: "03",
+  },
+  {
+    id: "board",
+    eyebrow: "SHARED BOARD",
+    title: "Draw in the same moment.",
+    description: "Open a live, session-based canvas and draw together from different devices.",
+    accent: "amber",
+    index: "04",
+  },
+] as const;
+
+function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy, developer }: any) {
+  const openFeature = (feature: "file" | "text" | "chat" | "board") => {
+    vibrate();
+    setActiveTab(feature);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.7 }}
+      className="hefimer-landing w-full"
+    >
+      <section className="hefimer-hero" aria-labelledby="hefimer-hero-title">
+        <div className="hefimer-hero-aurora" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+
+        <motion.div
+          className="hefimer-hero-brand"
+          initial={{ opacity: 0, y: -18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <motion.img
+            src="/hefimer-orbit.svg"
+            alt="Hefimer"
+            draggable={false}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
+          />
+          <span>HEFIMER</span>
+          <i />
+          <small>TEMPORARY SHARING</small>
+        </motion.div>
+
+        <div className="hefimer-hero-layout">
+          <div className="hefimer-hero-copy">
+            <motion.p
+              className="hefimer-hero-kicker hefimer-mono"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.18, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            >
+              SEND → CODE → RECEIVE → DISAPPEAR
+            </motion.p>
+
+            <h1 id="hefimer-hero-title" className="hefimer-hero-title">
+              {["Send it.", "Share five digits.", "Let time clear it."].map((line, index) => (
+                <span className={index === 1 ? "hefimer-title-spectrum" : ""} key={line}>
+                  <motion.i
+                    initial={{ y: "115%", rotate: 3 }}
+                    animate={{ y: 0, rotate: 0 }}
+                    transition={{
+                      delay: 0.16 + index * 0.12,
+                      duration: 0.9,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                  >
+                    {line}
+                  </motion.i>
+                </span>
+              ))}
+            </h1>
+
+            <motion.p
+              className="hefimer-hero-description"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            >
+              Share files, text, temporary chat rooms, and collaborative boards through a simple five-digit code. No account required.
+            </motion.p>
+
+            <motion.div
+              className="hefimer-hero-actions"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.68, duration: 0.7 }}
+            >
+              <button className="hefimer-primary-action" onClick={() => openFeature("file")}>
+                <span>Start sharing</span>
+                <ArrowRight size={17} />
+              </button>
+              <button
+                className="hefimer-secondary-action"
+                onClick={() => {
+                  vibrate();
+                  onOpenHistory();
+                }}
+              >
+                <Clock size={16} />
+                <span>History</span>
+              </button>
+            </motion.div>
+          </div>
+
+          <motion.div
+            className="hefimer-hero-sculpture"
+            initial={{ opacity: 0, scale: 0.78, rotateY: -22 }}
+            animate={{ opacity: 1, scale: 1, rotateY: -8 }}
+            transition={{ delay: 0.28, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            aria-hidden="true"
+          >
+            <div className="hefimer-sculpture-shell">
+              <span className="hefimer-sculpture-ring hefimer-sculpture-ring--one" />
+              <span className="hefimer-sculpture-ring hefimer-sculpture-ring--two" />
+              <span className="hefimer-sculpture-ring hefimer-sculpture-ring--three" />
+              <motion.img
+                src="/hefimer-orbit.svg"
+                alt=""
+                draggable={false}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+              />
+              <span className="hefimer-sculpture-code hefimer-mono">
+                <i /> <i /> <i /> <i /> <i />
+              </span>
+              <span className="hefimer-sculpture-node hefimer-sculpture-node--file">FILE</span>
+              <span className="hefimer-sculpture-node hefimer-sculpture-node--text">TEXT</span>
+              <span className="hefimer-sculpture-node hefimer-sculpture-node--chat">CHAT</span>
+              <span className="hefimer-sculpture-node hefimer-sculpture-node--board">BOARD</span>
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div
+          className="hefimer-hero-index hefimer-mono"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
+        >
+          <span>FILE</span><i /><span>TEXT</span><i /><span>CHAT</span><i /><span>BOARD</span>
+        </motion.div>
+      </section>
+
+      <section className="hefimer-journey" aria-labelledby="hefimer-journey-title">
+        <motion.div
+          className="hefimer-section-intro"
+          initial={{ opacity: 0, y: 28 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="hefimer-mono">THE TRANSFER</span>
+          <h2 id="hefimer-journey-title">One short journey.<br />Nothing permanent.</h2>
+          <p>Scroll through the same four moments every Hefimer share follows.</p>
+        </motion.div>
+        <TransferTunnel />
+      </section>
+
+      <section className="hefimer-stations" aria-labelledby="hefimer-stations-title">
+        <motion.div
+          className="hefimer-section-intro hefimer-section-intro--wide"
+          initial={{ opacity: 0, y: 28 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="hefimer-mono">FOUR WAYS IN</span>
+          <h2 id="hefimer-stations-title">Different things.<br />The same simple code.</h2>
+        </motion.div>
+
+        <div className="hefimer-station-grid">
+          {LANDING_FEATURES.map((feature, index) => (
+            <motion.button
+              key={feature.id}
+              className={`hefimer-station-card hefimer-station-card--${feature.accent}`}
+              initial={{ opacity: 0, y: 46, clipPath: "inset(12% 0 0 0 round 28px)" }}
+              whileInView={{ opacity: 1, y: 0, clipPath: "inset(0% 0 0 0 round 28px)" }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ delay: index * 0.08, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -10, rotateX: 2, rotateY: index % 2 === 0 ? 2 : -2 }}
+              whileTap={{ scale: 0.985 }}
+              onClick={() => openFeature(feature.id)}
+            >
+              <div className="hefimer-station-meta hefimer-mono">
+                <span>{feature.eyebrow}</span>
+                <span>{feature.index}</span>
+              </div>
+              <FeatureStationVisual kind={feature.id} />
+              <div className="hefimer-station-copy">
+                <h3>{feature.title}</h3>
+                <p>{feature.description}</p>
+                <span className="hefimer-station-link">Open {feature.eyebrow.toLowerCase()} <ArrowRight size={14} /></span>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </section>
+
+      <section className="hefimer-final-callout">
+        <motion.div
+          className="hefimer-final-orbit"
+          initial={{ opacity: 0, scale: 0.7 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          aria-hidden="true"
+        >
+          <img src="/hefimer-orbit.svg" alt="" draggable={false} />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="hefimer-mono">READY WHEN YOU ARE</span>
+          <h2>Send the moment.<br />Not the baggage.</h2>
+          <p>Choose what you want to share, set its time, and pass on the code.</p>
+          <button className="hefimer-primary-action" onClick={() => openFeature("file")}>
+            <span>Start with a file</span>
+            <ArrowRight size={17} />
+          </button>
+        </motion.div>
+      </section>
+
+      <motion.div
+        className="hefimer-faq-wrap"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.7 }}
+      >
+        <FAQSection />
+      </motion.div>
+
+      <div className="hefimer-landing-footer">
+        <LikeWidget showToast={showToast} likes={likesCount} />
+        <footer>
+          <div className="hefimer-footer-brand">
+            <img src="/hefimer-orbit.svg" alt="" draggable={false} />
+            <span>HEFIMER</span>
+          </div>
+          <p>Temporary sharing for files, text, live chat, and collaborative boards.</p>
+          <p>Developed by <strong>{developer}</strong></p>
+          <div className="hefimer-footer-links">
+            <button onClick={() => { vibrate(); setShowPolicy("privacy"); }}>Privacy Policy</button>
+            <button onClick={() => { vibrate(); setShowPolicy("terms"); }}>Terms of Service</button>
+          </div>
+          <small>© 2026 Hefimer. All rights reserved.</small>
         </footer>
       </div>
     </motion.div>
@@ -9486,7 +9774,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#000000] text-white font-sans selection:bg-white/30 flex flex-col items-center justify-start p-4 sm:p-6 relative overflow-x-hidden">
+    <div className={`min-h-screen bg-[#000000] text-white font-sans selection:bg-white/30 flex flex-col items-center justify-start p-4 sm:p-6 relative ${activeTab === "home" ? "overflow-visible" : "overflow-x-hidden"}`}>
       {/* Floating Actions Dock */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <button
