@@ -7642,9 +7642,11 @@ function Board({ showToast, addToHistory, state, setState }: any) {
 function LikeWidget({
   showToast,
   likes,
+  variant = "default",
 }: {
   showToast: (msg: string, type?: any) => void;
   likes: number;
+  variant?: "default" | "landing";
 }) {
   const [dislikePos, setDislikePos] = useState({ x: 0, y: 0 });
   const [showTrollText, setShowTrollText] = useState(false);
@@ -7679,6 +7681,63 @@ function LikeWidget({
     moveDislike();
     triggerTroll();
   };
+
+  if (variant === "landing") {
+    return (
+      <motion.section
+        className="hefimer-rating-console"
+        initial={{ opacity: 0, y: 36 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        aria-labelledby="hefimer-rating-title"
+      >
+        <div className="hefimer-rating-scan" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+        <div className="hefimer-rating-copy">
+          <span className="hefimer-mono">SIGNAL QUALITY / FEEDBACK</span>
+          <h2 id="hefimer-rating-title">Did this page<br />get you there?</h2>
+          <p>One tap helps us know if Hefimer is clear and useful.</p>
+        </div>
+
+        <div className="hefimer-rating-controls">
+          <div className="hefimer-rating-count">
+            <span className="hefimer-mono">POSITIVE SIGNALS</span>
+            <strong>{likes.toLocaleString()}</strong>
+          </div>
+          <div className="hefimer-rating-actions">
+            <button className="hefimer-rating-yes" onClick={handleLike} aria-label="Rate this page positively">
+              <ThumbsUp size={20} />
+              <span>It got me there</span>
+              <ArrowRight size={16} />
+            </button>
+            <motion.button
+              animate={{ x: dislikePos.x, y: dislikePos.y }}
+              transition={{ type: "spring", stiffness: 600, damping: 15 }}
+              className="hefimer-rating-no"
+              onMouseEnter={handleDislikeInteraction}
+              onClick={handleDislikeInteraction}
+              aria-label="Negative rating is currently unavailable"
+            >
+              <ThumbsDown size={17} />
+              <span>Not quite</span>
+            </motion.button>
+          </div>
+          <AnimatePresence>
+            {showTrollText && (
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="hefimer-rating-troll hefimer-mono"
+              >
+                NEGATIVE CHANNEL CURRENTLY OUT OF RANGE =))
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.section>
+    );
+  }
 
   return (
     <motion.div
@@ -8930,11 +8989,58 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
         viewport={{ once: true, margin: "-80px" }}
         transition={{ duration: 0.7 }}
       >
-        <FAQSection />
+        <FAQSection variant="landing" />
       </motion.div>
 
       <div className="hefimer-landing-footer">
-        <LikeWidget showToast={showToast} likes={likesCount} />
+        <LikeWidget showToast={showToast} likes={likesCount} variant="landing" />
+
+        <motion.section
+          className="hefimer-terminal-cta"
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          aria-labelledby="hefimer-terminal-title"
+        >
+          <div className="hefimer-terminal-radar" aria-hidden="true">
+            <i /><i /><i /><i />
+            <motion.img
+              src="/hefimer-orbit-clean.svg"
+              alt=""
+              draggable={false}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
+          <div className="hefimer-terminal-copy">
+            <span className="hefimer-mono">END OF PAGE / START OF TRANSFER</span>
+            <h2 id="hefimer-terminal-title">Ready to move<br />something?</h2>
+            <p>Send a file now, or enter the five-digit code waiting for you.</p>
+          </div>
+          <div className="hefimer-terminal-actions">
+            <button className="hefimer-terminal-send" onClick={() => openFeature("file")}>
+              <span><FileUp size={18} /> Send a file</span>
+              <ArrowRight size={18} />
+            </button>
+            <button
+              className="hefimer-terminal-receive"
+              onClick={() => {
+                vibrate();
+                setActiveTab("receive");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              <span><Hash size={18} /> Enter a code</span>
+              <ArrowRight size={18} />
+            </button>
+          </div>
+          <div className="hefimer-terminal-status hefimer-mono">
+            <span><i /> NO ACCOUNT REQUIRED</span>
+            <span>5 DIGITS / ONE SHORT JOURNEY</span>
+          </div>
+        </motion.section>
+
         <footer>
           <div className="hefimer-footer-brand">
             <img src="/hefimer-orbit-clean.svg" alt="" draggable={false} />
@@ -8953,8 +9059,61 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
   );
 }
 
-function FAQSection() {
+function FAQSection({ variant = "default" }: { variant?: "default" | "landing" } = {}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  if (variant === "landing") {
+    return (
+      <section className="hefimer-faq-console" aria-labelledby="hefimer-faq-title">
+        <div className="hefimer-faq-heading">
+          <span className="hefimer-mono">OPEN CHANNEL / FAQ</span>
+          <h2 id="hefimer-faq-title">A few things<br />before you send.</h2>
+          <p>Short answers about codes, expiration, privacy, and the ways Hefimer can be used.</p>
+        </div>
+
+        <div className="hefimer-faq-list">
+          {FAQ_ITEMS.map((item, i) => {
+            const isOpen = openIndex === i;
+            return (
+              <motion.article
+                key={item.q}
+                className={`hefimer-faq-channel${isOpen ? " is-open" : ""}`}
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: "-45px" }}
+                transition={{ duration: 0.6, delay: Math.min(i * 0.045, 0.3), ease: [0.16, 1, 0.3, 1] }}
+              >
+                <button
+                  onClick={() => {
+                    vibrate();
+                    setOpenIndex(isOpen ? null : i);
+                  }}
+                  aria-expanded={isOpen}
+                >
+                  <span className="hefimer-faq-number hefimer-mono">F{String(i + 1).padStart(2, "0")}</span>
+                  <span className="hefimer-faq-question">{item.q}</span>
+                  <span className="hefimer-faq-toggle"><ChevronDown size={18} /></span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                      className="hefimer-faq-answer"
+                    >
+                      <p>{item.a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div className="w-full px-4 mb-4">
