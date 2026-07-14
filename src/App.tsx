@@ -7710,17 +7710,21 @@ function LikeWidget({
               <span>It got me there</span>
               <ArrowRight size={16} />
             </button>
-            <motion.button
+            <motion.div
               animate={{ x: dislikePos.x, y: dislikePos.y }}
               transition={{ type: "spring", stiffness: 600, damping: 15 }}
-              className="hefimer-rating-no"
-              onMouseEnter={handleDislikeInteraction}
-              onClick={handleDislikeInteraction}
-              aria-label="Negative rating is currently unavailable"
+              className="hefimer-rating-no-runner"
             >
-              <ThumbsDown size={17} />
-              <span>Not quite</span>
-            </motion.button>
+              <button
+                className="hefimer-rating-no"
+                onMouseEnter={handleDislikeInteraction}
+                onClick={handleDislikeInteraction}
+                aria-label="Negative rating is currently unavailable"
+              >
+                <ThumbsDown size={17} />
+                <span>Not quite</span>
+              </button>
+            </motion.div>
           </div>
           <AnimatePresence>
             {showTrollText && (
@@ -7730,7 +7734,7 @@ function LikeWidget({
                 exit={{ opacity: 0, y: 8 }}
                 className="hefimer-rating-troll hefimer-mono"
               >
-                NEGATIVE CHANNEL CURRENTLY OUT OF RANGE =))
+                Dislike is currently unavailable=))
               </motion.p>
             )}
           </AnimatePresence>
@@ -9003,8 +9007,17 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           aria-labelledby="hefimer-terminal-title"
         >
+          <div className="hefimer-terminal-spectrum" aria-hidden="true"><i /><i /><i /><i /></div>
           <div className="hefimer-terminal-radar" aria-hidden="true">
             <i /><i /><i /><i />
+            <span className="hefimer-terminal-packet hefimer-terminal-packet--file">
+              <FileUp size={15} />
+              <small>FILE</small>
+            </span>
+            <span className="hefimer-terminal-packet hefimer-terminal-packet--code">
+              <b /><b /><b /><b /><b />
+              <small>CODE</small>
+            </span>
             <motion.img
               src="/hefimer-orbit-clean.svg"
               alt=""
@@ -9014,8 +9027,8 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
             />
           </div>
           <div className="hefimer-terminal-copy">
-            <span className="hefimer-mono">END OF PAGE / START OF TRANSFER</span>
-            <h2 id="hefimer-terminal-title">Ready to move<br />something?</h2>
+            <span className="hefimer-mono">TRANSFER CHAMBER / READY</span>
+            <h2 id="hefimer-terminal-title">Make it move.<br /><em>Then let go.</em></h2>
             <p>Send a file now, or enter the five-digit code waiting for you.</p>
           </div>
           <div className="hefimer-terminal-actions">
@@ -9037,7 +9050,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           </div>
           <div className="hefimer-terminal-status hefimer-mono">
             <span><i /> NO ACCOUNT REQUIRED</span>
-            <span>5 DIGITS / ONE SHORT JOURNEY</span>
+            <span>FILE - CODE - RECEIVE - EXPIRE</span>
           </div>
         </motion.section>
 
