@@ -8730,7 +8730,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.img
-            src="/hefimer-orbit.svg"
+            src="/hefimer-orbit-clean.svg"
             alt="Hefimer"
             draggable={false}
             animate={{ rotate: 360 }}
@@ -8814,7 +8814,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
               <span className="hefimer-sculpture-ring hefimer-sculpture-ring--two" />
               <span className="hefimer-sculpture-ring hefimer-sculpture-ring--three" />
               <motion.img
-                src="/hefimer-orbit.svg"
+                src="/hefimer-orbit-clean.svg"
                 alt=""
                 draggable={false}
                 animate={{ rotate: 360 }}
@@ -8905,7 +8905,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           aria-hidden="true"
         >
-          <img src="/hefimer-orbit.svg" alt="" draggable={false} />
+          <img src="/hefimer-orbit-clean.svg" alt="" draggable={false} />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -8937,7 +8937,7 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
         <LikeWidget showToast={showToast} likes={likesCount} />
         <footer>
           <div className="hefimer-footer-brand">
-            <img src="/hefimer-orbit.svg" alt="" draggable={false} />
+            <img src="/hefimer-orbit-clean.svg" alt="" draggable={false} />
             <span>HEFIMER</span>
           </div>
           <p>Temporary sharing for files, text, live chat, and collaborative boards.</p>
