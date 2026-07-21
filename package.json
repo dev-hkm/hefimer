@@ -7,6 +7,8 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "tsx --test tests/**/*.test.ts",
+    "dev:pages": "npm run build && wrangler pages dev dist --port 4175",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "start": "node server.ts"

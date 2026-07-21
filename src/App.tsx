@@ -110,6 +110,7 @@ import "prismjs/components/prism-swift";
 import QRCode from "qrcode";
 import { Space } from "./Space";
 import { FeatureStationVisual, TransferTunnel } from "./landing/TransferTunnel";
+import { DeviceHub } from "./devices/DeviceHub";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -1916,6 +1917,17 @@ function SendText({ showToast, addToHistory, state, setState }: any) {
       }));
       addToHistory({ code: generatedCode, type: "text", action: "sent" });
       showToast("Code generated successfully!", "success");
+      window.dispatchEvent(new CustomEvent("hefimer:drop-created", {
+        detail: {
+          kind: "text",
+          name: currentLang.label === "Plain Text" ? "Shared text" : `${currentLang.label} snippet`,
+          provider: "Hefimer",
+          sizeBytes: new TextEncoder().encode(text).length,
+          dropCode: generatedCode,
+          expiresAt: expiresAtDate.getTime(),
+          payload: dropData,
+        },
+      }));
     } catch (err: any) {
       console.error(err);
       showToast(
@@ -3929,6 +3941,17 @@ function SendFile({
       });
       updateStats(isMulti ? `${uploadedFilesList.length} files` : file.name, file.size, false);
       showToast("File uploaded and code generated!", "success");
+      window.dispatchEvent(new CustomEvent("hefimer:drop-created", {
+        detail: {
+          kind: "file",
+          name: isMulti ? `${uploadedFilesList.length} files` : file.name,
+          provider: selectedProviderInfo.name,
+          sizeBytes: file.size,
+          dropCode: generatedCode,
+          expiresAt: expiresAtDate.getTime(),
+          payload: dropData,
+        },
+      }));
     } catch (err: any) {
       if (err?.message !== "UPLOAD_CANCELED" && !uploadCancelledRef.current) {
         console.error(err);
@@ -4413,6 +4436,7 @@ function Receive({
         }
 
         setState((prev: any) => ({ ...prev, result: { ...data, code: code } }));
+        window.dispatchEvent(new CustomEvent("hefimer:drop-opened", { detail: { code } }));
         addToHistory({
           code: code,
           type: data.type || "text",
@@ -9961,6 +9985,14 @@ export default function App() {
           <Clock size={16} />
         </button>
       </div>
+
+      <DeviceHub
+        showToast={showToast}
+        onOpenDrop={(code) => {
+          setReceiveState({ code, result: null });
+          setActiveTab("receive");
+        }}
+      />
 
       {/* Admin Password Override Modal */}
       <AnimatePresence>
