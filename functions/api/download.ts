@@ -17,6 +17,37 @@ function contentDisposition(value: string) {
   return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(original)}`;
 }
 
+function storageToShareId(source: URL) {
+  if (source.hostname.toLowerCase() !== "storage.to") return null;
+  const match = source.pathname.match(/^\/([A-Za-z0-9_-]{5,64})\/?$/);
+  return match?.[1] || null;
+}
+
+function storageToDownloadUrl(html: string, source: URL, shareId: string) {
+  const escapedId = shareId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = html.match(new RegExp(
+    `(?:https:\\/\\/storage\\.to)?\\/${escapedId}\\/download\\?expires=\\d+(?:&amp;|&)signature=[A-Za-z0-9_-]+`,
+  ));
+  if (!match) return null;
+  const resolved = new URL(match[0].replace(/&amp;/g, "&"), source.origin);
+  if (resolved.origin !== source.origin || resolved.pathname !== `/${shareId}/download`) return null;
+  return resolved;
+}
+
+async function fetchProviderFile(source: URL, headers: Headers) {
+  const shareId = storageToShareId(source);
+  if (!shareId) return fetch(source.toString(), { headers, redirect: "follow" });
+
+  const page = await fetch(source.toString(), {
+    headers: { Accept: "text/html", "Cache-Control": "no-cache" },
+    redirect: "follow",
+  });
+  if (!page.ok) return page;
+  const downloadUrl = storageToDownloadUrl(await page.text(), source, shareId);
+  if (!downloadUrl) throw new Error("storage.to did not provide a valid download link");
+  return fetch(downloadUrl.toString(), { headers, redirect: "follow" });
+}
+
 export const onRequestGet: any = async ({ request }: { request: Request }) => {
   if (!isTrustedBrowserRequest(request)) {
     return json({ error: "Cross-origin requests are not allowed" }, 403);
@@ -39,7 +70,7 @@ export const onRequestGet: any = async ({ request }: { request: Request }) => {
     const upstreamHeaders = new Headers();
     const range = request.headers.get("Range");
     if (range) upstreamHeaders.set("Range", range);
-    const upstream = await fetch(source.toString(), { headers: upstreamHeaders, redirect: "follow" });
+    const upstream = await fetchProviderFile(source, upstreamHeaders);
     if (!upstream.ok && upstream.status !== 206) {
       return json({ error: `Provider download failed (${upstream.status})` }, 502);
     }
