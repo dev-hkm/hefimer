@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Bell,
-  BellOff,
   Check,
   ChevronRight,
   CircleOff,
@@ -20,7 +18,6 @@ import {
   Radio,
   RefreshCw,
   Send,
-  Settings2,
   ShieldCheck,
   Smartphone,
   Trash2,
@@ -31,10 +28,7 @@ import {
 import QRCode from "qrcode";
 import {
   deviceApi,
-  disableDevicePush,
-  enableDevicePush,
   getDeviceIdentity,
-  getPushSubscription,
   type DeviceSync,
   type DeviceTransfer,
   type DropCreatedDetail,
@@ -117,7 +111,6 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
   const [pairToken, setPairToken] = useState("");
   const [invite, setInvite] = useState<{ token: string; expiresAt: number } | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [copiedValue, setCopiedValue] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [section, setSection] = useState<"devices" | "activity">("devices");
@@ -189,23 +182,14 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
     const handleFocus = () => deviceFeatureEnabled() && refresh(true);
     const handleVisibility = () => deviceFeatureEnabled() && !document.hidden && refresh(true);
     const handleOpenDevices = () => openHub();
-    const handleSwMessage = (event: MessageEvent) => {
-      if (deviceFeatureEnabled() && event.data?.type === "hefimer-transfer") refresh(true);
-    };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("hefimer:open-devices", handleOpenDevices);
-    navigator.serviceWorker?.addEventListener("message", handleSwMessage);
-    if (deviceFeatureEnabled()) getPushSubscription().then((subscription) => setNotificationsEnabled(Boolean(subscription))).catch(() => {});
-    if (deviceFeatureEnabled() && "Notification" in window && Notification.permission === "granted") {
-      enableDevicePush().then(() => setNotificationsEnabled(true)).catch(() => {});
-    }
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("hefimer:open-devices", handleOpenDevices);
-      navigator.serviceWorker?.removeEventListener("message", handleSwMessage);
     };
   }, []);
 
@@ -330,25 +314,6 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
     setCopiedValue(value);
     window.setTimeout(() => setCopiedValue((current) => current === value ? "" : current), 1800);
     showToast(message, "success");
-  };
-
-  const toggleNotifications = async () => {
-    setBusy("push");
-    try {
-      if (notificationsEnabled) {
-        await disableDevicePush();
-        setNotificationsEnabled(false);
-        showToast("Device notifications disabled", "success");
-      } else {
-        await enableDevicePush();
-        setNotificationsEnabled(true);
-        showToast("You will be notified when a device sends", "success");
-      }
-    } catch (err: any) {
-      showToast(err.message || "Could not update notifications", "error");
-    } finally {
-      setBusy("");
-    }
   };
 
   const decide = async (transfer: DeviceTransfer, decision: "approve" | "decline") => {
@@ -544,7 +509,7 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
                   </div>
                 ) : (
                   <div>
-                    <div className="grid gap-4 lg:grid-cols-[1.4fr_.8fr]">
+                    <div>
                       <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.04] p-6 sm:p-7">
                         <div className="absolute -right-14 -top-14 h-48 w-48 rounded-full border border-white/12" />
                         <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full border border-white/7" />
@@ -561,14 +526,6 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
                           </div>
                         </div>
                       </div>
-                      <button onClick={toggleNotifications} disabled={busy === "push"} className={`group rounded-[32px] border p-6 text-left transition ${notificationsEnabled ? "border-white/25 bg-white/[0.09]" : "border-white/10 bg-white/[0.025] hover:border-white/20"}`}>
-                        <div className="flex items-start justify-between">
-                          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${notificationsEnabled ? "bg-white text-black" : "bg-white/8 text-white/50"}`}>{busy === "push" ? <Loader2 size={18} className="animate-spin" /> : notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}</div>
-                          <Settings2 size={15} className="text-white/20 transition group-hover:rotate-45" />
-                        </div>
-                        <p className="mt-6 text-sm font-black">Background alerts</p>
-                        <p className="mt-1 text-xs leading-relaxed text-white/35">{notificationsEnabled ? "On · alerts arrive when Hefimer is closed" : "Off · tap to receive system notifications"}</p>
-                      </button>
                     </div>
 
                     <div className="mt-5 flex gap-2 rounded-full border border-white/8 bg-white/[0.02] p-1.5">

@@ -85,13 +85,6 @@ function toBase64Url(value: ArrayBuffer | Uint8Array) {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-export function fromBase64Url(value: string) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
 async function sha256(value: string) {
   return toBase64Url(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
 }
@@ -238,43 +231,4 @@ export const deviceApi = {
   updateTransfer: (id: string, status: "downloading" | "received" | "failed") => requestJson(`/transfers/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   cancelTransfer: (id: string) => requestJson(`/transfers/${id}/cancel`, { method: "POST", body: "{}" }),
 };
-
-export async function getPushSubscription() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
-  const registration = await navigator.serviceWorker.ready;
-  return registration.pushManager.getSubscription();
-}
-
-export async function enableDevicePush() {
-  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-    throw new Error("System notifications are not supported on this browser");
-  }
-  const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
-  if (permission !== "granted") throw new Error("Notification permission was not granted");
-  const keyResult = await requestJson<{ publicKey: string | null; enabled: boolean }>("/push-key", {}, false);
-  if (!keyResult.enabled || !keyResult.publicKey) throw new Error("Push notifications are not configured yet");
-  const registration = await navigator.serviceWorker.ready;
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: fromBase64Url(keyResult.publicKey) as BufferSource,
-    });
-  }
-  await requestJson("/push-subscriptions", {
-    method: "POST",
-    body: JSON.stringify({ subscription: subscription.toJSON() }),
-  });
-  return subscription;
-}
-
-export async function disableDevicePush() {
-  const subscription = await getPushSubscription();
-  if (!subscription) return;
-  await requestJson("/push-subscriptions", {
-    method: "DELETE",
-    body: JSON.stringify({ endpoint: subscription.endpoint }),
-  });
-  await subscription.unsubscribe();
-}
 

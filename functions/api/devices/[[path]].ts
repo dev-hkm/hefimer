@@ -6,12 +6,10 @@ import {
   type AuthenticatedDevice,
   type DeviceEnv,
 } from "../../lib/device-auth";
-import { sendEmptyWebPush } from "../../lib/device-push";
 
 interface PagesContext {
   request: Request;
   env: DeviceEnv;
-  waitUntil(promise: Promise<unknown>): void;
 }
 
 interface MembershipRow {
@@ -165,18 +163,6 @@ async function syncDevice(env: DeviceEnv, device: AuthenticatedDevice) {
   };
 }
 
-async function notifyGroup(context: PagesContext, groupId: string, senderDeviceId: string) {
-  const subscriptions = await context.env.HEFIMER_DB.prepare(`
-    SELECT p.endpoint FROM push_subscriptions p
-    JOIN group_memberships m ON m.device_id = p.device_id
-    WHERE m.group_id = ? AND p.device_id <> ?
-  `).bind(groupId, senderDeviceId).all<{ endpoint: string }>();
-  if (!subscriptions.results.length) return;
-  context.waitUntil(Promise.allSettled(
-    subscriptions.results.map(({ endpoint }) => sendEmptyWebPush(context.env, endpoint)),
-  ));
-}
-
 async function handleRegister(context: PagesContext, bodyText: string) {
   const body = await bodyJson(bodyText);
   const id = typeof body.id === "string" ? body.id : "";
@@ -219,10 +205,6 @@ async function handleRoute(context: PagesContext) {
 
   if (method === "OPTIONS") return new Response(null, { status: 204 });
   if (route === "register" && method === "POST") return handleRegister(context, bodyText);
-  if (route === "push-key" && method === "GET") {
-    return json({ publicKey: env.VAPID_PUBLIC_KEY || null, enabled: Boolean(env.VAPID_PUBLIC_KEY) });
-  }
-
   const device = await authenticateDevice(request, env, bodyText);
   const body = await bodyJson(bodyText);
 
@@ -356,7 +338,6 @@ async function handleRoute(context: PagesContext) {
         FROM group_memberships WHERE group_id = ? AND device_id <> ?
       `).bind(transferId, now, now, membership.group_id, device.id),
     ]);
-    await notifyGroup(context, membership.group_id, device.id);
     return json({ ok: true, transferId }, 201);
   }
 
@@ -391,32 +372,6 @@ async function handleRoute(context: PagesContext) {
     `).bind(status, now, transferId, device.id, allowedCurrent, status).run();
     if ((result.meta?.changes || 0) !== 1) return json({ error: "Invalid transfer state change" }, 409);
     return json({ ok: true, status });
-  }
-
-  if (route === "push-subscriptions" && method === "POST") {
-    const subscription = body.subscription as Record<string, unknown> | undefined;
-    const endpoint = typeof subscription?.endpoint === "string" ? subscription.endpoint : "";
-    const keys = subscription?.keys as Record<string, unknown> | undefined;
-    const p256dh = typeof keys?.p256dh === "string" ? keys.p256dh : "";
-    const auth = typeof keys?.auth === "string" ? keys.auth : "";
-    if (!endpoint.startsWith("https://") || endpoint.length > 2048 || !p256dh || !auth) {
-      return json({ error: "Invalid push subscription" }, 400);
-    }
-    const now = Date.now();
-    await env.HEFIMER_DB.prepare(`
-      INSERT INTO push_subscriptions (id, device_id, endpoint, p256dh, auth, created_at, last_used_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(endpoint) DO UPDATE SET device_id = excluded.device_id, p256dh = excluded.p256dh,
-        auth = excluded.auth, last_used_at = excluded.last_used_at
-    `).bind(randomId("psh_"), device.id, endpoint, p256dh, auth, now, now).run();
-    return json({ ok: true });
-  }
-
-  if (route === "push-subscriptions" && method === "DELETE") {
-    const endpoint = typeof body.endpoint === "string" ? body.endpoint : "";
-    await env.HEFIMER_DB.prepare("DELETE FROM push_subscriptions WHERE device_id = ? AND endpoint = ?")
-      .bind(device.id, endpoint).run();
-    return json({ ok: true });
   }
 
   return json({ error: "Device API route not found" }, 404);

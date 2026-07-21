@@ -11,7 +11,3 @@ database_id = "cb102ff3-2a45-4e9a-a63f-0ea443aa0e5b"
 [[kv_namespaces]]
 binding = "PAIR_TOKENS"
 id = "59d22e93bb214d76a39e1e7b81eb9303"
-
-[vars]
-VAPID_SUBJECT = "mailto:hoangkhanhminh2005.vl@gmail.com"
-VAPID_PUBLIC_KEY = "BA4mDu24804vuUBq0szb3Bxs4CGHMkfbqaJ7RwHZvlQncgFfFjF218Je0--VVo8BQWMLvmtC6hH7zCALLGh2K3o"

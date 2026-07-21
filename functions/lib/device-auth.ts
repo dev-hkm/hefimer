@@ -19,9 +19,6 @@ export interface KVNamespaceLike {
 export interface DeviceEnv {
   HEFIMER_DB: D1DatabaseLike;
   PAIR_TOKENS: KVNamespaceLike;
-  VAPID_PUBLIC_KEY?: string;
-  VAPID_PRIVATE_JWK?: string;
-  VAPID_SUBJECT?: string;
 }
 
 export interface AuthenticatedDevice {
@@ -151,4 +148,3 @@ export function json(data: unknown, status = 200, headers: Record<string, string
     },
   });
 }
-

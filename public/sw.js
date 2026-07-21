@@ -94,33 +94,3 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
-
-self.addEventListener("push", (event) => {
-  const notifyClients = self.clients.matchAll({ type: "window", includeUncontrolled: true })
-    .then((clients) => clients.forEach((client) => client.postMessage({ type: "hefimer-transfer" })));
-  const notification = self.registration.showNotification("A device is sending through Hefimer", {
-    body: "Open Hefimer to approve or receive the transfer.",
-    icon: "/hefimer-orbit.png",
-    badge: "/hefimer-orbit.png",
-    tag: "hefimer-device-transfer",
-    renotify: true,
-    data: { url: "/?devices=1" },
-    actions: [{ action: "open", title: "Open Hefimer" }]
-  });
-  event.waitUntil(Promise.all([notifyClients, notification]));
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const target = new URL(event.notification.data?.url || "/?devices=1", self.location.origin).href;
-  event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      const existing = clients.find((client) => new URL(client.url).origin === self.location.origin);
-      if (existing) {
-        existing.postMessage({ type: "hefimer-transfer" });
-        return existing.focus();
-      }
-      return self.clients.openWindow(target);
-    })
-  );
-});
