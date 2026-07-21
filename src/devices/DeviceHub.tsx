@@ -93,9 +93,9 @@ function StatusPill({ status }: { status: string }) {
   return (
     <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${
       active
-        ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+        ? "border-white/25 bg-white/10 text-white"
         : waiting
-          ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-200"
+          ? "border-white/15 bg-white/[0.06] text-white/70"
           : "border-white/10 bg-white/[0.04] text-white/40"
     }`}>
       {STATUS_LABELS[status] || status}
@@ -117,6 +117,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   const [invite, setInvite] = useState<{ token: string; expiresAt: number } | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [copiedValue, setCopiedValue] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [section, setSection] = useState<"devices" | "activity">("devices");
   const refreshing = useRef(false);
@@ -275,18 +276,34 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   };
 
   const copyValue = async (value: string, message: string) => {
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.left = "-9999px";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.focus();
+    area.select();
+    area.setSelectionRange(0, value.length);
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(value);
-      showToast(message, "success");
-    } catch {
-      const area = document.createElement("textarea");
-      area.value = value;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      showToast(message, "success");
+      copied = document.execCommand("copy");
+    } catch {}
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        copied = true;
+      }
+    } catch {}
+    area.remove();
+    if (!copied) {
+      showToast("Clipboard access was blocked. Select the token and try again.", "error");
+      return;
     }
+    setCopiedValue(value);
+    window.setTimeout(() => setCopiedValue((current) => current === value ? "" : current), 1800);
+    showToast(message, "success");
   };
 
   const toggleNotifications = async () => {
@@ -337,7 +354,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   };
 
   return (
-    <>
+    <div className="device-hub-theme">
       <motion.button
         type="button"
         initial={{ opacity: 0, scale: 0.8 }}
@@ -347,7 +364,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
         title="Paired devices"
       >
         <MonitorSmartphone size={16} />
-        {sync.group && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-black bg-emerald-400" />}
+        {sync.group && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-black bg-white" />}
         {badgeCount > 0 && (
           <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-white px-1 py-0.5 text-[8px] font-black text-black">
             {badgeCount > 9 ? "9+" : badgeCount}
@@ -363,14 +380,14 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
             exit={{ opacity: 0, y: 40, scale: 0.94 }}
             className="fixed bottom-4 left-4 right-4 z-[360] mx-auto max-w-md overflow-hidden rounded-[30px] border border-white/15 bg-[#0a0a0a]/95 p-5 shadow-[0_30px_100px_rgba(0,0,0,.75)] backdrop-blur-2xl sm:bottom-7"
           >
-            <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
+            <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
             <div className="flex items-start gap-4">
-              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white">
                 {incomingPrompt.kind === "file" ? <Download size={21} /> : <FileText size={21} />}
-                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-300" />
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-white" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-black uppercase tracking-[0.26em] text-cyan-200/60">Incoming from {incomingPrompt.sender_name}</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.26em] text-white/55">Incoming from {incomingPrompt.sender_name}</p>
                 <h3 className="mt-1 truncate text-lg font-black tracking-tight text-white">{incomingPrompt.name}</h3>
                 <p className="mt-1 text-xs text-white/40">{formatBytes(incomingPrompt.size_bytes)} · {incomingPrompt.provider} · {formatRemaining(incomingPrompt.expires_at)}</p>
               </div>
@@ -401,9 +418,9 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 45, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 330, damping: 32 }}
-              className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[38px] border border-white/12 bg-[#070707] shadow-[0_35px_140px_rgba(0,0,0,.85)] sm:max-h-[88vh] sm:rounded-[38px]"
+              className="device-hub-surface relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[38px] border border-white/12 bg-[#070707] shadow-[0_35px_140px_rgba(0,0,0,.85)] sm:max-h-[88vh] sm:rounded-[38px]"
             >
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_5%,rgba(34,211,238,.10),transparent_28%),radial-gradient(circle_at_88%_90%,rgba(251,146,60,.08),transparent_30%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_5%,rgba(255,255,255,.075),transparent_28%),radial-gradient(circle_at_88%_90%,rgba(255,255,255,.035),transparent_30%)]" />
               <header className="relative flex items-center justify-between border-b border-white/8 px-5 py-4 sm:px-7">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06]">
@@ -432,7 +449,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                   </div>
                 ) : error && !sync.device.id ? (
                   <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-                    <CircleOff size={34} className="mb-4 text-rose-300" />
+                    <CircleOff size={34} className="mb-4 text-white/70" />
                     <h3 className="text-xl font-black">Device service unavailable</h3>
                     <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/40">{error}</p>
                     <button onClick={() => refresh(false)} className="mt-6 rounded-full bg-white px-6 py-3 text-[10px] font-black uppercase tracking-widest text-black">Try again</button>
@@ -441,8 +458,8 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                   <div className="mx-auto max-w-2xl">
                     <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
                       <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6">
-                        <ShieldCheck className="mb-10 text-cyan-200" size={26} />
-                        <p className="text-[9px] font-black uppercase tracking-[0.25em] text-cyan-200/55">Accountless identity</p>
+                        <ShieldCheck className="mb-10 text-white" size={26} />
+                        <p className="text-[9px] font-black uppercase tracking-[0.25em] text-white/50">Accountless identity</p>
                         <h3 className="mt-2 text-2xl font-black tracking-tight">This browser is now a device.</h3>
                         <p className="mt-3 text-sm leading-relaxed text-white/40">Its private key stays here. Pair once, then send through Hefimer providers whenever the group is active.</p>
                       </div>
@@ -462,9 +479,10 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                         <button onClick={() => setSetupMode("create")} className={`rounded-full py-3 text-[10px] font-black uppercase tracking-[0.18em] transition ${setupMode === "create" ? "bg-white text-black" : "text-white/35 hover:text-white"}`}>Create group</button>
                         <button onClick={() => setSetupMode("join")} className={`rounded-full py-3 text-[10px] font-black uppercase tracking-[0.18em] transition ${setupMode === "join" ? "bg-white text-black" : "text-white/35 hover:text-white"}`}>Enter token</button>
                       </div>
-                      <div className="p-4 sm:p-6">
+                      <div className="overflow-hidden p-4 sm:p-6">
+                        <AnimatePresence mode="wait" initial={false}>
                         {setupMode === "create" ? (
-                          <div className="space-y-5">
+                          <motion.div key="create" initial={{ opacity: 0, x: -12, filter: "blur(4px)" }} animate={{ opacity: 1, x: 0, filter: "blur(0px)" }} exit={{ opacity: 0, x: 12, filter: "blur(4px)" }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="space-y-5">
                             <label className="block">
                               <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/35">Group name</span>
                               <input value={groupName} onChange={(event) => setGroupName(event.target.value)} maxLength={64} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-sm font-bold outline-none transition focus:border-white/30" />
@@ -473,18 +491,18 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                               <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/35">Link lifetime</span>
                               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
                                 {[['12h','12 hours'],['24h','24 hours'],['7d','7 days'],['30d','30 days'],['never','Forever']].map(([value, label]) => (
-                                  <button key={value} onClick={() => setDuration(value)} className={`rounded-2xl border px-2 py-3 text-[10px] font-bold transition ${duration === value ? "border-cyan-200/35 bg-cyan-200/10 text-cyan-100" : "border-white/8 text-white/35 hover:border-white/20"}`}>{label}</button>
+                                  <button key={value} onClick={() => setDuration(value)} className={`rounded-2xl border px-2 py-3 text-[10px] font-bold transition ${duration === value ? "border-white bg-white text-black" : "border-white/8 text-white/35 hover:border-white/20"}`}>{label}</button>
                                 ))}
                               </div>
                             </div>
                             <button onClick={createGroup} disabled={Boolean(busy)} className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-4 text-[10px] font-black uppercase tracking-[0.2em] text-black transition hover:scale-[1.01] disabled:opacity-40">
                               {busy === "create" ? <Loader2 size={15} className="animate-spin" /> : <Users size={15} />} Create secure group
                             </button>
-                          </div>
+                          </motion.div>
                         ) : (
-                          <div className="space-y-5">
-                            <div className="rounded-3xl border border-orange-300/15 bg-orange-300/[0.055] p-5">
-                              <QrCode size={22} className="text-orange-200" />
+                          <motion.div key="join" initial={{ opacity: 0, x: 12, filter: "blur(4px)" }} animate={{ opacity: 1, x: 0, filter: "blur(0px)" }} exit={{ opacity: 0, x: -12, filter: "blur(4px)" }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="space-y-5">
+                            <div className="rounded-3xl border border-white/12 bg-white/[0.045] p-5">
+                              <QrCode size={22} className="text-white" />
                               <h3 className="mt-5 text-lg font-black">Scan the QR with your camera, or enter its token here.</h3>
                               <p className="mt-2 text-xs leading-relaxed text-white/35">Every token pairs one device and expires after ten minutes.</p>
                             </div>
@@ -492,8 +510,9 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                             <button onClick={joinGroup} disabled={Boolean(busy) || !/^hfm-[A-Za-z0-9]{36}$/.test(pairToken)} className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-4 text-[10px] font-black uppercase tracking-[0.2em] text-black transition hover:scale-[1.01] disabled:opacity-30">
                               {busy === "join" ? <Loader2 size={15} className="animate-spin" /> : <Link2 size={15} />} Pair this device
                             </button>
-                          </div>
+                          </motion.div>
                         )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </div>
@@ -501,11 +520,11 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                   <div>
                     <div className="grid gap-4 lg:grid-cols-[1.4fr_.8fr]">
                       <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.04] p-6 sm:p-7">
-                        <div className="absolute -right-14 -top-14 h-48 w-48 rounded-full border border-cyan-300/15" />
-                        <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full border border-orange-300/10" />
+                        <div className="absolute -right-14 -top-14 h-48 w-48 rounded-full border border-white/12" />
+                        <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full border border-white/7" />
                         <div className="relative flex items-start justify-between gap-4">
                           <div>
-                            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-emerald-300/65"><Radio size={12} /> Active group</div>
+                            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/55"><Radio size={12} /> Active group</div>
                             <h3 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-4xl">{sync.group.name}</h3>
                             <p className="mt-3 text-sm text-white/35">{sync.members.length} device{sync.members.length === 1 ? "" : "s"} · {formatRemaining(sync.group.expiresAt)}</p>
                           </div>
@@ -516,9 +535,9 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                           </div>
                         </div>
                       </div>
-                      <button onClick={toggleNotifications} disabled={busy === "push"} className={`group rounded-[32px] border p-6 text-left transition ${notificationsEnabled ? "border-emerald-300/20 bg-emerald-300/[0.07]" : "border-white/10 bg-white/[0.025] hover:border-white/20"}`}>
+                      <button onClick={toggleNotifications} disabled={busy === "push"} className={`group rounded-[32px] border p-6 text-left transition ${notificationsEnabled ? "border-white/25 bg-white/[0.09]" : "border-white/10 bg-white/[0.025] hover:border-white/20"}`}>
                         <div className="flex items-start justify-between">
-                          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${notificationsEnabled ? "bg-emerald-300 text-black" : "bg-white/8 text-white/50"}`}>{busy === "push" ? <Loader2 size={18} className="animate-spin" /> : notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}</div>
+                          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${notificationsEnabled ? "bg-white text-black" : "bg-white/8 text-white/50"}`}>{busy === "push" ? <Loader2 size={18} className="animate-spin" /> : notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}</div>
                           <Settings2 size={15} className="text-white/20 transition group-hover:rotate-45" />
                         </div>
                         <p className="mt-6 text-sm font-black">Background alerts</p>
@@ -531,8 +550,9 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                       <button onClick={() => setSection("activity")} className={`relative flex-1 rounded-full py-3 text-[10px] font-black uppercase tracking-[0.18em] transition ${section === "activity" ? "bg-white text-black" : "text-white/35"}`}>Activity {badgeCount > 0 && <span className="ml-1 opacity-60">{badgeCount}</span>}</button>
                     </div>
 
+                    <AnimatePresence mode="wait" initial={false}>
                     {section === "devices" ? (
-                      <div className="mt-5 grid gap-5 lg:grid-cols-[1.05fr_.95fr]">
+                      <motion.div key="devices" initial={{ opacity: 0, y: 12, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -8, filter: "blur(4px)" }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="mt-5 grid gap-5 lg:grid-cols-[1.05fr_.95fr]">
                         <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
                           <div className="flex items-center justify-between">
                             <div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/30">Trusted lane</p><h4 className="mt-1 text-lg font-black">Connected devices</h4></div>
@@ -540,13 +560,13 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                           </div>
                           <div className="mt-5 space-y-2">
                             {sync.members.map((member) => (
-                              <div key={member.id} className="flex items-center gap-3 rounded-2xl border border-white/7 bg-black/25 p-3.5">
+                              <div key={member.id} className="device-hub-row flex items-center gap-3 rounded-2xl border border-white/7 bg-black/25 p-3.5">
                                 <div className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${member.online ? "bg-white text-black" : "bg-white/5 text-white/35"}`}>
                                   {deviceIcon(member)}
-                                  <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0a0a0a] ${member.online ? "bg-emerald-400" : "bg-zinc-600"}`} />
+                                  <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0a0a0a] ${member.online ? "bg-white" : "bg-zinc-600"}`} />
                                 </div>
                                 <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{member.name}</p><p className="mt-0.5 text-[10px] text-white/30">{member.platform}{member.id === sync.device.id ? " · This device" : ""}{member.is_owner ? " · Owner" : ""}</p></div>
-                                {isOwner && member.id !== sync.device.id && <button onClick={() => run(`remove:${member.id}`, () => deviceApi.removeDevice(member.id), "Device removed")} className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 transition hover:bg-rose-400/10 hover:text-rose-300"><Trash2 size={14} /></button>}
+                                {isOwner && member.id !== sync.device.id && <button onClick={() => run(`remove:${member.id}`, () => deviceApi.removeDevice(member.id), "Device removed")} className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 transition hover:bg-white/10 hover:text-white"><Trash2 size={14} /></button>}
                               </div>
                             ))}
                           </div>
@@ -559,36 +579,36 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
 
                         <div className="space-y-4">
                           {isOwner && (
-                            <div className="rounded-[30px] border border-white/10 bg-gradient-to-br from-cyan-300/[0.08] to-orange-300/[0.04] p-5">
-                              <div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-cyan-100/45">One-time entrance</p><h4 className="mt-1 text-lg font-black">Pair another device</h4></div><UserRoundPlus size={20} className="text-cyan-100/55" /></div>
+                            <div className="rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.08] to-transparent p-5">
+                              <div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/45">One-time entrance</p><h4 className="mt-1 text-lg font-black">Pair another device</h4></div><UserRoundPlus size={20} className="text-white/55" /></div>
                               {!invite ? (
                                 <button onClick={createInvite} disabled={busy === "invite"} className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3.5 text-[10px] font-black uppercase tracking-[0.18em] text-black disabled:opacity-40">{busy === "invite" ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />} Generate QR + token</button>
                               ) : (
                                 <div className="mt-5">
                                   {qrDataUrl && <div className="mx-auto w-fit rounded-[24px] bg-white p-3"><img src={qrDataUrl} alt="Hefimer pairing QR code" className="h-40 w-40" /></div>}
-                                  <button onClick={() => copyValue(invite.token, "Pairing token copied")} className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-left"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-white/60">{invite.token}</span><Copy size={14} /></button>
+                                  <button aria-label="Copy pairing token" onClick={() => copyValue(invite.token, "Pairing token copied")} className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-left hover:border-white/25 hover:bg-white/[0.06]"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-white/60">{invite.token}</span><AnimatePresence mode="wait" initial={false}>{copiedValue === invite.token ? <motion.span key="copied" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="flex shrink-0 items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-white"><Check size={13} /> Copied</motion.span> : <motion.span key="copy" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="flex shrink-0 items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-white/55"><Copy size={13} /> Copy token</motion.span>}</AnimatePresence></button>
                                   <div className="mt-3 flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-white/25"><span>Single use</span><span>{formatRemaining(invite.expiresAt)}</span></div>
                                   <button onClick={createInvite} className="mt-3 w-full py-2 text-[9px] font-black uppercase tracking-widest text-white/35 hover:text-white">Replace token</button>
                                 </div>
                               )}
                             </div>
                           )}
-                          <button onClick={() => run("auto", () => deviceApi.setAutoApprove(!sync.group!.autoApprove), sync.group!.autoApprove ? "Approval required again" : "Auto-approve enabled")} className={`flex w-full items-center gap-4 rounded-[26px] border p-4 text-left transition ${sync.group.autoApprove ? "border-emerald-300/20 bg-emerald-300/[0.07]" : "border-white/10 bg-white/[0.025]"}`}>
-                            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${sync.group.autoApprove ? "bg-emerald-300 text-black" : "bg-white/5 text-white/35"}`}><PackageCheck size={18} /></div>
+                          <button onClick={() => run("auto", () => deviceApi.setAutoApprove(!sync.group!.autoApprove), sync.group!.autoApprove ? "Approval required again" : "Auto-approve enabled")} className={`flex w-full items-center gap-4 rounded-[26px] border p-4 text-left transition ${sync.group.autoApprove ? "border-white/25 bg-white/[0.09]" : "border-white/10 bg-white/[0.025]"}`}>
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${sync.group.autoApprove ? "bg-white text-black" : "bg-white/5 text-white/35"}`}><PackageCheck size={18} /></div>
                             <div className="flex-1"><p className="text-sm font-black">Always approve</p><p className="mt-0.5 text-[10px] text-white/30">Accept offers from this group automatically</p></div>
-                            <div className={`h-6 w-11 rounded-full p-1 transition ${sync.group.autoApprove ? "bg-emerald-300" : "bg-white/10"}`}><div className={`h-4 w-4 rounded-full bg-black transition ${sync.group.autoApprove ? "translate-x-5" : ""}`} /></div>
+                            <div className={`h-6 w-11 rounded-full p-1 transition ${sync.group.autoApprove ? "bg-white" : "bg-white/10"}`}><div className={`h-4 w-4 rounded-full transition ${sync.group.autoApprove ? "translate-x-5 bg-black" : "bg-white/45"}`} /></div>
                           </button>
-                          <button onClick={() => run("leave", () => deviceApi.leaveGroup(), isOwner ? "Group deleted" : "Device unpaired")} className="flex w-full items-center justify-center gap-2 rounded-full border border-rose-300/15 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-rose-200/55 transition hover:bg-rose-300/10 hover:text-rose-200"><LogOut size={13} /> {isOwner ? "Delete group for everyone" : "Leave this group"}</button>
+                          <button onClick={() => run("leave", () => deviceApi.leaveGroup(), isOwner ? "Group deleted" : "Device unpaired")} className="flex w-full items-center justify-center gap-2 rounded-full border border-white/12 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/40 transition hover:border-white/25 hover:bg-white/[0.06] hover:text-white"><LogOut size={13} /> {isOwner ? "Delete group for everyone" : "Leave this group"}</button>
                         </div>
-                      </div>
+                      </motion.div>
                     ) : (
-                      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                      <motion.div key="activity" initial={{ opacity: 0, y: 12, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -8, filter: "blur(4px)" }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="mt-5 grid gap-5 lg:grid-cols-2">
                         <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
-                          <div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-cyan-100/40">Incoming</p><h4 className="mt-1 text-lg font-black">Waiting for you</h4></div><Download size={19} className="text-cyan-100/45" /></div>
+                          <div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/40">Incoming</p><h4 className="mt-1 text-lg font-black">Waiting for you</h4></div><Download size={19} className="text-white/45" /></div>
                           <div className="mt-5 space-y-3">
                             {!sync.incoming.length && <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-xs text-white/25">Nothing incoming yet.</div>}
                             {sync.incoming.map((transfer) => (
-                              <div key={transfer.id} className="rounded-2xl border border-white/8 bg-black/30 p-4">
+                              <div key={transfer.id} className="device-hub-row rounded-2xl border border-white/8 bg-black/30 p-4">
                                 <div className="flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5">{transfer.kind === "file" ? <Download size={15} /> : <FileText size={15} />}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{transfer.name}</p><p className="mt-1 text-[10px] text-white/30">{transfer.sender_name} · {formatBytes(transfer.size_bytes)}</p></div><StatusPill status={transfer.recipient_status || "pending"} /></div>
                                 {transfer.recipient_status === "pending" && <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => decide(transfer, "decline")} className="rounded-full border border-white/10 py-2.5 text-[9px] font-black uppercase tracking-wider text-white/40">Decline</button><button onClick={() => decide(transfer, "approve")} className="rounded-full bg-white py-2.5 text-[9px] font-black uppercase tracking-wider text-black">Approve</button></div>}
                                 {["approved", "downloading", "received"].includes(transfer.recipient_status || "") && <button onClick={() => openTransfer(transfer)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white py-2.5 text-[9px] font-black uppercase tracking-wider text-black"><ChevronRight size={13} /> Open transfer</button>}
@@ -597,20 +617,21 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
                           </div>
                         </div>
                         <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
-                          <div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-100/40">Outgoing</p><h4 className="mt-1 text-lg font-black">Sent from here</h4></div><Send size={19} className="text-orange-100/45" /></div>
+                          <div className="flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/40">Outgoing</p><h4 className="mt-1 text-lg font-black">Sent from here</h4></div><Send size={19} className="text-white/45" /></div>
                           <div className="mt-5 space-y-3">
                             {!sync.outgoing.length && <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-xs text-white/25">Your next drop will appear here.</div>}
                             {sync.outgoing.map((transfer) => (
-                              <div key={transfer.id} className="rounded-2xl border border-white/8 bg-black/30 p-4">
+                              <div key={transfer.id} className="device-hub-row rounded-2xl border border-white/8 bg-black/30 p-4">
                                 <div className="flex items-start gap-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{transfer.name}</p><p className="mt-1 text-[10px] text-white/30">{transfer.provider} · {formatRemaining(transfer.expires_at)}</p></div><StatusPill status={transfer.transfer_status} /></div>
-                                <div className="mt-3 flex flex-wrap gap-1.5">{transfer.recipients?.map((recipient) => <span key={recipient.device_id} title={recipient.device_name} className="flex items-center gap-1 rounded-full border border-white/8 px-2 py-1 text-[9px] text-white/35"><span className={`h-1.5 w-1.5 rounded-full ${recipient.status === "received" ? "bg-emerald-300" : recipient.status === "declined" || recipient.status === "failed" ? "bg-rose-300" : "bg-cyan-200"}`} />{recipient.device_name}</span>)}</div>
-                                {transfer.transfer_status === "active" && <button onClick={() => run(`cancel:${transfer.id}`, () => deviceApi.cancelTransfer(transfer.id), "Transfer cancelled")} className="mt-3 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-white/25 hover:text-rose-300"><X size={11} /> Cancel offer</button>}
+                                <div className="mt-3 flex flex-wrap gap-1.5">{transfer.recipients?.map((recipient) => <span key={recipient.device_id} title={recipient.device_name} className="flex items-center gap-1 rounded-full border border-white/8 px-2 py-1 text-[9px] text-white/35"><span className={`h-1.5 w-1.5 rounded-full ${recipient.status === "received" ? "bg-white" : recipient.status === "declined" || recipient.status === "failed" ? "bg-zinc-700" : "bg-white/55"}`} />{recipient.device_name}</span>)}</div>
+                                {transfer.transfer_status === "active" && <button onClick={() => run(`cancel:${transfer.id}`, () => deviceApi.cancelTransfer(transfer.id), "Transfer cancelled")} className="mt-3 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-white/25 hover:text-white"><X size={11} /> Cancel offer</button>}
                               </div>
                             ))}
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
@@ -618,6 +639,6 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

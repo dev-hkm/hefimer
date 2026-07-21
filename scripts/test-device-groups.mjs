@@ -41,6 +41,7 @@ const executablePath = browserCandidates.find((candidate) => existsSync(candidat
 const browser = await puppeteer.launch({ executablePath, headless: true, args: ["--no-sandbox"] });
 try {
   const contextA = await browser.createBrowserContext();
+  await contextA.overridePermissions(new URL(baseUrl).origin, ["clipboard-read", "clipboard-write"]);
   const pageA = await contextA.newPage();
   let registrationRequests = 0;
   pageA.on("request", (request) => {
@@ -65,6 +66,15 @@ try {
     return values.find((value) => /^hfm-[A-Za-z0-9]{36}$/.test(value)) || false;
   }, { timeout: 20_000 }).then((handle) => handle.jsonValue());
   if (typeof token !== "string") throw new Error("Pairing token was not rendered");
+  await pageA.click('button[aria-label="Copy pairing token"]');
+  await waitForText(pageA, "Copied");
+  assert.equal(await pageA.evaluate(() => navigator.clipboard.readText()), token, "Copy token must write the complete token");
+  if (process.env.HEFIMER_SCREENSHOTS === "1") {
+    await pageA.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
+    await pageA.screenshot({ path: "device-hub-desktop.png", fullPage: false });
+    await pageA.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
+    await pageA.screenshot({ path: "device-hub-mobile.png", fullPage: false });
+  }
 
   const contextB = await browser.createBrowserContext();
   const pageB = await contextB.newPage();
