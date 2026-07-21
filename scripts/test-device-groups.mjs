@@ -66,6 +66,7 @@ try {
     return values.find((value) => /^hfm-[A-Za-z0-9]{36}$/.test(value)) || false;
   }, { timeout: 20_000 }).then((handle) => handle.jsonValue());
   if (typeof token !== "string") throw new Error("Pairing token was not rendered");
+  await pageA.waitForSelector('button[aria-label="Copy pairing token"]', { visible: true, timeout: 20_000 });
   await pageA.click('button[aria-label="Copy pairing token"]');
   await waitForText(pageA, "Copied");
   assert.equal(await pageA.evaluate(() => navigator.clipboard.readText()), token, "Copy token must write the complete token");
