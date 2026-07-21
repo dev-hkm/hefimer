@@ -28,10 +28,19 @@ try {
         landingLeft: landing?.left ?? -1,
         landingRight: landing?.right ?? -1,
         centerDelta: constellation ? Math.abs((constellation.left + constellation.right) / 2 - window.innerWidth / 2) : 999,
+        offenders: Array.from(document.querySelectorAll(".hefimer-landing *"))
+          .map((element) => ({
+            selector: `${element.tagName.toLowerCase()}.${Array.from(element.classList).join(".")}`,
+            left: Math.round(element.getBoundingClientRect().left),
+            right: Math.round(element.getBoundingClientRect().right),
+            scrollWidth: element.scrollWidth,
+          }))
+          .filter((element) => element.left < -1 || element.right > window.innerWidth + 1 || element.scrollWidth > window.innerWidth)
+          .slice(0, 12),
       };
     });
     assert.ok(layout.documentWidth <= width, `${width}px document overflows to ${layout.documentWidth}px`);
-    assert.ok(layout.bodyWidth <= width, `${width}px body overflows to ${layout.bodyWidth}px`);
+    assert.ok(layout.bodyWidth <= width, `${width}px body overflows to ${layout.bodyWidth}px: ${JSON.stringify(layout.offenders)}`);
     assert.ok(layout.landingLeft >= 0 && layout.landingRight <= width, `${width}px landing escapes viewport: ${JSON.stringify(layout)}`);
     if (width <= 760) assert.ok(layout.centerDelta <= 1, `${width}px device visual is off-center by ${layout.centerDelta}px`);
   }
