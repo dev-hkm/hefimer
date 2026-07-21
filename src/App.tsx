@@ -7628,18 +7628,13 @@ function Board({ showToast, addToHistory, state, setState }: any) {
 function LikeWidget({
   showToast,
   likes,
-  variant = "default",
 }: {
   showToast: (msg: string, type?: any) => void;
   likes: number;
-  variant?: "default" | "landing";
 }) {
   const [dislikePos, setDislikePos] = useState({ x: 0, y: 0 });
-  const [landingDislikeRoaming, setLandingDislikeRoaming] = useState(false);
   const [showTrollText, setShowTrollText] = useState(false);
   const trollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const landingRatingRef = useRef<HTMLElement | null>(null);
-  const landingDislikeRef = useRef<HTMLButtonElement | null>(null);
 
   const handleLike = async () => {
     vibrate();
@@ -7670,91 +7665,6 @@ function LikeWidget({
     moveDislike();
     triggerTroll();
   };
-
-  const handleLandingDislikeInteraction = () => {
-    const card = landingRatingRef.current;
-    const button = landingDislikeRef.current;
-    if (!card || !button) {
-      handleDislikeInteraction();
-      return;
-    }
-
-    const cardRect = card.getBoundingClientRect();
-    const buttonRect = button.getBoundingClientRect();
-    const inset = cardRect.width < 520 ? 14 : 24;
-    const maxX = Math.max(inset, cardRect.width - buttonRect.width - inset);
-    const maxY = Math.max(inset, cardRect.height - buttonRect.height - inset);
-
-    setLandingDislikeRoaming(true);
-    setDislikePos({
-      x: inset + Math.random() * (maxX - inset),
-      y: inset + Math.random() * (maxY - inset),
-    });
-    triggerTroll();
-  };
-
-  if (variant === "landing") {
-    return (
-      <motion.section
-        ref={landingRatingRef}
-        className="hefimer-rating-console"
-        initial={{ opacity: 0, y: 36 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        aria-labelledby="hefimer-rating-title"
-      >
-        <div className="hefimer-rating-scan" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-        <div className="hefimer-rating-copy">
-          <span className="hefimer-mono">SIGNAL QUALITY / FEEDBACK</span>
-          <h2 id="hefimer-rating-title">Did this page<br />get you there?</h2>
-          <p>One tap helps us know if Hefimer is clear and useful.</p>
-        </div>
-
-        <div className="hefimer-rating-controls">
-          <div className="hefimer-rating-count">
-            <span className="hefimer-mono">POSITIVE SIGNALS</span>
-            <strong>{likes.toLocaleString()}</strong>
-          </div>
-          <div className="hefimer-rating-actions">
-            <button className="hefimer-rating-yes" onClick={handleLike} aria-label="Rate this page positively">
-              <ThumbsUp size={20} />
-              <span>It got me there</span>
-              <ArrowRight size={16} />
-            </button>
-            <motion.div
-              animate={landingDislikeRoaming ? { left: dislikePos.x, top: dislikePos.y } : undefined}
-              transition={{ type: "spring", stiffness: 600, damping: 15 }}
-              className={`hefimer-rating-no-runner${landingDislikeRoaming ? " is-roaming" : ""}`}
-            >
-              <button
-                ref={landingDislikeRef}
-                className="hefimer-rating-no"
-                onMouseEnter={handleLandingDislikeInteraction}
-                onClick={handleLandingDislikeInteraction}
-                aria-label="Negative rating is currently unavailable"
-              >
-                <ThumbsDown size={17} />
-                <span>Not quite</span>
-              </button>
-            </motion.div>
-          </div>
-          <AnimatePresence>
-            {showTrollText && (
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                className="hefimer-rating-troll hefimer-mono"
-              >
-                Dislike is currently unavailable=))
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.section>
-    );
-  }
 
   return (
     <motion.div
@@ -8098,52 +8008,28 @@ function PolicyModal({
 
 const FAQ_ITEMS = [
   {
-    q: "What is Hefimer?",
-    a: "Hefimer is a fast, lightweight web tool for sharing files, text/code snippets, and real-time collaboration — all accessed through a simple 5-digit code. No account required.",
+    q: "How do I send and receive something?",
+    a: "Choose Send File or Send Text, set the available options, then share the five-digit code Hefimer creates. The recipient enters that code under Receive to open the shared content.",
   },
   {
-    q: "How do I share a file or text?",
-    a: "Go to the Send tab, upload a file or paste your text, choose an expiration time, and click Generate. You'll receive a 5-digit code to share with anyone.",
+    q: "When does shared content disappear?",
+    a: "The five-digit drop expires on the timer selected before sending. Hosted files also follow the deletion window shown for the selected provider, which can differ from the drop timer.",
   },
   {
-    q: "How do I receive shared content?",
-    a: "Go to the Receive tab, enter the 5-digit code you received, and click Retrieve. The shared file or text will be displayed instantly.",
+    q: "What do One-Time mode and passwords do?",
+    a: "One-Time mode removes the drop after its first successful retrieval. An optional password requires recipients to enter the matching password before Hefimer reveals the content.",
   },
   {
-    q: "How long does shared content last?",
-    a: "You can choose an expiration time from 5 minutes up to 24 hours when sending. After the time expires, the content is automatically and permanently deleted.",
+    q: "How do paired devices work?",
+    a: "Pair browsers with a temporary token or QR code, then new drops can be offered to every device in that group. If Always approve is enabled, files start downloading automatically while Hefimer is open.",
   },
   {
-    q: "What is One-Time mode?",
-    a: "When enabled, the shared content is automatically deleted immediately after the first person accesses it. Perfect for sensitive information.",
+    q: "Do I need a Hefimer account?",
+    a: "No. Sending, receiving, and pairing devices do not require a Hefimer login, email address, or account password.",
   },
   {
-    q: "Can I protect my shared content with a password?",
-    a: "Yes. When sending, you can set an optional password. Recipients will need to enter the correct password before they can view the content.",
-  },
-  {
-    q: "What is a Chat Room?",
-    a: "A Chat Room is a real-time messaging space with emoji reactions. Create or join a room using a 5-digit code. Rooms auto-delete after their expiration time.",
-  },
-  {
-    q: "What is a Board?",
-    a: "A Board is a collaborative drawing canvas. Create or join a board with a 5-digit code and draw together with others in real-time.",
-  },
-  {
-    q: "Is Hefimer free?",
-    a: "Yes, Hefimer is completely free to use. No subscriptions, no hidden fees.",
-  },
-  {
-    q: "Do I need to create an account?",
-    a: "No. Hefimer requires no login, no email, and no personal information. Just enter a code and start sharing.",
-  },
-  {
-    q: "What about data and privacy?",
-    a: "All shared content is automatically deleted after expiration. We don't collect personal data. Password-protected content adds an extra layer of security. See our Privacy Policy for full details.",
-  },
-  {
-    q: "Is Hefimer open source?",
-    a: "Hefimer is currently a closed-source project. If you're interested in contributing or have questions, feel free to reach out.",
+    q: "What should I know about privacy?",
+    a: "Hefimer uses temporary codes and expiration instead of permanent libraries. File bytes are handled by the provider selected during upload, and service metadata is processed as described in the Privacy Policy.",
   },
 ];
 
@@ -8777,7 +8663,7 @@ const LANDING_FEATURES = [
   },
 ] as const;
 
-function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setShowPolicy, developer }: any) {
+function LandingPage({ setActiveTab, onOpenHistory, setShowPolicy, developer }: any) {
   const openFeature = (feature: "file" | "text" | "chat" | "board") => {
     vibrate();
     setActiveTab(feature);
@@ -8987,8 +8873,6 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
       </motion.div>
 
       <div className="hefimer-landing-footer">
-        <LikeWidget showToast={showToast} likes={likesCount} variant="landing" />
-
         <motion.section
           className="hefimer-terminal-cta"
           initial={{ opacity: 0, y: 50 }}
@@ -10592,8 +10476,6 @@ export default function App() {
                     <LandingPage
                       setActiveTab={setActiveTab}
                       onOpenHistory={() => setIsHistoryModalOpen(true)}
-                      likesCount={likesCount}
-                      showToast={showToast}
                       setShowPolicy={setShowPolicy}
                       developer={globalDeveloper}
                     />

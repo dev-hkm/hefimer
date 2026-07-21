@@ -55,11 +55,17 @@ try {
     await page.$eval(".hefimer-device-constellation", (element) => element.scrollIntoView({ block: "center" }));
     await new Promise((resolve) => setTimeout(resolve, 500));
     await page.screenshot({ path: "landing-mobile-constellation.png" });
+    await page.$eval(".hefimer-terminal-cta", (element) => element.scrollIntoView({ block: "start" }));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await page.screenshot({ path: "landing-mobile-finish.png" });
     await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
     await page.goto(baseUrl, { waitUntil: "networkidle0" });
     await page.$eval(".hefimer-device-track", (element) => element.scrollIntoView({ block: "start" }));
     await new Promise((resolve) => setTimeout(resolve, 900));
     await page.screenshot({ path: "landing-desktop-devices.png" });
+    await page.$eval(".hefimer-terminal-cta", (element) => element.scrollIntoView({ block: "start" }));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await page.screenshot({ path: "landing-desktop-finish.png" });
   }
   console.log("Landing responsive test passed at 320, 360, 390, and 768px");
 } finally {
