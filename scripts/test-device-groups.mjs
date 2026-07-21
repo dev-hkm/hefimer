@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import { existsSync } from "node:fs";
+import assert from "node:assert/strict";
 
 const baseUrl = process.env.HEFIMER_TEST_URL || "http://127.0.0.1:8788";
 
@@ -41,9 +42,14 @@ const browser = await puppeteer.launch({ executablePath, headless: true, args: [
 try {
   const contextA = await browser.createBrowserContext();
   const pageA = await contextA.newPage();
+  let registrationRequests = 0;
+  pageA.on("request", (request) => {
+    if (request.url().includes("/api/devices/register")) registrationRequests += 1;
+  });
   observePage(pageA, "sender");
   await pageA.evaluateOnNewDocument(() => localStorage.setItem("hefimer_visited", "1"));
   await pageA.goto(baseUrl, { waitUntil: "networkidle0" });
+  assert.equal(registrationRequests, 0, "Device identity must stay lazy until the Hub is opened");
   await pageA.waitForSelector('button[title="Paired devices"]', { timeout: 20_000 });
   await pageA.evaluate(() => document.querySelector('button[title="Paired devices"]')?.click());
   try {
@@ -88,6 +94,9 @@ try {
   await waitForText(pageB, "device-group-smoke-test.txt");
   await clickButton(pageB, "Approve");
   await new Promise((resolve) => setTimeout(resolve, 2_000));
+
+  await clickButton(pageA, "Delete group for everyone");
+  await waitForText(pageA, "Create secure group");
 
   console.log("Device group smoke test passed: create -> invite -> pair -> offer -> approve");
 } finally {

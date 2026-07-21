@@ -121,6 +121,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   const [section, setSection] = useState<"devices" | "activity">("devices");
   const refreshing = useRef(false);
   const firstSync = useRef(true);
+  const deviceFeatureEnabled = () => localStorage.getItem("hefimer_device_enabled") === "1";
 
   const refresh = async (silent = true) => {
     if (refreshing.current) return;
@@ -148,24 +149,29 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
     const token = params.get("pair");
     const openDevices = params.get("devices");
     if (token) {
+      localStorage.setItem("hefimer_device_enabled", "1");
       setPairToken(token);
       setSetupMode("join");
       setIsOpen(true);
     }
-    if (openDevices === "1") setIsOpen(true);
+    if (openDevices === "1") {
+      localStorage.setItem("hefimer_device_enabled", "1");
+      setIsOpen(true);
+    }
 
-    refresh(false);
-    const interval = window.setInterval(() => refresh(true), 4000);
-    const handleFocus = () => refresh(true);
-    const handleVisibility = () => !document.hidden && refresh(true);
+    if (deviceFeatureEnabled() || token || openDevices === "1") refresh(false);
+    else setLoading(false);
+    const interval = window.setInterval(() => deviceFeatureEnabled() && refresh(true), 4000);
+    const handleFocus = () => deviceFeatureEnabled() && refresh(true);
+    const handleVisibility = () => deviceFeatureEnabled() && !document.hidden && refresh(true);
     const handleSwMessage = (event: MessageEvent) => {
-      if (event.data?.type === "hefimer-transfer") refresh(true);
+      if (deviceFeatureEnabled() && event.data?.type === "hefimer-transfer") refresh(true);
     };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
     navigator.serviceWorker?.addEventListener("message", handleSwMessage);
-    getPushSubscription().then((subscription) => setNotificationsEnabled(Boolean(subscription))).catch(() => {});
-    if ("Notification" in window && Notification.permission === "granted") {
+    if (deviceFeatureEnabled()) getPushSubscription().then((subscription) => setNotificationsEnabled(Boolean(subscription))).catch(() => {});
+    if (deviceFeatureEnabled() && "Notification" in window && Notification.permission === "granted") {
       enableDevicePush().then(() => setNotificationsEnabled(true)).catch(() => {});
     }
     return () => {
@@ -179,7 +185,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   useEffect(() => {
     const handleDropCreated = async (event: Event) => {
       const detail = (event as CustomEvent<DropCreatedDetail>).detail;
-      if (!detail) return;
+      if (!detail || !deviceFeatureEnabled()) return;
       try {
         const current = await deviceApi.sync();
         syncRef.current = current;
@@ -323,6 +329,12 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   const badgeCount = pending.length + ready.length;
   const incomingPrompt = !isOpen ? pending[0] : null;
   const isOwner = sync.group?.ownerDeviceId === sync.device.id;
+  const openHub = () => {
+    localStorage.setItem("hefimer_device_enabled", "1");
+    setLoading(true);
+    setIsOpen(true);
+    refresh(false);
+  };
 
   return (
     <>
@@ -330,7 +342,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
         type="button"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
-        onClick={() => setIsOpen(true)}
+        onClick={openHub}
         className="fixed right-[4.15rem] top-4 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/70 shadow-xl backdrop-blur-xl transition hover:border-white/25 hover:text-white sm:h-10 sm:w-10"
         title="Paired devices"
       >
