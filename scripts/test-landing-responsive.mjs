@@ -39,7 +39,7 @@ try {
           .slice(0, 12),
       };
     });
-    assert.ok(layout.documentWidth <= width, `${width}px document overflows to ${layout.documentWidth}px`);
+    assert.ok(layout.documentWidth <= width, `${width}px document overflows to ${layout.documentWidth}px: ${JSON.stringify(layout.offenders)}`);
     assert.ok(layout.bodyWidth <= width, `${width}px body overflows to ${layout.bodyWidth}px: ${JSON.stringify(layout.offenders)}`);
     assert.ok(layout.landingLeft >= 0 && layout.landingRight <= width, `${width}px landing escapes viewport: ${JSON.stringify(layout)}`);
     if (width <= 760) assert.ok(layout.centerDelta <= 1, `${width}px device visual is off-center by ${layout.centerDelta}px`);
