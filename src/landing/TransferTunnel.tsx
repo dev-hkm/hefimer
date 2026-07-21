@@ -7,10 +7,17 @@ import {
 } from "motion/react";
 import {
   ArrowDown,
+  Check,
+  Cloud,
   Code2,
+  Download,
   FileUp,
+  Laptop,
   MessageSquare,
   Palette,
+  QrCode,
+  Smartphone,
+  Zap,
 } from "lucide-react";
 import "./transfer-tunnel.css";
 
@@ -192,6 +199,89 @@ export function TransferTunnel() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function PairedDeviceConstellation({ onOpenDevices }: { onOpenDevices: () => void }) {
+  const trackRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: trackRef,
+    offset: ["start end", "end start"],
+  });
+  const progress = useSpring(scrollYProgress, { stiffness: 74, damping: 24, mass: 0.25 });
+  const routeProgress = useTransform(progress, [0.18, 0.66], [0, 1]);
+  const fileLeft = useTransform(progress, [0.12, 0.42, 0.58], ["12%", "47%", "47%"]);
+  const fileScale = useTransform(progress, [0.12, 0.4, 0.58], [0.78, 1.08, 0.52]);
+  const fileOpacity = useTransform(progress, [0.1, 0.2, 0.54, 0.61], [0, 1, 1, 0]);
+  const receiveOpacity = useTransform(progress, [0.5, 0.64, 0.9], [0, 1, 1]);
+  const receiveScale = useTransform(progress, [0.5, 0.68], [0.6, 1]);
+  const autoOpacity = useTransform(progress, [0.67, 0.78], [0, 1]);
+
+  return (
+    <section ref={trackRef} className="hefimer-device-track" aria-labelledby="hefimer-device-title">
+      <div className="hefimer-device-sticky">
+        <motion.div
+          className="hefimer-device-copy"
+          initial={{ opacity: 0, y: 28 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.45 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="hefimer-mono">PAIRED DEVICES / NEW</span>
+          <h2 id="hefimer-device-title">Pair once.<br /><em>Keep sending.</em></h2>
+          <p>Link devices with a one-time token or QR code. New files appear on every paired device, and Always approve can start downloads automatically while Hefimer is open.</p>
+          <button onClick={onOpenDevices}>
+            <QrCode size={16} />
+            <span>Pair your devices</span>
+            <ArrowDown size={15} />
+          </button>
+        </motion.div>
+
+        <div className="hefimer-device-constellation" aria-hidden="true">
+          <div className="hefimer-device-grid" />
+          <svg className="hefimer-device-routes" viewBox="0 0 1000 520" preserveAspectRatio="none">
+            <motion.path d="M150 260 C300 260 340 260 500 260" style={{ pathLength: routeProgress }} />
+            <motion.path d="M500 260 C650 260 680 105 845 105" style={{ pathLength: routeProgress }} />
+            <motion.path d="M500 260 C650 260 680 260 845 260" style={{ pathLength: routeProgress }} />
+            <motion.path d="M500 260 C650 260 680 415 845 415" style={{ pathLength: routeProgress }} />
+          </svg>
+
+          <div className="hefimer-device-node hefimer-device-node--sender">
+            <Laptop size={22} />
+            <span><b>THIS DEVICE</b><small>UPLOAD COMPLETE</small></span>
+            <i />
+          </div>
+
+          <div className="hefimer-device-provider">
+            <Cloud size={21} />
+            <span>PROVIDER</span>
+            <i /><i /><i />
+          </div>
+
+          {["PHONE", "LAPTOP", "TABLET"].map((label, index) => (
+            <motion.div
+              key={label}
+              className={`hefimer-device-node hefimer-device-node--receiver hefimer-device-node--receiver-${index + 1}`}
+              style={{ opacity: receiveOpacity, scale: receiveScale }}
+            >
+              {index === 1 ? <Laptop size={20} /> : <Smartphone size={20} />}
+              <span><b>{label}</b><small><Check size={10} /> RECEIVED</small></span>
+            </motion.div>
+          ))}
+
+          <motion.div className="hefimer-device-file" style={{ left: fileLeft, scale: fileScale, opacity: fileOpacity }}>
+            <FileUp size={17} />
+            <span>FILE</span>
+          </motion.div>
+
+          <motion.div className="hefimer-device-auto" style={{ opacity: autoOpacity }}>
+            <span><Zap size={12} /> ALWAYS APPROVE</span>
+            <i><b /></i>
+            <small><Download size={12} /> AUTO DOWNLOAD</small>
+          </motion.div>
+        </div>
+      </div>
+    </section>
   );
 }
 

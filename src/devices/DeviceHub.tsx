@@ -188,11 +188,13 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
     const interval = window.setInterval(() => deviceFeatureEnabled() && refresh(true), 4000);
     const handleFocus = () => deviceFeatureEnabled() && refresh(true);
     const handleVisibility = () => deviceFeatureEnabled() && !document.hidden && refresh(true);
+    const handleOpenDevices = () => openHub();
     const handleSwMessage = (event: MessageEvent) => {
       if (deviceFeatureEnabled() && event.data?.type === "hefimer-transfer") refresh(true);
     };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("hefimer:open-devices", handleOpenDevices);
     navigator.serviceWorker?.addEventListener("message", handleSwMessage);
     if (deviceFeatureEnabled()) getPushSubscription().then((subscription) => setNotificationsEnabled(Boolean(subscription))).catch(() => {});
     if (deviceFeatureEnabled() && "Notification" in window && Notification.permission === "granted") {
@@ -202,6 +204,7 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("hefimer:open-devices", handleOpenDevices);
       navigator.serviceWorker?.removeEventListener("message", handleSwMessage);
     };
   }, []);

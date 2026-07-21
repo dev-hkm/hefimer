@@ -109,7 +109,7 @@ import "prismjs/components/prism-kotlin";
 import "prismjs/components/prism-swift";
 import QRCode from "qrcode";
 import { Space } from "./Space";
-import { FeatureStationVisual, TransferTunnel } from "./landing/TransferTunnel";
+import { FeatureStationVisual, PairedDeviceConstellation, TransferTunnel } from "./landing/TransferTunnel";
 import { DeviceHub } from "./devices/DeviceHub";
 import type { DeviceTransfer } from "./devices/device-api";
 import {
@@ -8972,6 +8972,10 @@ function LandingPage({ setActiveTab, onOpenHistory, likesCount, showToast, setSh
         </div>
       </section>
 
+      <PairedDeviceConstellation
+        onOpenDevices={() => window.dispatchEvent(new Event("hefimer:open-devices"))}
+      />
+
       <motion.div
         className="hefimer-faq-wrap"
         initial={{ opacity: 0, y: 30 }}
@@ -9944,7 +9948,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#000000] text-white font-sans selection:bg-white/30 flex flex-col items-center justify-start p-4 sm:p-6 relative ${activeTab === "home" ? "overflow-visible" : "overflow-x-hidden"}`}>
+    <div className="relative flex min-h-screen flex-col items-center justify-start overflow-x-clip bg-[#000000] p-4 text-white selection:bg-white/30 sm:p-6">
       {/* Floating Actions Dock */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <button

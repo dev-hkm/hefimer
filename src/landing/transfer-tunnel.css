@@ -11,6 +11,9 @@
     --hf-muted: rgba(245, 244, 239, 0.52);
     position: relative;
     isolation: isolate;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
     background:
         radial-gradient(circle at 50% 4%, rgba(85, 214, 255, 0.08), transparent 26rem),
         var(--hf-carbon);
@@ -534,6 +537,48 @@
 .hefimer-station-card:hover .hefimer-station-link svg { transform: translateX(4px); }
 .hefimer-station-link svg { transition: transform 200ms ease; }
 
+.hefimer-device-track { position: relative; height: 240vh; overflow: clip; border-block: 1px solid rgba(255,255,255,0.06); background: #050505; }
+.hefimer-device-sticky { position: sticky; top: 0; display: grid; grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr); align-items: center; gap: clamp(30px, 6vw, 96px); width: 100%; height: 100vh; min-height: 680px; max-width: 1440px; margin: 0 auto; padding: clamp(34px, 6vw, 86px); overflow: hidden; }
+.hefimer-device-copy { position: relative; z-index: 5; min-width: 0; }
+.hefimer-device-copy > span { display: block; margin-bottom: 22px; color: var(--hf-violet); font-size: 9px; letter-spacing: .2em; }
+.hefimer-device-copy h2 { margin: 0; font: 650 clamp(44px, 5.8vw, 82px)/1.04 "Space Grotesk", sans-serif; letter-spacing: -.062em; }
+.hefimer-device-copy h2 em { color: transparent; font-style: normal; background: linear-gradient(92deg, var(--hf-cyan), var(--hf-violet) 42%, var(--hf-coral)); background-clip: text; -webkit-background-clip: text; }
+.hefimer-device-copy p { max-width: 510px; margin: 26px 0 0; color: var(--hf-muted); font-size: 13px; line-height: 1.75; }
+.hefimer-device-copy button { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; margin-top: 32px; padding: 0 20px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; color: var(--hf-paper); background: rgba(255,255,255,.045); font-size: 11px; font-weight: 700; transition: transform 240ms ease, border-color 240ms ease, background 240ms ease; }
+.hefimer-device-copy button svg:last-child { margin-left: 8px; transform: rotate(-90deg); }
+.hefimer-device-copy button:hover { transform: translateY(-4px); border-color: rgba(85,214,255,.5); background: rgba(85,214,255,.09); }
+.hefimer-device-constellation { position: relative; min-width: 0; width: 100%; aspect-ratio: 1.65; overflow: hidden; border: 1px solid rgba(255,255,255,.12); border-radius: 42px; background: radial-gradient(circle at 50% 50%, rgba(139,120,255,.15), transparent 24%), radial-gradient(circle at 84% 18%, rgba(85,214,255,.09), transparent 28%), #080808; box-shadow: 0 50px 120px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.05); }
+.hefimer-device-grid { position: absolute; inset: 0; opacity: .28; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at center, black, transparent 78%); }
+.hefimer-device-routes { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.hefimer-device-routes path { fill: none; stroke: rgba(245,244,239,.42); stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 7px rgba(85,214,255,.48)); }
+.hefimer-device-routes path:nth-child(2) { stroke: var(--hf-cyan); }
+.hefimer-device-routes path:nth-child(3) { stroke: var(--hf-violet); }
+.hefimer-device-routes path:nth-child(4) { stroke: var(--hf-coral); }
+.hefimer-device-node { position: absolute; z-index: 4; display: flex; align-items: center; gap: 10px; min-width: 132px; padding: 12px 13px; border: 1px solid rgba(255,255,255,.16); border-radius: 17px; background: rgba(9,9,9,.8); backdrop-filter: blur(13px); box-shadow: 0 18px 42px rgba(0,0,0,.42); }
+.hefimer-device-node > span { display: grid; gap: 5px; min-width: 0; }
+.hefimer-device-node b { font: 600 8px/1 "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.hefimer-device-node small { display: flex; align-items: center; gap: 4px; color: rgba(245,244,239,.34); font: 500 6px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; }
+.hefimer-device-node--sender { left: 4%; top: 50%; transform: translateY(-50%); color: var(--hf-paper); }
+.hefimer-device-node--sender > i { position: absolute; right: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--hf-cyan); box-shadow: 0 0 0 5px rgba(85,214,255,.1), 0 0 18px var(--hf-cyan); }
+.hefimer-device-provider { position: absolute; z-index: 5; left: 50%; top: 50%; display: grid; place-items: center; width: 112px; aspect-ratio: 1; transform: translate(-50%,-50%); border: 1px solid rgba(255,255,255,.2); border-radius: 50%; color: var(--hf-paper); background: radial-gradient(circle, rgba(255,255,255,.12), rgba(10,10,10,.94) 64%); box-shadow: 0 0 0 24px rgba(139,120,255,.035), 0 0 80px rgba(139,120,255,.18); }
+.hefimer-device-provider span { font: 600 7px/1 "IBM Plex Mono", monospace; letter-spacing: .14em; }
+.hefimer-device-provider i { position: absolute; inset: -13%; border: 1px solid rgba(139,120,255,.3); border-radius: 50%; animation: hefimer-sculpture-spin 12s linear infinite; }
+.hefimer-device-provider i:nth-of-type(2) { inset: -27%; border-color: rgba(85,214,255,.18); border-style: dashed; animation-direction: reverse; animation-duration: 18s; }
+.hefimer-device-provider i:nth-of-type(3) { inset: 15%; border-color: rgba(255,116,92,.22); animation-duration: 8s; }
+.hefimer-device-node--receiver { right: 4%; color: var(--hf-paper); transform-origin: center; }
+.hefimer-device-node--receiver-1 { top: 11%; }
+.hefimer-device-node--receiver-2 { top: 50%; transform: translateY(-50%); }
+.hefimer-device-node--receiver-3 { bottom: 11%; }
+.hefimer-device-node--receiver small { color: rgba(245,244,239,.58); }
+.hefimer-device-file { position: absolute; z-index: 8; top: 50%; display: grid; place-items: center; width: 64px; height: 78px; margin: -39px 0 0 -32px; border: 1px solid rgba(255,255,255,.28); border-radius: 15px; color: var(--hf-cyan); background: rgba(8,16,19,.92); box-shadow: 0 18px 40px rgba(0,0,0,.5), 0 0 25px rgba(85,214,255,.12); }
+.hefimer-device-file span { margin-top: 6px; font: 600 7px/1 "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.hefimer-device-auto { position: absolute; z-index: 7; left: 50%; bottom: 6%; display: flex; align-items: center; gap: 9px; transform: translateX(-50%); padding: 9px 11px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(5,5,5,.84); backdrop-filter: blur(12px); white-space: nowrap; }
+.hefimer-device-auto span, .hefimer-device-auto small { display: flex; align-items: center; gap: 5px; font: 600 6px/1 "IBM Plex Mono", monospace; letter-spacing: .09em; }
+.hefimer-device-auto span { color: var(--hf-amber); }
+.hefimer-device-auto small { color: rgba(245,244,239,.48); }
+.hefimer-device-auto > i { width: 28px; height: 16px; padding: 2px; border-radius: 999px; background: var(--hf-paper); }
+.hefimer-device-auto > i b { display: block; width: 12px; height: 12px; margin-left: 12px; border-radius: 50%; background: #050505; }
+
 .hefimer-faq-wrap { max-width: 1240px; margin: 0 auto; padding: 10px clamp(18px, 4vw, 52px) clamp(110px, 14vw, 190px); }
 .hefimer-faq-console { display: grid; grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr); gap: clamp(55px, 9vw, 130px); align-items: start; }
 .hefimer-faq-heading { position: sticky; top: 120px; text-align: left; }
@@ -804,7 +849,7 @@
     .hefimer-hero-title { font-size: clamp(42px, 12vw, 58px); letter-spacing: -0.068em; }
     .hefimer-hero-description { max-width: 330px; font-size: 12px; line-height: 1.7; }
     .hefimer-hero-sculpture { min-height: 390px; margin-top: -20px; }
-    .hefimer-sculpture-shell { width: min(94vw, 400px); min-width: 0; }
+    .hefimer-sculpture-shell { width: min(100%, 400px); min-width: 0; }
     .hefimer-hero-index { justify-content: space-between; gap: 5px; }
     .hefimer-hero-index i { width: 13px; }
     .hefimer-section-intro { padding-inline: 20px; }
@@ -830,7 +875,7 @@
     .hefimer-rating-no-runner { width: 100%; }
     .hefimer-rating-no { width: 100%; }
     .hefimer-terminal-cta { grid-template-columns: minmax(0, 1fr); grid-template-areas: "radar" "copy" "actions" "status"; min-height: auto; padding: 34px 22px 28px; border-radius: 32px; gap: 36px; }
-    .hefimer-terminal-radar { width: min(82vw, 330px); margin: 0 auto; }
+    .hefimer-terminal-radar { width: min(100%, 330px); margin: 0 auto; }
     .hefimer-terminal-packet { min-width: 68px; min-height: 34px; padding-inline: 9px; }
     .hefimer-terminal-copy { min-width: 0; width: 100%; }
     .hefimer-terminal-copy h2 { font-size: clamp(42px, 11.5vw, 56px); }
@@ -847,6 +892,28 @@
     .hefimer-stage-copy strong { font-size: clamp(28px, 9vw, 42px); }
     .hefimer-scroll-cue { right: 20px; bottom: 38px; }
     .hefimer-scroll-cue span { display: none; }
+    .hefimer-device-track { height: auto; overflow: clip; }
+    .hefimer-device-sticky { position: relative; grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; padding: 96px 14px; gap: 54px; }
+    .hefimer-device-copy { padding-inline: 6px; text-align: left; }
+    .hefimer-device-copy h2 { font-size: clamp(43px, 13.5vw, 61px); }
+    .hefimer-device-copy p { max-width: 100%; overflow-wrap: anywhere; }
+    .hefimer-device-constellation { width: 100%; min-height: 460px; aspect-ratio: auto; border-radius: 30px; }
+    .hefimer-device-routes { transform: rotate(90deg) scale(.83, 1.85); }
+    .hefimer-device-node { min-width: 116px; padding: 10px; }
+    .hefimer-device-node--sender { left: 50%; top: 7%; transform: translateX(-50%); }
+    .hefimer-device-node--sender > i { right: auto; left: 50%; bottom: -4px; transform: translateX(-50%); }
+    .hefimer-device-provider { left: 50%; top: 45%; width: 94px; }
+    .hefimer-device-node--receiver { right: auto; }
+    .hefimer-device-node--receiver { width: 86px; min-width: 0; gap: 5px; padding: 8px 7px; border-radius: 13px; }
+    .hefimer-device-node--receiver svg { width: 15px; }
+    .hefimer-device-node--receiver b { font-size: 6px; letter-spacing: .07em; }
+    .hefimer-device-node--receiver small { font-size: 5px; letter-spacing: .04em; }
+    .hefimer-device-node--receiver-1 { left: 3%; top: auto; bottom: 8%; }
+    .hefimer-device-node--receiver-2 { left: 50%; top: auto; bottom: 4%; transform: translateX(-50%); }
+    .hefimer-device-node--receiver-3 { right: 3%; bottom: 8%; }
+    .hefimer-device-file { top: 29%; margin-left: -27px; width: 54px; height: 66px; }
+    .hefimer-device-auto { bottom: 29%; max-width: calc(100% - 24px); gap: 7px; }
+    .hefimer-device-auto small { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
