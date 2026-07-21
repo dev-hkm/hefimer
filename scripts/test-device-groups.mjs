@@ -85,6 +85,19 @@ try {
   await waitForText(pageB, "Pair this device");
   await clickButton(pageB, "Pair this device");
   await waitForText(pageB, "Connected devices");
+  await clickButton(pageB, "Always approve");
+  await waitForText(pageB, "Auto-approve enabled");
+
+  let automaticDownloadUrl = "";
+  await pageB.setRequestInterception(true);
+  pageB.on("request", (request) => {
+    if (request.url().includes("/api/download?")) {
+      automaticDownloadUrl = request.url();
+      request.abort();
+      return;
+    }
+    request.continue();
+  });
 
   await pageA.evaluate(() => {
     window.dispatchEvent(new CustomEvent("hefimer:drop-created", {
@@ -100,16 +113,19 @@ try {
     }));
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 5_000));
-  await clickButton(pageB, "Activity");
-  await waitForText(pageB, "device-group-smoke-test.txt");
-  await clickButton(pageB, "Approve");
-  await new Promise((resolve) => setTimeout(resolve, 2_000));
+  const deadline = Date.now() + 12_000;
+  while (!automaticDownloadUrl && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  assert.ok(automaticDownloadUrl, "Auto-approve must start a browser download without a click");
+  const automaticDownload = new URL(automaticDownloadUrl);
+  assert.equal(automaticDownload.searchParams.get("url"), "https://storage.to/example");
+  assert.equal(automaticDownload.searchParams.get("filename"), "device-group-smoke-test.txt");
 
   await clickButton(pageA, "Delete group for everyone");
   await waitForText(pageA, "Create secure group");
 
-  console.log("Device group smoke test passed: create -> invite -> pair -> offer -> approve");
+  console.log("Device group smoke test passed: create -> invite -> pair -> auto-approve -> automatic download");
 } finally {
   await browser.close();
 }

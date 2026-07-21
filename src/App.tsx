@@ -111,6 +111,11 @@ import QRCode from "qrcode";
 import { Space } from "./Space";
 import { FeatureStationVisual, TransferTunnel } from "./landing/TransferTunnel";
 import { DeviceHub } from "./devices/DeviceHub";
+import type { DeviceTransfer } from "./devices/device-api";
+import {
+  downloadFileInBrowser,
+  getDirectDownloadMode,
+} from "./downloads";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -1023,28 +1028,6 @@ function ReceiveResult({
 
   const isValidDownloadUrl = (url: string) => /^https?:\/\//i.test(url);
 
-  const getDirectDownloadMode = (url: string) => {
-    try {
-      const host = new URL(url).hostname.toLowerCase();
-      if (host === "storage.to" || host === "tmpfiles.org") return "anchor";
-      if (host === "litter.catbox.moe" || host === "litterbox.catbox.moe") return "fetch";
-      if (host === "gofile.io") return "tab";
-    } catch {
-      return "fetch";
-    }
-    return "fetch";
-  };
-
-  const triggerAnchorDownload = (url: string, fileName: string) => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName || "download";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
   const getFileIcon = (fileName: string, isR2Drop: boolean) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic'].includes(ext || '')) {
@@ -1168,30 +1151,9 @@ function ReceiveResult({
       return;
     }
     const mode = getDirectDownloadMode(url);
-    if (mode === "anchor") {
-      triggerAnchorDownload(url, fileName);
-      showToast("Download started", "success");
-      return;
-    }
-    try {
-      showToast("Downloading file...", "info");
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Fetch failed");
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = fileName || "download";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-      showToast("Download completed successfully", "success");
-    } catch (err) {
-      console.warn("Direct fetch download failed, falling back to direct anchor:", err);
-      triggerAnchorDownload(url, fileName);
-      showToast("Download started", "success");
-    }
+    showToast(mode === "proxy" ? "Starting secure download..." : "Downloading file...", "info");
+    await downloadFileInBrowser(url, fileName);
+    showToast("Download started", "success");
   };
   const [showLineNumbers, setShowLineNumbers] = useState(false);
   const [renameData, setRenameData] = useState<{
@@ -9768,6 +9730,18 @@ export default function App() {
     result: any;
   }>({ code: "", result: null });
 
+  const handleAutoDownload = async (transfer: DeviceTransfer) => {
+    const payload = transfer.payload as any;
+    const entries = Array.isArray(payload?.files) && payload.files.length ? payload.files : [payload];
+    for (const entry of entries) {
+      const url = [entry?.fileUrl, entry?.url, entry?.raw_url, entry?.downloadUrl]
+        .find((value) => typeof value === "string" && /^https:\/\//i.test(value));
+      if (!url) throw new Error(`The download link for ${entry?.fileName || transfer.name} is unavailable`);
+      await downloadFileInBrowser(url, entry?.fileName || transfer.name || "download");
+      if (entries.length > 1) await new Promise((resolve) => window.setTimeout(resolve, 350));
+    }
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem("hefimer_history");
     if (saved) {
@@ -9988,6 +9962,7 @@ export default function App() {
 
       <DeviceHub
         showToast={showToast}
+        onAutoDownload={handleAutoDownload}
         onOpenDrop={(code) => {
           setReceiveState({ code, result: null });
           setActiveTab("receive");

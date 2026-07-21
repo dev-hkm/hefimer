@@ -44,6 +44,7 @@ import {
 interface DeviceHubProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   onOpenDrop: (code: string) => void;
+  onAutoDownload: (transfer: DeviceTransfer) => Promise<void>;
 }
 
 const EMPTY_SYNC: DeviceSync = {
@@ -103,7 +104,7 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
+export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [sync, setSync] = useState<DeviceSync>(EMPTY_SYNC);
   const syncRef = useRef(sync);
@@ -122,6 +123,7 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
   const [section, setSection] = useState<"devices" | "activity">("devices");
   const refreshing = useRef(false);
   const firstSync = useRef(true);
+  const observedIncoming = useRef(new Set<string>());
   const deviceFeatureEnabled = () => localStorage.getItem("hefimer_device_enabled") === "1";
 
   const refresh = async (silent = true) => {
@@ -131,11 +133,32 @@ export function DeviceHub({ showToast, onOpenDrop }: DeviceHubProps) {
     try {
       await getDeviceIdentity();
       const next = await deviceApi.sync();
+      const autoDownloads = firstSync.current
+        ? []
+        : next.incoming.filter((transfer) => (
+            next.group?.autoApprove
+            && transfer.kind === "file"
+            && transfer.recipient_status === "approved"
+            && !observedIncoming.current.has(transfer.id)
+          ));
+      next.incoming.forEach((transfer) => observedIncoming.current.add(transfer.id));
       syncRef.current = next;
       setSync(next);
       setDeviceName(next.device.name);
       setError("");
       firstSync.current = false;
+      for (const transfer of autoDownloads) {
+        observedIncoming.current.add(transfer.id);
+        try {
+          await deviceApi.updateTransfer(transfer.id, "downloading");
+          await onAutoDownload(transfer);
+          await deviceApi.updateTransfer(transfer.id, "received");
+          showToast(`${transfer.name} is downloading automatically`, "success");
+        } catch (downloadError: any) {
+          await deviceApi.updateTransfer(transfer.id, "failed").catch(() => {});
+          showToast(downloadError.message || `Could not download ${transfer.name}`, "error");
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Device service is unavailable");
     } finally {
