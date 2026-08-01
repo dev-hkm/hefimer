@@ -1,4 +1,6 @@
-const API_ROOT = "/api/devices";
+import { apiUrl } from "../api-url";
+
+const API_ROOT = apiUrl("/api/devices");
 const DB_NAME = "hefimer-device-identity";
 const STORE_NAME = "keys";
 const IDENTITY_KEY = "primary";

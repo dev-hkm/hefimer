@@ -1,3 +1,5 @@
+import { apiUrl } from "./api-url";
+
 export type DirectDownloadMode = "proxy" | "fetch" | "tab";
 
 const PROXIED_HOSTS = new Set([
@@ -20,7 +22,7 @@ export function getDirectDownloadMode(url: string): DirectDownloadMode {
 
 export function buildDownloadProxyUrl(url: string, fileName: string) {
   const params = new URLSearchParams({ url, filename: fileName || "download" });
-  return `/api/download?${params.toString()}`;
+  return apiUrl(`/api/download?${params.toString()}`);
 }
 
 export function triggerAnchorDownload(url: string, fileName: string) {

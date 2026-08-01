@@ -116,6 +116,7 @@ import {
   downloadFileInBrowser,
   getDirectDownloadMode,
 } from "./downloads";
+import { apiUrl as resolveApiUrl } from "./api-url";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -1056,7 +1057,7 @@ function ReceiveResult({
     }
     try {
       showToast(`Generating download link for ${fileEntry.fileName}...`, "info");
-      const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(fileEntry.objectKey)}`;
+      const apiUrl = resolveApiUrl(`/api/r2/download-url?objectKey=${encodeURIComponent(fileEntry.objectKey)}`);
       const res = await fetch(apiUrl);
       const contentType = res.headers.get("Content-Type") || "";
       let downloadUrl = "";
@@ -1164,7 +1165,7 @@ function ReceiveResult({
 
   const deleteR2Object = async (objectKey: string) => {
     if (!objectKey) return;
-    const apiUrl = "/api/r2/delete";
+    const apiUrl = resolveApiUrl("/api/r2/delete");
 
     console.log("Deleting R2 object for self-destruct:", objectKey);
     const res = await fetch(apiUrl, {
@@ -1351,7 +1352,7 @@ function ReceiveResult({
     }
     try {
       showToast("Generating secret download link...", "info");
-      const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`;
+      const apiUrl = resolveApiUrl(`/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`);
 
       console.log("Fetching download URL from:", apiUrl);
       const res = await fetch(apiUrl);
@@ -1392,7 +1393,7 @@ function ReceiveResult({
       return;
     }
     try {
-      const apiUrl = `/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`;
+      const apiUrl = resolveApiUrl(`/api/r2/download-url?objectKey=${encodeURIComponent(item.objectKey)}`);
 
       console.log("Fetching copy link URL from:", apiUrl);
       const res = await fetch(apiUrl);
@@ -2383,7 +2384,7 @@ function R2SendFile({
     const session = multipartUpload.current;
     multipartUpload.current = null;
     if (session) {
-      await fetch("/api/r2/multipart/abort", {
+      await fetch(resolveApiUrl("/api/r2/multipart/abort"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(session),
@@ -2435,7 +2436,7 @@ function R2SendFile({
       }
 
       const getPresignedUpload = async () => {
-        const apiUrl = `/api/r2/upload-url?filename=${encodeURIComponent(finalName)}&contentType=${encodeURIComponent(finalType)}`;
+        const apiUrl = resolveApiUrl(`/api/r2/upload-url?filename=${encodeURIComponent(finalName)}&contentType=${encodeURIComponent(finalType)}`);
         const presignRes = await fetch(apiUrl, { cache: "no-store" });
 
         if (!presignRes.ok) {
@@ -2494,7 +2495,7 @@ function R2SendFile({
 
           showToast(`Uploading file ${i + 1} of ${totalFiles}: ${currentName}`, "info");
 
-          const apiUrl = `/api/r2/upload-url?filename=${encodeURIComponent(currentName)}&contentType=${encodeURIComponent(currentType)}`;
+          const apiUrl = resolveApiUrl(`/api/r2/upload-url?filename=${encodeURIComponent(currentName)}&contentType=${encodeURIComponent(currentType)}`);
           const presignRes = await fetch(apiUrl, { cache: "no-store" });
           if (!presignRes.ok) {
             const errorData = await presignRes.json().catch(() => ({}));
@@ -2596,7 +2597,7 @@ function R2SendFile({
       const session = multipartUpload.current;
       multipartUpload.current = null;
       if (session) {
-        fetch("/api/r2/multipart/abort", {
+        fetch(resolveApiUrl("/api/r2/multipart/abort"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(session),
@@ -3289,7 +3290,7 @@ function SendFile({
               };
               xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
               xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("POST", "/api/proxy/litterbox");
+              xhr.open("POST", resolveApiUrl("/api/proxy/litterbox"));
               xhr.send(lbData);
             });
 
@@ -3308,7 +3309,7 @@ function SendFile({
               localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
             }
 
-            const initRes = await fetch("/api/proxy/storageto/upload/init", {
+            const initRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/init"), {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -3348,7 +3349,7 @@ function SendFile({
               xhr.send(currentFile);
             });
 
-            const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
+            const confirmRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/confirm"), {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -3390,7 +3391,7 @@ function SendFile({
               };
               xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
               xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("POST", "/api/proxy/tmpfiles");
+              xhr.open("POST", resolveApiUrl("/api/proxy/tmpfiles"));
               xhr.send(tfData);
             });
 
@@ -3562,7 +3563,7 @@ function SendFile({
           lbData.append("fileToUpload", fileToUpload, finalName);
 
           const uploadResult = await uploadWithProgress(
-            "/api/proxy/litterbox",
+            resolveApiUrl("/api/proxy/litterbox"),
             lbData,
           );
 
@@ -3583,7 +3584,7 @@ function SendFile({
             localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
           }
 
-          const initRes = await fetch("/api/proxy/storageto/upload/init", {
+          const initRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/init"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -3659,7 +3660,7 @@ function SendFile({
               let partUploadUrl = initialUrls[partNumber.toString()];
 
               if (!partUploadUrl) {
-                const partsRes = await fetch("/api/proxy/storageto/upload/parts", {
+                const partsRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/parts"), {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -3724,7 +3725,7 @@ function SendFile({
 
             // Complete multipart
             showToast("Assembling parts...", "info");
-            const completeRes = await fetch("/api/proxy/storageto/upload/complete-multipart", {
+            const completeRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/complete-multipart"), {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -3746,7 +3747,7 @@ function SendFile({
 
           // 3. Confirm upload to finalize
           showToast("Finalizing upload with storage.to...", "info");
-          const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
+          const confirmRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/confirm"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -3785,7 +3786,7 @@ function SendFile({
 
             if (days !== 3) {
               try {
-                await fetch(`/api/proxy/storageto/file/${fileId}/expiry`, {
+                await fetch(resolveApiUrl(`/api/proxy/storageto/file/${fileId}/expiry`), {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -3804,7 +3805,7 @@ function SendFile({
           tfData.append("file", fileToUpload, finalName);
 
           const uploadResult = await uploadWithProgress(
-            "/api/proxy/tmpfiles",
+            resolveApiUrl("/api/proxy/tmpfiles"),
             tfData,
           );
 
@@ -9486,7 +9487,7 @@ export default function App() {
             let r2DeleteSuccess = true;
             if (data.objectKey) {
               try {
-                const apiUrl = "/api/r2/delete";
+                const apiUrl = resolveApiUrl("/api/r2/delete");
 
                 const res = await fetch(apiUrl, {
                   method: "POST",

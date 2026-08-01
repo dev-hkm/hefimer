@@ -4,6 +4,7 @@ import { rtdb, auth } from "./firebase";
 import { ref, set, get, child, serverTimestamp, onValue, remove, onDisconnect } from "firebase/database";
 import { Users, Copy, Check, Clock, Plus, Download, Trash2, Edit3, Loader2, QrCode, File, Image as ImageIcon, Video, Music, Archive, ArrowLeft, ArrowUp, ArrowRight, Zap, Hash, LogIn, Link, X, Box, User } from "lucide-react";
 import QRCode from "qrcode";
+import { apiUrl as resolveApiUrl } from "./api-url";
 
 export function Space({ showToast, addToHistory, state, setState, isAdmin, isFrozen }: any) {
   const {
@@ -317,7 +318,7 @@ export function Space({ showToast, addToHistory, state, setState, isAdmin, isFro
     try {
       const visitorToken = localStorage.getItem("h-token") || Math.random().toString(36).substring(2);
       
-      const initRes = await fetch("/api/proxy/storageto/upload/init", {
+      const initRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/init"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -355,7 +356,7 @@ export function Space({ showToast, addToHistory, state, setState, isAdmin, isFro
         xhr.send(file);
       });
 
-      const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
+      const confirmRes = await fetch(resolveApiUrl("/api/proxy/storageto/upload/confirm"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
