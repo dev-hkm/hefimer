@@ -34,6 +34,31 @@ function storageToDownloadUrl(html: string, source: URL, shareId: string) {
   return resolved;
 }
 
+function storageToMintProof(html: string) {
+  const match = html.match(/\\?["']mint_proof\\?["']\s*,\s*\\?["']([0-9]+\.[a-f0-9]{32,128})\\?["']/i);
+  return match?.[1] || null;
+}
+
+async function storageToCurrentDownloadUrl(html: string, source: URL, shareId: string) {
+  const mintProof = storageToMintProof(html);
+  if (!mintProof) return null;
+  const response = await fetch(new URL(`/${shareId}/download`, source.origin), {
+    headers: {
+      Accept: "application/json",
+      "x-mint-proof": mintProof,
+    },
+    redirect: "manual",
+  });
+  if (!response.ok) return null;
+  const payload = await response.json() as { url?: unknown };
+  if (typeof payload.url !== "string") return null;
+  const resolved = new URL(payload.url);
+  if (resolved.protocol !== "https:" || resolved.username || resolved.password || resolved.hostname !== "stusercontent.com") {
+    return null;
+  }
+  return resolved;
+}
+
 async function fetchProviderFile(source: URL, headers: Headers) {
   const shareId = storageToShareId(source);
   if (!shareId) return fetch(source.toString(), { headers, redirect: "follow" });
@@ -43,7 +68,9 @@ async function fetchProviderFile(source: URL, headers: Headers) {
     redirect: "follow",
   });
   if (!page.ok) return page;
-  const downloadUrl = storageToDownloadUrl(await page.text(), source, shareId);
+  const html = await page.text();
+  const downloadUrl = storageToDownloadUrl(html, source, shareId)
+    || await storageToCurrentDownloadUrl(html, source, shareId);
   if (!downloadUrl) throw new Error("storage.to did not provide a valid download link");
   return fetch(downloadUrl.toString(), { headers, redirect: "follow" });
 }

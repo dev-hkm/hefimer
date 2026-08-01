@@ -72,3 +72,46 @@ test("storage.to share pages resolve to the signed file download", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("storage.to mint proofs resolve through the current download API", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push(url);
+    if (url === "https://storage.to/mCn2TaULN") {
+      return new Response('<script>stream.enqueue("[\\\"mint_proof\\\",\\\"1785590600.96d372c4e11c0693324b255cec905bd5e862df1a71bef54c66d1c1c9d4f64274\\\"]")</script>');
+    }
+    if (url === "https://storage.to/mCn2TaULN/download") {
+      assert.equal(new Headers(init?.headers).get("x-mint-proof"), "1785590600.96d372c4e11c0693324b255cec905bd5e862df1a71bef54c66d1c1c9d4f64274");
+      return Response.json({
+        url: "https://stusercontent.com/object-id?expires=123&sig=abc",
+      });
+    }
+    if (url === "https://stusercontent.com/object-id?expires=123&sig=abc") {
+      return new Response("current storage bytes", {
+        headers: { "Content-Type": "text/plain", "Content-Length": "21" },
+      });
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  try {
+    const source = encodeURIComponent("https://storage.to/mCn2TaULN");
+    const request = new Request(`https://hefimer.qzz.io/api/download?url=${source}&filename=current.txt`, {
+      headers: { Referer: "https://hefimer.qzz.io/" },
+    });
+    const response = await onRequestGet({ request });
+
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "current storage bytes");
+    assert.equal(response.headers.get("Content-Type"), "text/plain");
+    assert.deepEqual(requests, [
+      "https://storage.to/mCn2TaULN",
+      "https://storage.to/mCn2TaULN/download",
+      "https://stusercontent.com/object-id?expires=123&sig=abc",
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
