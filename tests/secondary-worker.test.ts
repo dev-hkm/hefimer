@@ -52,6 +52,15 @@ test("secondary Worker keeps secret R2 unavailable", async () => {
   assert.match(await response.text(), /not available/i);
 });
 
+test("secondary Worker never falls back to the production device database", async () => {
+  const response = await worker.fetch(new Request("https://api.example.test/api/devices/sync", {
+    headers: { Origin: FIREBASE_ORIGIN },
+  }), env);
+
+  assert.equal(response.status, 503);
+  assert.match(await response.text(), /isolated mirror/i);
+});
+
 test("secondary Worker dispatches provider downloads with attachment CORS headers", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response("worker bytes", {

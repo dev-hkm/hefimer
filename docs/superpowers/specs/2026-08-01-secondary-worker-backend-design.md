@@ -8,7 +8,7 @@ Create a second Hefimer deployment path for Firebase Hosting backed by a standal
 
 - Development happens only on branch `codex/firebase-worker-backend` in the isolated worktree `D:\Downloads\Web Projects\Hefimer-worker-backend`.
 - The `main` branch, Pages project `hefimer`, and `hefimer.qzz.io` deployment are not modified or redeployed.
-- The secondary Worker uses a new D1 database and a new KV namespace. It never binds to `hefimer-devices` or the production `PAIR_TOKENS` namespace.
+- The secondary Worker uses a new KV namespace and never binds to `hefimer-devices` or the production `PAIR_TOKENS` namespace. Because the account currently has no free D1 slot, Hefimer Link on the mirror stays disabled rather than falling back to production data.
 - Secret R2 mode remains available only on the Pages deployment. The Firebase mirror does not receive production R2 credentials or access to the production bucket.
 - Public provider uploads and downloads may use the same third-party providers because those files are already temporary and external to Hefimer storage.
 
@@ -24,12 +24,12 @@ The Worker uses an explicit route table to adapt the existing Pages Function han
 ## Secondary Resources
 
 - Worker: `hefimer-secondary-api`
-- D1: `hefimer-secondary-devices`
+- D1: `hefimer-secondary-devices` once an account slot is available
 - KV: a new namespace bound as `PAIR_TOKENS`
 - Firebase Hosting project: `hefimer`
 - Firebase API build mode: `firebase`
 
-The secondary D1 receives the existing device-group schema, so Hefimer Link can operate independently inside the Firebase mirror. Groups, devices, invitations, and transfer states do not cross between Firebase and Pages.
+Once a dedicated D1 slot is available, the secondary database receives the existing device-group schema so Hefimer Link can operate independently inside the Firebase mirror. Until then `/api/devices/*` returns `503`. Groups, devices, invitations, and transfer states never cross between Firebase and Pages.
 
 ## API Scope
 
@@ -70,7 +70,7 @@ Firebase Hosting serves `dist` with SPA fallback to `index.html`. The build runs
 1. Unit tests verify API URL selection, route matching, CORS allow/deny behavior, preflight headers, and R2 isolation.
 2. Existing tests and TypeScript checks remain green.
 3. Worker dry-run succeeds before deployment.
-4. The new D1 schema is applied only to `hefimer-secondary-devices`.
+4. The Worker is verified to return `503` for device routes unless the dedicated secondary D1 is bound.
 5. Live Worker health and provider download streaming are smoke-tested.
 6. Firebase Hosting is deployed only after the Worker tests pass.
 7. The Pages domain is checked before and after deployment to confirm its asset and API behavior are unchanged.

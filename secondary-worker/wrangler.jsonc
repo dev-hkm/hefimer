@@ -1,0 +1,21 @@
+{
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "hefimer-secondary-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-01",
+	"workers_dev": true,
+	"preview_urls": false,
+	"vars": {
+		"ALLOWED_ORIGINS": "https://hefimer.web.app,https://hefimer.firebaseapp.com"
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"kv_namespaces": [
+		{
+			"binding": "PAIR_TOKENS",
+			"id": "be5c6b25002d4784ad7d0f142ee775da"
+		}
+	]
+}

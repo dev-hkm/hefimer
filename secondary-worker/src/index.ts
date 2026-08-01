@@ -5,7 +5,7 @@ import { onRequest as handleTmpfiles } from "../../functions/api/proxy/tmpfiles"
 import { onRequest as handleStorageTo } from "../../functions/api/proxy/storageto/[[path]]";
 import type { DeviceEnv } from "../../functions/lib/device-auth";
 
-interface WorkerEnv extends DeviceEnv {
+interface WorkerEnv extends Partial<DeviceEnv> {
   ALLOWED_ORIGINS?: string;
 }
 
@@ -122,7 +122,10 @@ async function dispatch(request: Request, env: WorkerEnv) {
   if (pathname === "/api/proxy/litterbox") return handleLitterbox({ request, env });
   if (pathname === "/api/proxy/tmpfiles") return handleTmpfiles({ request, env });
   if (pathname === "/api/devices" || pathname.startsWith("/api/devices/")) {
-    return handleDevices({ request, env });
+    if (!env.HEFIMER_DB || !env.PAIR_TOKENS) {
+      return json({ error: "Hefimer Link is not available on this isolated mirror yet" }, 503);
+    }
+    return handleDevices({ request, env: env as DeviceEnv });
   }
   if (pathname === "/api/proxy/storageto" || pathname.startsWith("/api/proxy/storageto/")) {
     const path = pathname.replace(/^\/api\/proxy\/storageto\/?/, "").split("/").filter(Boolean);
