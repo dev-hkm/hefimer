@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
+    "build:firebase": "vite build --mode firebase",
     "preview": "vite preview",
     "test": "tsx --test tests/**/*.test.ts",
     "dev:pages": "npm run build && wrangler pages dev dist --port 4175",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "start": "node server.ts"
+    "start": "node server.ts",
+    "deploy:firebase": "npm run build:firebase && npx firebase-tools deploy --only hosting --project hefimer"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
