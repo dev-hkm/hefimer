@@ -3059,10 +3059,10 @@ function SendFile({
     {
       id: "gofile",
       name: "Gofile",
-      maxSizeLabel: "3 GB",
+      maxSizeLabel: "No stated limit",
       expiry: "Deletes after 10 days of inactivity",
       speed: "Fast, but subject to rate limits",
-      features: "Secure & anonymous, supports flexible expiration settings.",
+      features: "Best external route for large files. Guest uploads have rate limits.",
     },
     {
       id: "tmpfiles",
@@ -3261,8 +3261,8 @@ function SendFile({
       return p ? p.name : "selected host";
     };
 
-    let sizeLimit = 3 * 1024 * 1024 * 1024; // Default Gofile (3 GB)
-    let limitLabel = "3 GB";
+    let sizeLimit = Number.POSITIVE_INFINITY; // Gofile publishes no per-file size cap for guest uploads.
+    let limitLabel = "No stated limit";
 
     if (selectedProvider === "storageto") {
       sizeLimit = 25 * 1024 * 1024 * 1024;
@@ -4225,6 +4225,70 @@ function SendFile({
             )}
           </div>
 
+          <motion.section
+            layout
+            className="w-full overflow-hidden rounded-[24px] border border-white/10 bg-[radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.1),transparent_34%),rgba(255,255,255,0.025)] p-3 shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
+            aria-label="Upload provider"
+          >
+            <div className="flex items-start justify-between gap-3 px-1 pb-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Transfer route</p>
+                <h3 className="mt-1 text-sm font-bold tracking-tight text-white">Choose where this file goes</h3>
+              </div>
+              <div className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.13em] text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,0.9)]" />
+                {selectedProviderInfo.name}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {UPLOAD_PROVIDERS.map((prov) => {
+                const isSelected = selectedProvider === prov.id;
+                const isLargeFileRoute = prov.id === "storageto" || prov.id === "gofile";
+                return (
+                  <motion.button
+                    key={prov.id}
+                    type="button"
+                    onClick={() => handleSelectProvider(prov.id)}
+                    whileTap={{ scale: 0.97 }}
+                    aria-pressed={isSelected}
+                    className={`relative min-h-[104px] overflow-hidden rounded-[18px] border p-3 text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+                      isSelected
+                        ? "border-white bg-white text-black shadow-[0_12px_28px_rgba(255,255,255,0.16)]"
+                        : "border-white/10 bg-black/30 text-white hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/[0.07]"
+                    }`}
+                  >
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] ${isSelected ? "bg-black/10 text-black/55" : "bg-white/8 text-white/40"}`}>
+                      {isLargeFileRoute ? "Large files" : "Quick send"}
+                    </span>
+                    <span className="mt-3 block text-xs font-black tracking-tight">{prov.name}</span>
+                    <span className={`mt-1 block font-mono text-[9px] ${isSelected ? "text-black/55" : "text-white/40"}`}>{prov.maxSizeLabel}</span>
+                    <span className={`absolute bottom-3 right-3 grid h-4 w-4 place-items-center rounded-full border ${isSelected ? "border-black/30 bg-black text-white" : "border-white/15"}`}>
+                      {isSelected && <Check size={9} strokeWidth={3} />}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedProvider}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18 }}
+                className="mt-2.5 flex flex-col gap-1.5 rounded-[17px] border border-white/8 bg-black/30 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <p className="text-[10px] leading-relaxed text-white/55">{selectedProviderInfo.features}</p>
+                <div className="flex shrink-0 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.08em]">
+                  <span className="text-white/35">Expires</span>
+                  <span className="text-white/80">{selectedProviderInfo.expiry}</span>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </motion.section>
+
           <div className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] flex flex-col transition-all overflow-hidden">
             <div 
               onClick={() => {
@@ -4277,65 +4341,6 @@ function SendFile({
                   className="overflow-hidden"
                 >
                   <div className="px-5 pb-5 pt-3 border-t border-white/5 space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
-                        Upload Host Provider
-                      </label>
-                      <div className="grid grid-cols-2 gap-2 px-1">
-                        {UPLOAD_PROVIDERS.map((prov) => {
-                          const isSelected = selectedProvider === prov.id;
-                          return (
-                            <button
-                              key={prov.id}
-                              type="button"
-                              onClick={() => handleSelectProvider(prov.id)}
-                              className={`w-full py-2.5 px-2 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 ${
-                                isSelected
-                                  ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                                  : "bg-white/[0.02] border-white/10 text-white/60 hover:bg-white/[0.05] hover:text-white"
-                              }`}
-                            >
-                              <span>{prov.name}</span>
-                              <span className={`text-[8px] font-mono tracking-tight ${isSelected ? "text-black/50" : "text-white/30"}`}>
-                                {prov.maxSizeLabel}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Selected Host Limits Info Card */}
-                      {(() => {
-                        const prov = UPLOAD_PROVIDERS.find(p => p.id === selectedProvider);
-                        if (!prov) return null;
-                        return (
-                          <div className="mx-1 mt-2.5 p-3 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col gap-1.5 backdrop-blur-md">
-                            <p className="text-white font-bold text-[10px] uppercase tracking-wider border-b border-white/5 pb-1 flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                              {prov.name} Limits & Info
-                            </p>
-                            <div className="text-[10px] text-white/70 space-y-1">
-                              <div className="flex justify-between">
-                                <span className="text-white/40">Max File Size:</span>
-                                <span className="text-emerald-400 font-mono font-bold">{prov.maxSizeLabel}</span>
-                              </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-white/40 shrink-0">Expiry Policy:</span>
-                                <span className="text-amber-400 text-right leading-tight">{prov.expiry}</span>
-                              </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-white/40 shrink-0">Speed & Features:</span>
-                                <span className="text-blue-400 text-right leading-tight">{prov.speed}</span>
-                              </div>
-                              <div className="text-[9px] text-white/40 leading-relaxed border-t border-white/5 pt-1.5 mt-1 italic text-left">
-                                {prov.features}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1">
                         Self-Destruct Timer
