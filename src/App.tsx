@@ -1138,6 +1138,7 @@ function ReceiveResult({
     if (url.includes("storage.to")) return "storage.to";
     if (url.includes("tmpfiles.org")) return "tmpfiles.org";
     if (url.includes("filebin.net")) return "Filebin";
+    if (url.includes("tempfile.org")) return "TempFile";
     try {
       const domain = new URL(url).hostname;
       return domain.replace("www.", "").split(".")[0].replace(/^\w/, (c) => c.toUpperCase());
@@ -3072,21 +3073,21 @@ function SendFile({
       features: "Short-lived temporary hosting. Automatically deleted after 1 hour.",
     },
     {
-      id: "litterbox",
-      name: "Litterbox",
-      maxSizeLabel: "100 MB",
-      expiry: "Temporary (1, 12, 24, or 72 hours)",
-      speed: "Standard speed",
-      features: "Strictly temporary file hosting, files deleted automatically.",
-    },
-    {
       id: "filebin",
       name: "Filebin",
       maxSizeLabel: "100 MB",
       expiry: "Deletes after 6 days (fixed)",
       speed: "Standard speed",
       features: "One private bin per share with direct file downloads.",
-    }
+    },
+    {
+      id: "tempfile",
+      name: "TempFile",
+      maxSizeLabel: "100 MB",
+      expiry: "Deletes after 1, 6, 24, or 48 hours",
+      speed: "Fast CDN delivery",
+      features: "Public API with direct downloads and configurable temporary retention.",
+    },
   ];
 
   const selectedProviderInfo =
@@ -3159,17 +3160,52 @@ function SendFile({
     xhr.send(blob);
   });
 
+  const uploadProviderForm = (
+    url: string,
+    formData: FormData,
+    onProgress: (percent: number) => void,
+  ) => new Promise<any>((resolve, reject) => {
+    const xhr = bindXhr(new XMLHttpRequest());
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      clearActiveXhr(xhr);
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(xhr.responseText || `Upload failed with status ${xhr.status}`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(xhr.responseText));
+      } catch {
+        resolve(xhr.responseText);
+      }
+    };
+    xhr.onabort = () => {
+      clearActiveXhr(xhr);
+      reject(new Error("UPLOAD_CANCELED"));
+    };
+    xhr.onerror = () => {
+      clearActiveXhr(xhr);
+      reject(new Error("Network error during upload"));
+    };
+    xhr.open("POST", url);
+    xhr.send(formData);
+  });
+
   const handleSelectProvider = (provId: string) => {
     setSelectedProvider(provId);
-    if (provId === "litterbox") {
-      const validLitterboxOptions = ["1h", "12h", "24h", "72h"];
-      if (!validLitterboxOptions.includes(expire)) {
-        setExpire("1h");
-      }
-    } else if (provId === "tmpfiles") {
+    if (provId === "tmpfiles") {
       setExpire("1h");
     } else if (provId === "filebin") {
       setExpire("144h");
+    } else if (provId === "tempfile") {
+      const validTempFileOptions = ["1h", "6h", "24h", "48h"];
+      if (!validTempFileOptions.includes(expire)) {
+        setExpire("1h");
+      }
     } else if (provId === "storageto") {
       const validStorageToOptions = ["24h", "48h", "72h", "120h", "168h"];
       if (!validStorageToOptions.includes(expire)) {
@@ -3178,20 +3214,20 @@ function SendFile({
     }
   };
 
-  const EXPIRE_OPTIONS = selectedProvider === "litterbox"
-    ? [
-        { label: "1 hour", value: "1h" },
-        { label: "12 hours", value: "12h" },
-        { label: "24 hours", value: "24h" },
-        { label: "72 hours", value: "72h" },
-      ]
-    : selectedProvider === "tmpfiles"
+  const EXPIRE_OPTIONS = selectedProvider === "tmpfiles"
     ? [
         { label: "1 hour (Fixed)", value: "1h" }
       ]
     : selectedProvider === "filebin"
     ? [
         { label: "6 days (Fixed)", value: "144h" }
+      ]
+    : selectedProvider === "tempfile"
+    ? [
+        { label: "1 hour", value: "1h" },
+        { label: "6 hours", value: "6h" },
+        { label: "24 hours", value: "24h" },
+        { label: "48 hours", value: "48h" },
       ]
     : selectedProvider === "storageto"
     ? [
@@ -3228,13 +3264,10 @@ function SendFile({
     let sizeLimit = 3 * 1024 * 1024 * 1024; // Default Gofile (3 GB)
     let limitLabel = "3 GB";
 
-    if (selectedProvider === "litterbox") {
-      sizeLimit = 100 * 1024 * 1024;
-      limitLabel = "100 MB";
-    } else if (selectedProvider === "storageto") {
+    if (selectedProvider === "storageto") {
       sizeLimit = 25 * 1024 * 1024 * 1024;
       limitLabel = "25 GB";
-    } else if (selectedProvider === "tmpfiles" || selectedProvider === "filebin") {
+    } else if (selectedProvider === "tmpfiles" || selectedProvider === "filebin" || selectedProvider === "tempfile") {
       sizeLimit = 100 * 1024 * 1024;
       limitLabel = "100 MB";
     }
@@ -3321,44 +3354,17 @@ function SendFile({
             const gofileCode = uploadJson.data.parentFolderCode || uploadJson.data.id;
             currentFileUrl = `https://gofile.io/d/${gofileCode}`;
           } 
-          else if (selectedProvider === "litterbox") {
-            const lbData = new FormData();
-            lbData.append("reqtype", "fileupload");
-            const lbTime = expire === "12h" || expire === "24h" || expire === "72h" ? expire : (expire === "48h" ? "72h" : "1h");
-            lbData.append("time", lbTime);
-            lbData.append("fileToUpload", currentFile, currentName);
-
-            const uploadResult = await new Promise<any>((resolve, reject) => {
-              const xhr = bindXhr(new XMLHttpRequest());
-              xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                  const pct = Math.round((e.loaded / e.total) * 100);
-                  updateOverallProgress(pct);
-                }
-              };
-              xhr.onload = () => {
-                clearActiveXhr(xhr);
-                resolve(xhr.responseText);
-              };
-              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
-              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("POST", "https://litterbox.catbox.moe/resources/internals/api.php");
-              xhr.send(lbData);
-            });
-
-            if (typeof uploadResult === "string" && uploadResult.startsWith("https://")) {
-              currentFileUrl = uploadResult.trim();
-            } else if (typeof uploadResult === "string" && uploadResult.includes("https://")) {
-              const match = uploadResult.match(/(https:\/\/litterbox\.catbox\.moe\/files\/[a-zA-Z0-9.\-_]+)/);
-              if (match) currentFileUrl = match[1];
-            }
-            if (!currentFileUrl) {
-              showToast("Litterbox rejected this upload. Continuing with Filebin...", "info");
-              currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
-            }
-          } 
           else if (selectedProvider === "filebin") {
             currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
+          }
+          else if (selectedProvider === "tempfile") {
+            const form = new FormData();
+            form.append("files", currentFile, currentName);
+            form.append("expiryHours", String(Number.parseInt(expire, 10) || 1));
+            const result = await uploadProviderForm("https://tempfile.org/api/upload/local", form, updateOverallProgress);
+            const fileInfo = result.files?.[0];
+            if (!result.success || !fileInfo?.url) throw new Error(result.message || "TempFile upload failed");
+            currentFileUrl = `${fileInfo.url}download`;
           }
           else if (selectedProvider === "storageto") {
             let visitorToken = localStorage.getItem("hefimer_storageto_visitor_token");
@@ -3619,46 +3625,24 @@ function SendFile({
               console.warn("Could not set Gofile expiration", err);
             }
           }
-        } else if (selectedProvider === "litterbox") {
-          showToast("Uploading via Litterbox...", "info");
-          const lbData = new FormData();
-          lbData.append("reqtype", "fileupload");
-          
-          const lbTime = expire === "12h" || expire === "24h" || expire === "72h" ? expire : (expire === "48h" ? "72h" : "1h");
-          lbData.append("time", lbTime);
-          lbData.append("fileToUpload", fileToUpload, finalName);
-
-          let uploadResult: any = "";
-          try {
-            uploadResult = await uploadWithProgress(
-              "https://litterbox.catbox.moe/resources/internals/api.php",
-              lbData,
-            );
-          } catch (error) {
-            console.warn("Litterbox upload failed; using Filebin fallback.", error);
-          }
-
-          if (typeof uploadResult === "string" && uploadResult.startsWith("https://")) {
-            fileUrl = uploadResult.trim();
-          } else if (typeof uploadResult === "string" && uploadResult.includes("https://")) {
-            const match = uploadResult.match(/(https:\/\/litterbox\.catbox\.moe\/files\/[a-zA-Z0-9.\-_]+)/);
-            if (match) {
-              fileUrl = match[1];
-            }
-          }
-          if (!fileUrl) {
-            showToast("Litterbox rejected this upload. Continuing with Filebin...", "info");
-            fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
-              const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
-              setProgress(normalizedPct);
-            });
-          }
         } else if (selectedProvider === "filebin") {
           showToast("Uploading via Filebin...", "info");
           fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
             const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
             setProgress(normalizedPct);
           });
+        } else if (selectedProvider === "tempfile") {
+          showToast("Uploading via TempFile...", "info");
+          const form = new FormData();
+          form.append("files", fileToUpload, finalName);
+          form.append("expiryHours", String(Number.parseInt(expire, 10) || 1));
+          const result = await uploadProviderForm("https://tempfile.org/api/upload/local", form, (pct) => {
+            const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
+            setProgress(normalizedPct);
+          });
+          const fileInfo = result.files?.[0];
+          if (!result.success || !fileInfo?.url) throw new Error(result.message || "TempFile upload failed");
+          fileUrl = `${fileInfo.url}download`;
         } else if (selectedProvider === "storageto") {
           showToast("Initializing upload with storage.to...", "info");
           
