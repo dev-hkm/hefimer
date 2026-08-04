@@ -1137,6 +1137,7 @@ function ReceiveResult({
     if (url.includes("pixeldrain.com")) return "Pixeldrain";
     if (url.includes("storage.to")) return "storage.to";
     if (url.includes("tmpfiles.org")) return "tmpfiles.org";
+    if (url.includes("filebin.net")) return "Filebin";
     try {
       const domain = new URL(url).hostname;
       return domain.replace("www.", "").split(".")[0].replace(/^\w/, (c) => c.toUpperCase());
@@ -3045,8 +3046,6 @@ function SendFile({
   const activeXhrRef = useRef<XMLHttpRequest | null>(null);
   const uploadCancelledRef = useRef(false);
 
-  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-
   const UPLOAD_PROVIDERS = [
     {
       id: "storageto",
@@ -3075,10 +3074,18 @@ function SendFile({
     {
       id: "litterbox",
       name: "Litterbox",
-      maxSizeLabel: isLocal ? "1 GB" : "100 MB",
+      maxSizeLabel: "100 MB",
       expiry: "Temporary (1, 12, 24, or 72 hours)",
       speed: "Standard speed",
       features: "Strictly temporary file hosting, files deleted automatically.",
+    },
+    {
+      id: "filebin",
+      name: "Filebin",
+      maxSizeLabel: "100 MB",
+      expiry: "Deletes after 6 days (fixed)",
+      speed: "Standard speed",
+      features: "One private bin per share with direct file downloads.",
     }
   ];
 
@@ -3112,6 +3119,46 @@ function SendFile({
     showToast("Upload canceled", "success");
   };
 
+  const uploadToFilebin = (
+    blob: Blob,
+    fileName: string,
+    onProgress: (percent: number) => void,
+  ) => new Promise<string>((resolve, reject) => {
+    const bin = `hefimer-${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`;
+    const uploadUrl = `/api/proxy/filebin/${encodeURIComponent(bin)}/${encodeURIComponent(fileName)}`;
+    const xhr = bindXhr(new XMLHttpRequest());
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      clearActiveXhr(xhr);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(`https://filebin.net/${bin}/${encodeURIComponent(fileName)}`);
+        return;
+      }
+      let message = `Filebin returned status ${xhr.status}`;
+      try {
+        message = JSON.parse(xhr.responseText).error || message;
+      } catch {
+        message = xhr.responseText || message;
+      }
+      reject(new Error(message));
+    };
+    xhr.onabort = () => {
+      clearActiveXhr(xhr);
+      reject(new Error("UPLOAD_CANCELED"));
+    };
+    xhr.onerror = () => {
+      clearActiveXhr(xhr);
+      reject(new Error("Network error during Filebin upload"));
+    };
+    xhr.open("POST", uploadUrl);
+    xhr.setRequestHeader("Content-Type", blob.type || "application/octet-stream");
+    xhr.send(blob);
+  });
+
   const handleSelectProvider = (provId: string) => {
     setSelectedProvider(provId);
     if (provId === "litterbox") {
@@ -3121,6 +3168,8 @@ function SendFile({
       }
     } else if (provId === "tmpfiles") {
       setExpire("1h");
+    } else if (provId === "filebin") {
+      setExpire("144h");
     } else if (provId === "storageto") {
       const validStorageToOptions = ["24h", "48h", "72h", "120h", "168h"];
       if (!validStorageToOptions.includes(expire)) {
@@ -3139,6 +3188,10 @@ function SendFile({
     : selectedProvider === "tmpfiles"
     ? [
         { label: "1 hour (Fixed)", value: "1h" }
+      ]
+    : selectedProvider === "filebin"
+    ? [
+        { label: "6 days (Fixed)", value: "144h" }
       ]
     : selectedProvider === "storageto"
     ? [
@@ -3176,12 +3229,12 @@ function SendFile({
     let limitLabel = "3 GB";
 
     if (selectedProvider === "litterbox") {
-      sizeLimit = isLocal ? 1 * 1024 * 1024 * 1024 : 100 * 1024 * 1024;
-      limitLabel = isLocal ? "1 GB" : "100 MB (due to Cloudflare Workers proxy limits)";
+      sizeLimit = 100 * 1024 * 1024;
+      limitLabel = "100 MB";
     } else if (selectedProvider === "storageto") {
       sizeLimit = 25 * 1024 * 1024 * 1024;
       limitLabel = "25 GB";
-    } else if (selectedProvider === "tmpfiles") {
+    } else if (selectedProvider === "tmpfiles" || selectedProvider === "filebin") {
       sizeLimit = 100 * 1024 * 1024;
       limitLabel = "100 MB";
     }
@@ -3289,7 +3342,7 @@ function SendFile({
               };
               xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
               xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("POST", "/api/proxy/litterbox");
+              xhr.open("POST", "https://litterbox.catbox.moe/resources/internals/api.php");
               xhr.send(lbData);
             });
 
@@ -3299,8 +3352,14 @@ function SendFile({
               const match = uploadResult.match(/(https:\/\/litterbox\.catbox\.moe\/files\/[a-zA-Z0-9.\-_]+)/);
               if (match) currentFileUrl = match[1];
             }
-            if (!currentFileUrl) throw new Error("Litterbox upload failed");
+            if (!currentFileUrl) {
+              showToast("Litterbox rejected this upload. Continuing with Filebin...", "info");
+              currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
+            }
           } 
+          else if (selectedProvider === "filebin") {
+            currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
+          }
           else if (selectedProvider === "storageto") {
             let visitorToken = localStorage.getItem("hefimer_storageto_visitor_token");
             if (!visitorToken) {
@@ -3320,7 +3379,15 @@ function SendFile({
                 size: currentFile.size,
               }),
             });
-            if (!initRes.ok) throw new Error(`Init storage.to upload failed for ${currentName}`);
+            if (!initRes.ok) {
+              if (initRes.status !== 403) {
+                throw new Error(`Init storage.to upload failed for ${currentName}`);
+              }
+              showToast("storage.to blocked this upload. Continuing with Filebin...", "info");
+              currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
+            }
+
+            if (!currentFileUrl) {
             const initData = await initRes.json();
             if (!initData.success) throw new Error(initData.error || "Init storage.to failed");
 
@@ -3365,6 +3432,7 @@ function SendFile({
             const confirmData = await confirmRes.json();
             currentFileUrl = confirmData.file?.raw_url || confirmData.file?.url;
             if (!currentFileUrl) throw new Error("Confirm URL missing");
+            }
           } 
           else if (selectedProvider === "tmpfiles") {
             const tfData = new FormData();
@@ -3395,8 +3463,7 @@ function SendFile({
             });
 
             if (uploadResult && uploadResult.status === "success" && uploadResult.data?.url) {
-              const viewUrl = uploadResult.data.url;
-              currentFileUrl = viewUrl.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+              currentFileUrl = uploadResult.data.url;
             } else {
               throw new Error(uploadResult.error || "tmpfiles upload failed");
             }
@@ -3561,10 +3628,15 @@ function SendFile({
           lbData.append("time", lbTime);
           lbData.append("fileToUpload", fileToUpload, finalName);
 
-          const uploadResult = await uploadWithProgress(
-            "/api/proxy/litterbox",
-            lbData,
-          );
+          let uploadResult: any = "";
+          try {
+            uploadResult = await uploadWithProgress(
+              "https://litterbox.catbox.moe/resources/internals/api.php",
+              lbData,
+            );
+          } catch (error) {
+            console.warn("Litterbox upload failed; using Filebin fallback.", error);
+          }
 
           if (typeof uploadResult === "string" && uploadResult.startsWith("https://")) {
             fileUrl = uploadResult.trim();
@@ -3574,6 +3646,19 @@ function SendFile({
               fileUrl = match[1];
             }
           }
+          if (!fileUrl) {
+            showToast("Litterbox rejected this upload. Continuing with Filebin...", "info");
+            fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
+              const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
+              setProgress(normalizedPct);
+            });
+          }
+        } else if (selectedProvider === "filebin") {
+          showToast("Uploading via Filebin...", "info");
+          fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
+            const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
+            setProgress(normalizedPct);
+          });
         } else if (selectedProvider === "storageto") {
           showToast("Initializing upload with storage.to...", "info");
           
@@ -3598,9 +3683,17 @@ function SendFile({
 
           if (!initRes.ok) {
             const errData = await initRes.json().catch(() => ({}));
-            throw new Error(errData.error || `Failed to initialize storage.to upload (status ${initRes.status})`);
+            if (initRes.status !== 403) {
+              throw new Error(errData.error || `Failed to initialize storage.to upload (status ${initRes.status})`);
+            }
+            showToast("storage.to blocked this upload. Continuing with Filebin...", "info");
+            fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
+              const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
+              setProgress(normalizedPct);
+            });
           }
 
+          if (!fileUrl) {
           const initData = await initRes.json();
           if (!initData.success) {
             throw new Error(initData.error || "Failed to initialize storage.to upload");
@@ -3798,6 +3891,7 @@ function SendFile({
               }
             }
           }
+          }
         } else if (selectedProvider === "tmpfiles") {
           showToast("Uploading via tmpfiles.org...", "info");
           const tfData = new FormData();
@@ -3809,8 +3903,7 @@ function SendFile({
           );
 
           if (uploadResult && uploadResult.status === "success" && uploadResult.data?.url) {
-            const viewUrl = uploadResult.data.url;
-            fileUrl = viewUrl.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+            fileUrl = uploadResult.data.url;
           } else {
             throw new Error(
               uploadResult.error ||

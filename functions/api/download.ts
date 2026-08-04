@@ -5,6 +5,7 @@ const ALLOWED_HOSTS = new Set([
   "tmpfiles.org",
   "litter.catbox.moe",
   "litterbox.catbox.moe",
+  "filebin.net",
 ]);
 
 function safeFileName(value: string) {
@@ -34,7 +35,88 @@ function storageToDownloadUrl(html: string, source: URL, shareId: string) {
   return resolved;
 }
 
+function storageToMintProof(html: string) {
+  const match = html.match(/\\?["']mint_proof\\?["']\s*,\s*\\?["']([0-9]+\.[a-f0-9]{32,128})\\?["']/i);
+  return match?.[1] || null;
+}
+
+async function storageToCurrentDownloadUrl(html: string, source: URL, shareId: string) {
+  const mintProof = storageToMintProof(html);
+  if (!mintProof) return null;
+  const response = await fetch(new URL(`/${shareId}/download`, source.origin), {
+    headers: {
+      Accept: "application/json",
+      "x-mint-proof": mintProof,
+    },
+    redirect: "manual",
+  });
+  if (!response.ok) return null;
+  const payload = await response.json() as { url?: unknown };
+  if (typeof payload.url !== "string") return null;
+  const resolved = new URL(payload.url);
+  if (resolved.protocol !== "https:" || resolved.username || resolved.password || resolved.hostname !== "stusercontent.com") {
+    return null;
+  }
+  return resolved;
+}
+
+function tmpfilesDownloadUrl(html: string, source: URL) {
+  const match = html.match(/<a\s+[^>]*class=["'][^"']*\bdownload\b[^"']*["'][^>]*href=["']([^"']+)["']/i)
+    || html.match(/href=["']([^"']+)["'][^>]*class=["'][^"']*\bdownload\b[^"']*["']/i);
+  if (!match?.[1]) return null;
+  const resolved = new URL(match[1], source.origin);
+  if (resolved.origin !== source.origin || !resolved.pathname.startsWith("/dl/")) return null;
+  return resolved;
+}
+
+function verificationCookie(response: Response) {
+  const header = response.headers.get("Set-Cookie") || "";
+  const match = header.match(/(?:^|,\s*)verified=([^;]+)/i);
+  return match ? `verified=${match[1]}` : null;
+}
+
+async function fetchFilebinFile(source: URL, headers: Headers) {
+  const initial = await fetch(source.toString(), { headers, redirect: "manual" });
+  let redirect = initial.headers.get("Location");
+
+  if (!redirect) {
+    const verified = verificationCookie(initial);
+    if (!verified) return initial;
+    const verifiedHeaders = new Headers(headers);
+    verifiedHeaders.set("Cookie", verified);
+    const verifiedResponse = await fetch(source.toString(), {
+      headers: verifiedHeaders,
+      redirect: "manual",
+    });
+    redirect = verifiedResponse.headers.get("Location");
+    if (!redirect) return verifiedResponse;
+  }
+
+  const signedUrl = new URL(redirect);
+  if (signedUrl.protocol !== "https:" || signedUrl.username || signedUrl.password || signedUrl.hostname !== "storage.filebin.net") {
+    throw new Error("Filebin returned an invalid download location");
+  }
+  return fetch(signedUrl.toString(), { headers, redirect: "follow" });
+}
+
 async function fetchProviderFile(source: URL, headers: Headers) {
+  if (source.hostname.toLowerCase() === "filebin.net") {
+    return fetchFilebinFile(source, headers);
+  }
+
+  if (source.hostname.toLowerCase() === "tmpfiles.org") {
+    const page = await fetch(source.toString(), {
+      headers: { Accept: "text/html", "Cache-Control": "no-cache" },
+      redirect: "follow",
+    });
+    if (!page.ok) return page;
+    const contentType = page.headers.get("Content-Type") || "";
+    if (!contentType.includes("text/html")) return page;
+    const downloadUrl = tmpfilesDownloadUrl(await page.text(), source);
+    if (!downloadUrl) throw new Error("tmpfiles.org did not provide a valid download link");
+    return fetch(downloadUrl.toString(), { headers, redirect: "follow" });
+  }
+
   const shareId = storageToShareId(source);
   if (!shareId) return fetch(source.toString(), { headers, redirect: "follow" });
 
@@ -43,7 +125,9 @@ async function fetchProviderFile(source: URL, headers: Headers) {
     redirect: "follow",
   });
   if (!page.ok) return page;
-  const downloadUrl = storageToDownloadUrl(await page.text(), source, shareId);
+  const html = await page.text();
+  const downloadUrl = storageToDownloadUrl(html, source, shareId)
+    || await storageToCurrentDownloadUrl(html, source, shareId);
   if (!downloadUrl) throw new Error("storage.to did not provide a valid download link");
   return fetch(downloadUrl.toString(), { headers, redirect: "follow" });
 }

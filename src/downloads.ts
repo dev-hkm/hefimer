@@ -5,6 +5,7 @@ const PROXIED_HOSTS = new Set([
   "tmpfiles.org",
   "litter.catbox.moe",
   "litterbox.catbox.moe",
+  "filebin.net",
 ]);
 
 export function getDirectDownloadMode(url: string): DirectDownloadMode {
