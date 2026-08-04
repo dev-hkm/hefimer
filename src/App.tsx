@@ -3043,6 +3043,8 @@ function SendFile({
   const [expire, setExpire] = useState("72h");
   const [isFolderMode, setIsFolderMode] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState("storageto");
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeXhrRef = useRef<XMLHttpRequest | null>(null);
   const uploadCancelledRef = useRef(false);
@@ -3197,6 +3199,7 @@ function SendFile({
 
   const handleSelectProvider = (provId: string) => {
     setSelectedProvider(provId);
+    setShowProviderPicker(false);
     if (provId === "tmpfiles") {
       setExpire("1h");
     } else if (provId === "filebin") {
@@ -4225,69 +4228,129 @@ function SendFile({
             )}
           </div>
 
-          <motion.section
-            layout
-            className="w-full overflow-hidden rounded-[24px] border border-white/10 bg-[radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.1),transparent_34%),rgba(255,255,255,0.025)] p-3 shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
-            aria-label="Upload provider"
+          <button
+            type="button"
+            onClick={() => {
+              vibrate();
+              setShowProviderPicker(true);
+            }}
+            className="group flex w-full items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.025] px-3.5 py-3 text-left shadow-[0_14px_42px_rgba(0,0,0,0.16)] transition-all hover:border-white/30 hover:bg-white/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-haspopup="dialog"
+            aria-expanded={showProviderPicker}
           >
-            <div className="flex items-start justify-between gap-3 px-1 pb-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Transfer route</p>
-                <h3 className="mt-1 text-sm font-bold tracking-tight text-white">Choose where this file goes</h3>
-              </div>
-              <div className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.13em] text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,0.9)]" />
-                {selectedProviderInfo.name}
-              </div>
-            </div>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/10 bg-black/40 text-white transition-transform duration-300 group-hover:scale-105">
+              <Box size={18} strokeWidth={1.8} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/40">Upload provider</span>
+              <span className="mt-0.5 flex items-center gap-2">
+                <span className="truncate text-sm font-bold text-white">{selectedProviderInfo.name}</span>
+                <span className="rounded-full border border-emerald-400/15 bg-emerald-400/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-emerald-300">{selectedProviderInfo.maxSizeLabel}</span>
+              </span>
+            </span>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 text-white/50 transition-all group-hover:border-white/30 group-hover:text-white">
+              <ChevronDown size={15} />
+            </span>
+          </button>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              {UPLOAD_PROVIDERS.map((prov) => {
-                const isSelected = selectedProvider === prov.id;
-                const isLargeFileRoute = prov.id === "storageto" || prov.id === "gofile";
-                return (
-                  <motion.button
-                    key={prov.id}
-                    type="button"
-                    onClick={() => handleSelectProvider(prov.id)}
-                    whileTap={{ scale: 0.97 }}
-                    aria-pressed={isSelected}
-                    className={`relative min-h-[104px] overflow-hidden rounded-[18px] border p-3 text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
-                      isSelected
-                        ? "border-white bg-white text-black shadow-[0_12px_28px_rgba(255,255,255,0.16)]"
-                        : "border-white/10 bg-black/30 text-white hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/[0.07]"
-                    }`}
-                  >
-                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] ${isSelected ? "bg-black/10 text-black/55" : "bg-white/8 text-white/40"}`}>
-                      {isLargeFileRoute ? "Large files" : "Quick send"}
-                    </span>
-                    <span className="mt-3 block text-xs font-black tracking-tight">{prov.name}</span>
-                    <span className={`mt-1 block font-mono text-[9px] ${isSelected ? "text-black/55" : "text-white/40"}`}>{prov.maxSizeLabel}</span>
-                    <span className={`absolute bottom-3 right-3 grid h-4 w-4 place-items-center rounded-full border ${isSelected ? "border-black/30 bg-black text-white" : "border-white/15"}`}>
-                      {isSelected && <Check size={9} strokeWidth={3} />}
-                    </span>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            <AnimatePresence mode="wait">
+          <AnimatePresence>
+            {showProviderPicker && (
               <motion.div
-                key={selectedProvider}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18 }}
-                className="mt-2.5 flex flex-col gap-1.5 rounded-[17px] border border-white/8 bg-black/30 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 p-3 backdrop-blur-sm sm:items-center"
+                role="presentation"
+                onMouseDown={() => setShowProviderPicker(false)}
               >
-                <p className="text-[10px] leading-relaxed text-white/55">{selectedProviderInfo.features}</p>
-                <div className="flex shrink-0 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.08em]">
-                  <span className="text-white/35">Expires</span>
-                  <span className="text-white/80">{selectedProviderInfo.expiry}</span>
-                </div>
+                <motion.section
+                  initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 18, scale: 0.98 }}
+                  transition={{ type: "spring", damping: 25, stiffness: 330 }}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Choose upload provider"
+                  onMouseDown={(event) => event.stopPropagation()}
+                  className="max-h-[86vh] w-full max-w-[620px] overflow-hidden rounded-[28px] border border-white/15 bg-[#0a0a0a] shadow-[0_30px_100px_rgba(0,0,0,0.65)]"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-300">Transfer route</p>
+                      <h3 className="mt-1 text-lg font-bold tracking-tight text-white">Choose an upload provider</h3>
+                      <p className="mt-1 text-[11px] text-white/45">Large-file routes are listed first. Expand a row for the full policy.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowProviderPicker(false)}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                      aria-label="Close provider picker"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="max-h-[calc(86vh-108px)] space-y-2 overflow-y-auto p-3 sm:p-4">
+                    {UPLOAD_PROVIDERS.map((prov) => {
+                      const isSelected = selectedProvider === prov.id;
+                      const isExpanded = expandedProviderId === prov.id;
+                      const isLargeFileRoute = prov.id === "storageto" || prov.id === "gofile";
+                      return (
+                        <motion.div layout key={prov.id} className={`overflow-hidden rounded-[19px] border transition-colors ${isSelected ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.025] text-white"}`}>
+                          <div className="flex items-center gap-2 p-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectProvider(prov.id)}
+                              className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] px-2 py-2 text-left focus:outline-none"
+                              aria-pressed={isSelected}
+                            >
+                              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${isSelected ? "border-black/15 bg-black/5" : "border-white/10 bg-black/30"}`}>
+                                {isLargeFileRoute ? <Box size={16} /> : <FileUp size={16} />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center gap-2">
+                                  <span className="truncate text-sm font-bold">{prov.name}</span>
+                                  {isLargeFileRoute && <span className={`rounded-full px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] ${isSelected ? "bg-black/10 text-black/55" : "bg-emerald-400/10 text-emerald-300"}`}>Large files</span>}
+                                </span>
+                                <span className={`mt-0.5 block font-mono text-[10px] ${isSelected ? "text-black/55" : "text-white/40"}`}>{prov.maxSizeLabel}</span>
+                              </span>
+                              {isSelected && <span className="grid h-5 w-5 place-items-center rounded-full bg-black text-white"><Check size={11} strokeWidth={3} /></span>}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedProviderId(isExpanded ? null : prov.id)}
+                              className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border transition-colors ${isSelected ? "border-black/15 text-black/60 hover:bg-black/10" : "border-white/10 text-white/50 hover:bg-white/10 hover:text-white"}`}
+                              aria-label={`Show ${prov.name} details`}
+                              aria-expanded={isExpanded}
+                            >
+                              <motion.span animate={{ rotate: isExpanded ? 180 : 0 }}><ChevronDown size={15} /></motion.span>
+                            </button>
+                          </div>
+                          <AnimatePresence initial={false}>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.18 }}
+                                className={`overflow-hidden border-t ${isSelected ? "border-black/10" : "border-white/10"}`}
+                              >
+                                <div className={`grid gap-2 px-4 py-3 text-[10px] leading-relaxed sm:grid-cols-[94px_1fr] ${isSelected ? "text-black/65" : "text-white/55"}`}>
+                                  <span className="font-black uppercase tracking-[0.13em] opacity-60">Expiry</span><span>{prov.expiry}</span>
+                                  <span className="font-black uppercase tracking-[0.13em] opacity-60">Delivery</span><span>{prov.speed}</span>
+                                  <span className="font-black uppercase tracking-[0.13em] opacity-60">Notes</span><span>{prov.features}</span>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.section>
               </motion.div>
-            </AnimatePresence>
-          </motion.section>
+            )}
+          </AnimatePresence>
 
           <div className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] flex flex-col transition-all overflow-hidden">
             <div 
