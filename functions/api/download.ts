@@ -1,5 +1,7 @@
 import { isTrustedBrowserRequest, json } from "../lib/request-guard";
 
+const STORAGE_TO_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
+
 const ALLOWED_HOSTS = new Set([
   "storage.to",
   "tmpfiles.org",
@@ -154,6 +156,14 @@ export const onRequestGet: any = async ({ request }: { request: Request }) => {
     const upstreamHeaders = new Headers();
     const range = request.headers.get("Range");
     if (range) upstreamHeaders.set("Range", range);
+    if (source.hostname.toLowerCase() === "storage.to") {
+      // Storage.to rejects the bare server-side fetch identity behind the download proxy.
+      const appOrigin = new URL(request.url).origin;
+      upstreamHeaders.set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+      upstreamHeaders.set("User-Agent", request.headers.get("User-Agent") || STORAGE_TO_BROWSER_USER_AGENT);
+      upstreamHeaders.set("Origin", appOrigin);
+      upstreamHeaders.set("Referer", `${appOrigin}/`);
+    }
     const upstream = await fetchProviderFile(source, upstreamHeaders);
     if (!upstream.ok && upstream.status !== 206) {
       return json({ error: `Provider download failed (${upstream.status})` }, 502);

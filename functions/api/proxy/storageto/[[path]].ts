@@ -1,5 +1,7 @@
 import { isTrustedBrowserRequest, json } from "../../../lib/request-guard";
 
+const STORAGE_TO_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
+
 export const onRequest: any = async (context: any) => {
   const { request, params } = context;
 
@@ -19,6 +21,10 @@ export const onRequest: any = async (context: any) => {
       "x-visitor-token",
       "x-owner-token",
       "authorization",
+      "accept",
+      "accept-language",
+      "origin",
+      "referer",
     ];
     for (const key of headerKeys) {
       const val = request.headers.get(key);
@@ -26,6 +32,9 @@ export const onRequest: any = async (context: any) => {
         headers.set(key, val);
       }
     }
+    // Storage.to's WAF rejects the bare server-side client emitted by fetch.
+    // Preserve the browser identity without forwarding untrusted arbitrary headers.
+    headers.set("user-agent", request.headers.get("user-agent") || STORAGE_TO_BROWSER_USER_AGENT);
 
     const response = await fetch(targetUrl.toString(), {
       method: request.method,

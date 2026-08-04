@@ -35,6 +35,7 @@ const r2Client = new S3Client({
 });
 
 const BUCKET_NAME = (process.env.R2_BUCKET_NAME || "").trim();
+const STORAGE_TO_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
 /**
  * RECOMMENDED R2 CORS POLICY:
@@ -332,6 +333,10 @@ app.all("/api/proxy/storageto/*", async (req, res) => {
       "x-visitor-token",
       "x-owner-token",
       "authorization",
+      "accept",
+      "accept-language",
+      "origin",
+      "referer",
     ];
     for (const key of headerKeys) {
       const val = req.headers[key];
@@ -339,6 +344,9 @@ app.all("/api/proxy/storageto/*", async (req, res) => {
         headers[key] = val;
       }
     }
+    headers["user-agent"] = typeof req.headers["user-agent"] === "string"
+      ? req.headers["user-agent"]
+      : STORAGE_TO_BROWSER_USER_AGENT;
 
     let requestBody: any = null;
     if (req.method !== "GET" && req.method !== "HEAD") {
