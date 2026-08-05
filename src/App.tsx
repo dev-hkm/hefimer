@@ -3077,7 +3077,7 @@ function SendFile({
     {
       id: "filebin",
       name: "Filebin",
-      maxSizeLabel: "100 MB",
+      maxSizeLabel: "No stated limit",
       expiry: "Deletes after 6 days (fixed)",
       speed: "Standard speed",
       features: "One private bin per share with direct file downloads.",
@@ -3270,7 +3270,7 @@ function SendFile({
     if (selectedProvider === "storageto") {
       sizeLimit = 25 * 1024 * 1024 * 1024;
       limitLabel = "25 GB";
-    } else if (selectedProvider === "tmpfiles" || selectedProvider === "filebin" || selectedProvider === "tempfile") {
+    } else if (selectedProvider === "tmpfiles" || selectedProvider === "tempfile") {
       sizeLimit = 100 * 1024 * 1024;
       limitLabel = "100 MB";
     }
