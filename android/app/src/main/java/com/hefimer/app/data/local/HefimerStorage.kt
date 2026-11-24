@@ -1,0 +1,128 @@
+package com.hefimer.app.data.local
+
+import android.content.Context
+import android.os.Build
+import com.hefimer.app.data.model.HistoryItem
+import com.hefimer.app.data.model.RecentSpaceEntry
+import com.hefimer.app.data.model.UploadStats
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.UUID
+
+class HefimerStorage(context: Context) {
+    private val prefs = context.getSharedPreferences("hefimer_native_prefs", Context.MODE_PRIVATE)
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    fun loadHistory(): List<HistoryItem> {
+        val raw = prefs.getString("hefimer_history", null) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<HistoryItem>>(raw) }.getOrDefault(emptyList())
+    }
+
+    fun addHistory(item: HistoryItem): List<HistoryItem> {
+        val current = loadHistory()
+        if (current.any { it.code == item.code && it.action == item.action }) return current
+        val updated = (listOf(item) + current).take(25)
+        prefs.edit().putString("hefimer_history", json.encodeToString(updated)).apply()
+        return updated
+    }
+
+    fun clearHistory() {
+        prefs.edit().remove("hefimer_history").apply()
+    }
+
+    fun loadUploadStats(isR2: Boolean): UploadStats {
+        val key = if (isR2) "hefimer_r2_stats" else "hefimer_standard_stats"
+        val raw = prefs.getString(key, null) ?: return UploadStats()
+        val parsed = runCatching { json.decodeFromString<UploadStats>(raw) }.getOrDefault(UploadStats())
+        val now = System.currentTimeMillis()
+        if (parsed.firstUploadTime != 0L && now - parsed.firstUploadTime > 24L * 3_600_000L) {
+            prefs.edit().remove(key).apply()
+            return UploadStats()
+        }
+        return parsed
+    }
+
+    fun recordUploadStats(sizeBytes: Long, isR2: Boolean): UploadStats {
+        val key = if (isR2) "hefimer_r2_stats" else "hefimer_standard_stats"
+        val prev = loadUploadStats(isR2)
+        val now = System.currentTimeMillis()
+        val next = if (prev.firstUploadTime == 0L || now - prev.firstUploadTime > 24L * 3_600_000L) {
+            UploadStats(firstUploadTime = now, totalSize = sizeBytes)
+        } else {
+            prev.copy(totalSize = prev.totalSize + sizeBytes)
+        }
+        prefs.edit().putString(key, json.encodeToString(next)).apply()
+        return next
+    }
+
+    fun loadRecentSpaces(): List<RecentSpaceEntry> {
+        val raw = prefs.getString("hefimer_recent_spaces", null) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<RecentSpaceEntry>>(raw) }
+            .getOrDefault(emptyList())
+            .filter { it.code.length == 5 }
+            .take(5)
+    }
+
+    fun saveRecentSpace(code: String, name: String): List<RecentSpaceEntry> {
+        val updated = (listOf(RecentSpaceEntry(code, name.ifBlank { "Space $code" })) +
+            loadRecentSpaces().filter { it.code != code }).take(5)
+        prefs.edit().putString("hefimer_recent_spaces", json.encodeToString(updated)).apply()
+        return updated
+    }
+
+    fun getUserName(): String = prefs.getString("hefimer_username", "") ?: ""
+    fun setUserName(name: String) {
+        prefs.edit().putString("hefimer_username", name.trim()).apply()
+    }
+
+    fun getSpaceProvider(): String = prefs.getString("hefimer_space_provider", "stocare") ?: "stocare"
+    fun setSpaceProvider(id: String) {
+        prefs.edit().putString("hefimer_space_provider", id).apply()
+    }
+
+    fun getVisitorToken(): String {
+        val existing = prefs.getString("hefimer_storageto_visitor_token", null)
+        if (!existing.isNullOrBlank()) return existing
+        val created = UUID.randomUUID().toString().replace("-", "")
+        prefs.edit().putString("hefimer_storageto_visitor_token", created).apply()
+        return created
+    }
+
+    fun getDeviceName(): String {
+        val saved = prefs.getString("hefimer_device_name", null)
+        if (!saved.isNullOrBlank()) return saved
+        val model = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Android"
+        val brand = Build.MANUFACTURER?.replaceFirstChar { it.uppercase() }.orEmpty()
+        val combined = if (brand.isNotBlank() && !model.startsWith(brand, ignoreCase = true)) {
+            "$brand $model"
+        } else {
+            model
+        }
+        return "$combined (App)"
+    }
+
+    fun setDeviceName(name: String) {
+        prefs.edit().putString("hefimer_device_name", name.trim()).apply()
+    }
+
+    fun isDeviceLinkEnabled(): Boolean = prefs.getBoolean("hefimer_device_enabled", false)
+    fun setDeviceLinkEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("hefimer_device_enabled", enabled).apply()
+    }
+
+    fun getStoredString(key: String): String? = prefs.getString(key, null)
+    fun putStoredString(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+
+    fun getOrCreateClientId(): String {
+        val existing = prefs.getString("hefimer_client_id", null)
+        if (!existing.isNullOrBlank()) return existing
+        val created = "sp_${UUID.randomUUID().toString().replace("-", "").take(14)}"
+        prefs.edit().putString("hefimer_client_id", created).apply()
+        return created
+    }
+}
