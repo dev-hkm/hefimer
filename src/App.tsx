@@ -116,6 +116,13 @@ import {
   downloadFileInBrowser,
   getDirectDownloadMode,
 } from "./downloads";
+import {
+  UPLOAD_PROVIDERS,
+  getProviderConfig,
+  getProviderNameFromUrl as resolveProviderNameFromUrl,
+  normalizeExpireForProvider,
+  uploadFileWithFallback,
+} from "./providers";
 
 import { rtdb, auth } from "./firebase";
 import {
@@ -1129,23 +1136,8 @@ function ReceiveResult({
     }
   };
 
-  const getProviderNameFromUrl = (url: string): string => {
-    if (!url) return "File";
-    if (item.objectKey) return "Cloudflare R2";
-    if (url.includes("gofile.io")) return "Gofile";
-    if (url.includes("catbox.moe")) return "Litterbox";
-    if (url.includes("pixeldrain.com")) return "Pixeldrain";
-    if (url.includes("storage.to")) return "storage.to";
-    if (url.includes("tmpfiles.org")) return "tmpfiles.org";
-    if (url.includes("filebin.net")) return "Filebin";
-    if (url.includes("tempfile.org")) return "TempFile";
-    try {
-      const domain = new URL(url).hostname;
-      return domain.replace("www.", "").split(".")[0].replace(/^\w/, (c) => c.toUpperCase());
-    } catch {
-      return "Host";
-    }
-  };
+  const getProviderNameFromUrl = (url: string): string =>
+    resolveProviderNameFromUrl(url, Boolean(item.objectKey));
 
   const triggerDirectDownload = async (url: string, fileName: string) => {
     if (!isValidDownloadUrl(url)) {
@@ -1712,7 +1704,7 @@ function ReceiveResult({
                     showToast("This file link is missing or invalid. Please re-upload the file.", "error");
                     return;
                   }
-                  if (!fileDownloadUrl.includes("gofile.io")) {
+                  if (getDirectDownloadMode(fileDownloadUrl) !== "tab") {
                     await triggerDirectDownload(fileDownloadUrl, item.fileName);
                   } else {
                     window.open(fileDownloadUrl, "_blank", "noopener,noreferrer");
@@ -1723,8 +1715,8 @@ function ReceiveResult({
               className="flex-1 bg-white text-black hover:bg-white/90 border border-white/20 rounded-full px-4 py-3 font-bold transition-all flex items-center justify-center gap-2 text-center"
             >
               <Download size={18} />{" "}
-              {getFileDownloadUrl(item).includes("gofile.io")
-                ? "Open in Gofile"
+              {getDirectDownloadMode(getFileDownloadUrl(item)) === "tab"
+                ? `Open in ${getProviderNameFromUrl(getFileDownloadUrl(item))}`
                 : "Download"}
             </button>
             <button
@@ -3049,52 +3041,7 @@ function SendFile({
   const activeXhrRef = useRef<XMLHttpRequest | null>(null);
   const uploadCancelledRef = useRef(false);
 
-  const UPLOAD_PROVIDERS = [
-    {
-      id: "storageto",
-      name: "storage.to",
-      maxSizeLabel: "25 GB",
-      expiry: "Deletes after 3 days (1-7 days configurable)",
-      speed: "Fast, powered by Cloudflare R2",
-      features: "High-speed downloads via Cloudflare CDN. Unthrottled bandwidth.",
-    },
-    {
-      id: "gofile",
-      name: "Gofile",
-      maxSizeLabel: "No stated limit",
-      expiry: "Deletes after 10 days of inactivity",
-      speed: "Fast, but subject to rate limits",
-      features: "Best external route for large files. Guest uploads have rate limits.",
-    },
-    {
-      id: "tmpfiles",
-      name: "tmpfiles",
-      maxSizeLabel: "100 MB",
-      expiry: "Deletes after 60 minutes",
-      speed: "Standard speed",
-      features: "Short-lived temporary hosting. Automatically deleted after 1 hour.",
-    },
-    {
-      id: "filebin",
-      name: "Filebin",
-      maxSizeLabel: "No stated limit",
-      expiry: "Deletes after 6 days (fixed)",
-      speed: "Standard speed",
-      features: "One private bin per share with direct file downloads.",
-    },
-    {
-      id: "tempfile",
-      name: "TempFile",
-      maxSizeLabel: "100 MB",
-      expiry: "Deletes after 1, 6, 24, or 48 hours",
-      speed: "Fast CDN delivery",
-      features: "Public API with direct downloads and configurable temporary retention.",
-    },
-  ];
-
-  const selectedProviderInfo =
-    UPLOAD_PROVIDERS.find((prov) => prov.id === selectedProvider) ||
-    UPLOAD_PROVIDERS[0];
+  const selectedProviderInfo = getProviderConfig(selectedProvider);
 
   const getMaxSizeText = () => selectedProviderInfo.maxSizeLabel;
 
@@ -3122,133 +3069,13 @@ function SendFile({
     showToast("Upload canceled", "success");
   };
 
-  const uploadToFilebin = (
-    blob: Blob,
-    fileName: string,
-    onProgress: (percent: number) => void,
-  ) => new Promise<string>((resolve, reject) => {
-    const bin = `hefimer-${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`;
-    const uploadUrl = `/api/proxy/filebin/${encodeURIComponent(bin)}/${encodeURIComponent(fileName)}`;
-    const xhr = bindXhr(new XMLHttpRequest());
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    xhr.onload = () => {
-      clearActiveXhr(xhr);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(`https://filebin.net/${bin}/${encodeURIComponent(fileName)}`);
-        return;
-      }
-      let message = `Filebin returned status ${xhr.status}`;
-      try {
-        message = JSON.parse(xhr.responseText).error || message;
-      } catch {
-        message = xhr.responseText || message;
-      }
-      reject(new Error(message));
-    };
-    xhr.onabort = () => {
-      clearActiveXhr(xhr);
-      reject(new Error("UPLOAD_CANCELED"));
-    };
-    xhr.onerror = () => {
-      clearActiveXhr(xhr);
-      reject(new Error("Network error during Filebin upload"));
-    };
-    xhr.open("POST", uploadUrl);
-    xhr.setRequestHeader("Content-Type", blob.type || "application/octet-stream");
-    xhr.send(blob);
-  });
-
-  const uploadProviderForm = (
-    url: string,
-    formData: FormData,
-    onProgress: (percent: number) => void,
-  ) => new Promise<any>((resolve, reject) => {
-    const xhr = bindXhr(new XMLHttpRequest());
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    xhr.onload = () => {
-      clearActiveXhr(xhr);
-      if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(xhr.responseText || `Upload failed with status ${xhr.status}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(xhr.responseText));
-      } catch {
-        resolve(xhr.responseText);
-      }
-    };
-    xhr.onabort = () => {
-      clearActiveXhr(xhr);
-      reject(new Error("UPLOAD_CANCELED"));
-    };
-    xhr.onerror = () => {
-      clearActiveXhr(xhr);
-      reject(new Error("Network error during upload"));
-    };
-    xhr.open("POST", url);
-    xhr.send(formData);
-  });
-
   const handleSelectProvider = (provId: string) => {
     setSelectedProvider(provId);
     setShowProviderPicker(false);
-    if (provId === "tmpfiles") {
-      setExpire("1h");
-    } else if (provId === "filebin") {
-      setExpire("144h");
-    } else if (provId === "tempfile") {
-      const validTempFileOptions = ["1h", "6h", "24h", "48h"];
-      if (!validTempFileOptions.includes(expire)) {
-        setExpire("1h");
-      }
-    } else if (provId === "storageto") {
-      const validStorageToOptions = ["24h", "48h", "72h", "120h", "168h"];
-      if (!validStorageToOptions.includes(expire)) {
-        setExpire("72h");
-      }
-    }
+    setExpire((prev) => normalizeExpireForProvider(provId, prev));
   };
 
-  const EXPIRE_OPTIONS = selectedProvider === "tmpfiles"
-    ? [
-        { label: "1 hour (Fixed)", value: "1h" }
-      ]
-    : selectedProvider === "filebin"
-    ? [
-        { label: "6 days (Fixed)", value: "144h" }
-      ]
-    : selectedProvider === "tempfile"
-    ? [
-        { label: "1 hour", value: "1h" },
-        { label: "6 hours", value: "6h" },
-        { label: "24 hours", value: "24h" },
-        { label: "48 hours", value: "48h" },
-      ]
-    : selectedProvider === "storageto"
-    ? [
-        { label: "1 day", value: "24h" },
-        { label: "2 days", value: "48h" },
-        { label: "3 days (Default)", value: "72h" },
-        { label: "5 days", value: "120h" },
-        { label: "7 days", value: "168h" },
-      ]
-    : [
-        { label: "30 sec", value: "30s" },
-        { label: "5 min", value: "5p" },
-        { label: "30 min", value: "30p" },
-        { label: "1 hour", value: "1h" },
-        { label: "12 hours", value: "12h" },
-        { label: "24 hours", value: "24h" },
-        { label: "48 hours", value: "48h" },
-      ];
+  const EXPIRE_OPTIONS = selectedProviderInfo.expireOptions;
 
   const handleUpload = async () => {
     vibrate();
@@ -3264,24 +3091,17 @@ function SendFile({
       return p ? p.name : "selected host";
     };
 
-    let sizeLimit = Number.POSITIVE_INFINITY; // Gofile publishes no per-file size cap for guest uploads.
-    let limitLabel = "No stated limit";
-
-    if (selectedProvider === "storageto") {
-      sizeLimit = 25 * 1024 * 1024 * 1024;
-      limitLabel = "25 GB";
-    } else if (selectedProvider === "tmpfiles" || selectedProvider === "tempfile") {
-      sizeLimit = 100 * 1024 * 1024;
-      limitLabel = "100 MB";
-    }
+    const sizeLimit = selectedProviderInfo.maxSizeBytes;
+    const limitLabel = selectedProviderInfo.maxSizeLabel;
 
     if (file.size > sizeLimit) {
-      showToast(`File size exceeds limit of ${limitLabel} for ${getSelectedProviderName()}`, "error");
+      showToast(`File size exceeds limit of ${limitLabel} for ${selectedProviderInfo.name}`, "error");
       return;
     }
 
     setLoading(true);
     setProgress(0);
+    let actualProviderName = selectedProviderInfo.name;
     try {
       let fileUrl = "";
       let uploadedFilesList: any[] = [];
@@ -3302,184 +3122,30 @@ function SendFile({
           const updateOverallProgress = (pct: number) => {
             fileProgresses[i] = pct;
             const avgProgress = Math.round(
-              fileProgresses.reduce((acc, p) => acc + p, 0) / totalFiles
+              fileProgresses.reduce((acc, p) => acc + p, 0) / totalFiles,
             );
             setProgress(avgProgress);
           };
 
-          let currentFileUrl = "";
-
-          if (selectedProvider === "gofile") {
-            let serverName = "";
-            const cachedServer = sessionStorage.getItem("gofile_server");
-            try {
-              const serverRes = await fetch("https://api.gofile.io/servers");
-              if (serverRes.ok) {
-                const serverData = await serverRes.json();
-                if (serverData.status === "ok" && serverData.data?.servers?.[0]?.name) {
-                  serverName = serverData.data.servers[0].name;
-                  sessionStorage.setItem("gofile_server", serverName);
-                }
-              }
-            } catch (err) {
-              console.warn("Failed to fetch Gofile server list:", err);
-            }
-            if (!serverName) {
-              serverName = cachedServer || "store1";
-            }
-
-            const gofileData = new FormData();
-            gofileData.append("file", currentFile, currentName);
-
-            const uploadJson = await new Promise<any>((resolve, reject) => {
-              const xhr = bindXhr(new XMLHttpRequest());
-              xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                  const pct = Math.round((e.loaded / e.total) * 100);
-                  updateOverallProgress(pct);
-                }
-              };
-              xhr.onload = () => {
-                clearActiveXhr(xhr);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve(JSON.parse(xhr.responseText));
-                } else reject(new Error(`Gofile returned status ${xhr.status}`));
-              };
-              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
-              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("POST", `https://${serverName}.gofile.io/contents/uploadfile`);
-              xhr.send(gofileData);
-            });
-
-            if (uploadJson.status !== "ok") {
-              throw new Error(uploadJson.status || "Gofile upload failed");
-            }
-            const gofileCode = uploadJson.data.parentFolderCode || uploadJson.data.id;
-            currentFileUrl = `https://gofile.io/d/${gofileCode}`;
-          } 
-          else if (selectedProvider === "filebin") {
-            currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
-          }
-          else if (selectedProvider === "tempfile") {
-            const form = new FormData();
-            form.append("files", currentFile, currentName);
-            form.append("expiryHours", String(Number.parseInt(expire, 10) || 1));
-            const result = await uploadProviderForm("https://tempfile.org/api/upload/local", form, updateOverallProgress);
-            const fileInfo = result.files?.[0];
-            if (!result.success || !fileInfo?.url) throw new Error(result.message || "TempFile upload failed");
-            currentFileUrl = `${fileInfo.url}download`;
-          }
-          else if (selectedProvider === "storageto") {
-            let visitorToken = localStorage.getItem("hefimer_storageto_visitor_token");
-            if (!visitorToken) {
-              visitorToken = Math.random().toString(36).substring(2, 18) + Math.random().toString(36).substring(2, 18);
-              localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
-            }
-
-            const initRes = await fetch("/api/proxy/storageto/upload/init", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Visitor-Token": visitorToken,
-              },
-              body: JSON.stringify({
-                filename: currentName,
-                content_type: currentType,
-                size: currentFile.size,
-              }),
-            });
-            if (!initRes.ok) {
-              if (initRes.status !== 403) {
-                throw new Error(`Init storage.to upload failed for ${currentName}`);
-              }
-              showToast("storage.to blocked this upload. Continuing with Filebin...", "info");
-              currentFileUrl = await uploadToFilebin(currentFile, currentName, updateOverallProgress);
-            }
-
-            if (!currentFileUrl) {
-            const initData = await initRes.json();
-            if (!initData.success) throw new Error(initData.error || "Init storage.to failed");
-
-            const r2Key = initData.r2_key;
-            const uploadUrl = initData.upload_url;
-            if (!uploadUrl) throw new Error("Upload URL missing from storage.to");
-
-            await new Promise<void>((resolve, reject) => {
-              const xhr = bindXhr(new XMLHttpRequest());
-              xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                  const pct = Math.round((e.loaded / e.total) * 100);
-                  updateOverallProgress(pct);
-                }
-              };
-              xhr.onload = () => {
-                clearActiveXhr(xhr);
-                if (xhr.status >= 200 && xhr.status < 300) resolve();
-                else reject(new Error(`storage.to PUT failed (status ${xhr.status})`));
-              };
-              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
-              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("PUT", uploadUrl);
-              xhr.setRequestHeader("Content-Type", currentType);
-              xhr.send(currentFile);
-            });
-
-            const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Visitor-Token": visitorToken,
-              },
-              body: JSON.stringify({
-                filename: currentName,
-                size: currentFile.size,
-                content_type: currentType,
-                r2_key: r2Key,
-              }),
-            });
-            if (!confirmRes.ok) throw new Error("Confirm failed");
-            const confirmData = await confirmRes.json();
-            currentFileUrl = confirmData.file?.raw_url || confirmData.file?.url;
-            if (!currentFileUrl) throw new Error("Confirm URL missing");
-            }
-          } 
-          else if (selectedProvider === "tmpfiles") {
-            const tfData = new FormData();
-            tfData.append("file", currentFile, currentName);
-
-            const uploadResult = await new Promise<any>((resolve, reject) => {
-              const xhr = bindXhr(new XMLHttpRequest());
-              xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                  const pct = Math.round((e.loaded / e.total) * 100);
-                  updateOverallProgress(pct);
-                }
-              };
-              xhr.onload = () => {
-                clearActiveXhr(xhr);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  try {
-                    resolve(JSON.parse(xhr.responseText));
-                  } catch {
-                    resolve(xhr.responseText);
-                  }
-                } else reject(new Error(`tmpfiles returned status ${xhr.status}`));
-              };
-              xhr.onabort = () => { clearActiveXhr(xhr); reject(new Error("UPLOAD_CANCELED")); };
-              xhr.onerror = () => { clearActiveXhr(xhr); reject(new Error("Network error")); };
-              xhr.open("POST", "/api/proxy/tmpfiles");
-              xhr.send(tfData);
-            });
-
-            if (uploadResult && uploadResult.status === "success" && uploadResult.data?.url) {
-              currentFileUrl = uploadResult.data.url;
-            } else {
-              throw new Error(uploadResult.error || "tmpfiles upload failed");
-            }
-          }
+          const result = await uploadFileWithFallback(
+            selectedProvider,
+            currentFile,
+            currentName,
+            {
+              expire,
+              onProgress: updateOverallProgress,
+              bindXhr,
+              clearActiveXhr,
+              isCancelled: () => uploadCancelledRef.current,
+            },
+            (fromName, toName) => {
+              showToast(`${fromName} failed, switching to ${toName}...`, "info");
+            },
+          );
+          actualProviderName = result.providerName;
 
           uploadedFilesList.push({
-            fileUrl: currentFileUrl,
+            fileUrl: result.fileUrl,
             fileName: currentName,
             fileSize: currentFile.size,
             mimeType: currentType,
@@ -3489,424 +3155,55 @@ function SendFile({
         let fileToUpload: File | Blob = file;
         let finalName = file.name;
 
-      if (isFolderMode && (file as any).originalFiles) {
-        showToast("Zipping folder contents...", "info");
-        const zip = new JSZip();
-        const files = (file as any).originalFiles;
+        if (isFolderMode && (file as any).originalFiles) {
+          showToast("Zipping folder contents...", "info");
+          const zip = new JSZip();
+          const files = (file as any).originalFiles;
 
-        for (let i = 0; i < files.length; i++) {
-          const f = files[i];
-          const relativePath = f.webkitRelativePath || f.name;
-          zip.file(relativePath, f);
+          for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const relativePath = f.webkitRelativePath || f.name;
+            zip.file(relativePath, f);
+          }
+
+          fileToUpload = await zip.generateAsync({ type: "blob" }, (metadata) => {
+            setProgress(Math.round(metadata.percent * 0.3));
+          });
+
+          finalName = finalName.endsWith(".zip") ? finalName : `${finalName}.zip`;
         }
 
-        fileToUpload = await zip.generateAsync({ type: "blob" }, (metadata) => {
-          setProgress(Math.round(metadata.percent * 0.3)); // First 30% for zipping
-        });
-
-        finalName = finalName.endsWith(".zip") ? finalName : `${finalName}.zip`;
-      }
-
-      if (fileToUpload.size > sizeLimit) {
-        showToast(`Zipped folder size (${(fileToUpload.size / 1024 / 1024).toFixed(2)} MB) exceeds limit of ${limitLabel} for ${getSelectedProviderName()}`, "error");
-        setLoading(false);
-        return;
-      }
-
-      const uploadWithProgress = (
-        url: string,
-        formData: FormData,
-      ): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          const xhr = bindXhr(new XMLHttpRequest());
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              const normalizedPct = isFolderMode
-                ? 30 + Math.round(pct * 0.7)
-                : pct;
-              setProgress(normalizedPct);
-            }
-          };
-          xhr.onload = () => {
-            clearActiveXhr(xhr);
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                resolve(JSON.parse(xhr.responseText));
-              } catch (e) {
-                resolve(xhr.responseText);
-              }
-            } else {
-              try {
-                const errJson = JSON.parse(xhr.responseText);
-                reject(new Error(errJson.error || errJson.message || `Upload failed with status ${xhr.status}`));
-              } catch {
-                reject(new Error(xhr.responseText || `Upload failed with status ${xhr.status}`));
-              }
-            }
-          };
-          xhr.onabort = () => {
-            clearActiveXhr(xhr);
-            reject(new Error("UPLOAD_CANCELED"));
-          };
-          xhr.onerror = () => {
-            clearActiveXhr(xhr);
-            reject(new Error("Network error during upload"));
-          };
-          xhr.open("POST", url);
-          xhr.send(formData);
-        });
-      };
-
-      try {
-        if (selectedProvider === "gofile") {
-          let serverName = "";
-          const cachedServer = sessionStorage.getItem("gofile_server");
-
-          try {
-            showToast("Getting Gofile server...", "info");
-            const serverRes = await fetch("https://api.gofile.io/servers");
-            if (serverRes.ok) {
-              const serverData = await serverRes.json();
-              if (serverData.status === "ok" && serverData.data?.servers?.[0]?.name) {
-                serverName = serverData.data.servers[0].name;
-                sessionStorage.setItem("gofile_server", serverName);
-              }
-            }
-          } catch (err) {
-            console.warn("Failed to fetch Gofile server list:", err);
-          }
-
-          if (!serverName) {
-            if (cachedServer) {
-              serverName = cachedServer;
-            } else {
-              const fallbackServers = ["store-eu-par-3", "store1", "store3"];
-              serverName = fallbackServers[Math.floor(Math.random() * fallbackServers.length)];
-            }
-          }
-
-          showToast("Uploading via Gofile.io...", "info");
-          const gofileData = new FormData();
-          gofileData.append("file", fileToUpload, finalName);
-          const uploadJson = await uploadWithProgress(
-            `https://${serverName}.gofile.io/contents/uploadfile`,
-            gofileData,
+        if (fileToUpload.size > sizeLimit) {
+          showToast(
+            `Zipped folder size (${(fileToUpload.size / 1024 / 1024).toFixed(2)} MB) exceeds limit of ${limitLabel} for ${selectedProviderInfo.name}`,
+            "error",
           );
+          setLoading(false);
+          return;
+        }
 
-          if (uploadJson.status !== "ok") {
-            throw new Error(uploadJson.status || "Gofile upload failed");
-          }
-
-          const gofileCode =
-            uploadJson.data.parentFolderCode || uploadJson.data.id;
-
-          // Gofile has blocked direct web downloads for free users. We MUST redirect to the landing page.
-          fileUrl = `https://gofile.io/d/${gofileCode}`;
-
-          // Try to set expiration in Gofile if possible
-          const guestToken = uploadJson.data.guestToken;
-          if (guestToken && gofileCode) {
-            try {
-              const durationMs = parseExpire(expire);
-              const expireTimestamp = Math.floor(
-                (Date.now() + durationMs) / 1000,
-              );
-              await fetch("https://api.gofile.io/contents", {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${guestToken}`,
-                },
-                body: JSON.stringify({
-                  contentId: gofileCode,
-                  attribute: "expire",
-                  attributeValue: expireTimestamp,
-                }),
-              });
-            } catch (err) {
-              console.warn("Could not set Gofile expiration", err);
-            }
-          }
-        } else if (selectedProvider === "filebin") {
-          showToast("Uploading via Filebin...", "info");
-          fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
-            const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
-            setProgress(normalizedPct);
-          });
-        } else if (selectedProvider === "tempfile") {
-          showToast("Uploading via TempFile...", "info");
-          const form = new FormData();
-          form.append("files", fileToUpload, finalName);
-          form.append("expiryHours", String(Number.parseInt(expire, 10) || 1));
-          const result = await uploadProviderForm("https://tempfile.org/api/upload/local", form, (pct) => {
-            const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
-            setProgress(normalizedPct);
-          });
-          const fileInfo = result.files?.[0];
-          if (!result.success || !fileInfo?.url) throw new Error(result.message || "TempFile upload failed");
-          fileUrl = `${fileInfo.url}download`;
-        } else if (selectedProvider === "storageto") {
-          showToast("Initializing upload with storage.to...", "info");
-          
-          let visitorToken = localStorage.getItem("hefimer_storageto_visitor_token");
-          if (!visitorToken) {
-            visitorToken = Math.random().toString(36).substring(2, 18) + Math.random().toString(36).substring(2, 18);
-            localStorage.setItem("hefimer_storageto_visitor_token", visitorToken);
-          }
-
-          const initRes = await fetch("/api/proxy/storageto/upload/init", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Visitor-Token": visitorToken,
-            },
-            body: JSON.stringify({
-              filename: finalName,
-              content_type: fileToUpload.type || "application/octet-stream",
-              size: fileToUpload.size,
-            }),
-          });
-
-          if (!initRes.ok) {
-            const errData = await initRes.json().catch(() => ({}));
-            if (initRes.status !== 403) {
-              throw new Error(errData.error || `Failed to initialize storage.to upload (status ${initRes.status})`);
-            }
-            showToast("storage.to blocked this upload. Continuing with Filebin...", "info");
-            fileUrl = await uploadToFilebin(fileToUpload, finalName, (pct) => {
+        const result = await uploadFileWithFallback(
+          selectedProvider,
+          fileToUpload,
+          finalName,
+          {
+            expire,
+            onProgress: (pct) => {
               const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
               setProgress(normalizedPct);
-            });
-          }
-
-          if (!fileUrl) {
-          const initData = await initRes.json();
-          if (!initData.success) {
-            throw new Error(initData.error || "Failed to initialize storage.to upload");
-          }
-
-          const r2Key = initData.r2_key;
-          let fileId = "";
-          let ownerToken = initData.owner_token || "";
-
-          if (initData.type === "single") {
-            const uploadUrl = initData.upload_url;
-            if (!uploadUrl) throw new Error("Failed to retrieve upload URL from storage.to");
-
-            // Perform direct PUT upload
-            showToast("Uploading bytes to storage.to...", "info");
-            await new Promise<void>((resolve, reject) => {
-              const xhr = bindXhr(new XMLHttpRequest());
-              xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                  const pct = Math.round((e.loaded / e.total) * 100);
-                  const normalizedPct = isFolderMode ? 30 + Math.round(pct * 0.7) : pct;
-                  setProgress(normalizedPct);
-                }
-              };
-              xhr.onload = () => {
-                clearActiveXhr(xhr);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve();
-                } else {
-                  reject(new Error(`PUT upload failed with status ${xhr.status}`));
-                }
-              };
-              xhr.onabort = () => {
-                clearActiveXhr(xhr);
-                reject(new Error("UPLOAD_CANCELED"));
-              };
-              xhr.onerror = () => {
-                clearActiveXhr(xhr);
-                reject(new Error("Network error during storage.to PUT upload"));
-              };
-              xhr.open("PUT", uploadUrl);
-              xhr.setRequestHeader("Content-Type", fileToUpload.type || "application/octet-stream");
-              xhr.send(fileToUpload);
-            });
-          } else if (initData.type === "multipart") {
-            const uploadId = initData.upload_id;
-            const partSize = initData.part_size;
-            const totalParts = initData.total_parts;
-            const initialUrls = initData.initial_urls || {};
-
-            showToast(`Uploading ${totalParts} parts to storage.to...`, "info");
-
-            const completedParts: { partNumber: number; etag: string }[] = [];
-
-            for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-              let partUploadUrl = initialUrls[partNumber.toString()];
-
-              if (!partUploadUrl) {
-                const partsRes = await fetch("/api/proxy/storageto/upload/parts", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Owner ${ownerToken}`,
-                  },
-                  body: JSON.stringify({
-                    upload_id: uploadId,
-                    part_numbers: [partNumber],
-                  }),
-                });
-                if (!partsRes.ok) throw new Error(`Failed to fetch part ${partNumber} URL`);
-                const partsData = await partsRes.json();
-                const partObj = partsData.part_urls?.find((p: any) => p.partNumber === partNumber);
-                if (!partObj) throw new Error(`Could not get URL for part ${partNumber}`);
-                partUploadUrl = partObj.url;
-              }
-
-              const start = (partNumber - 1) * partSize;
-              const end = Math.min(start + partSize, fileToUpload.size);
-              const chunk = fileToUpload.slice(start, end);
-
-              // Upload the chunk
-              const etag = await new Promise<string>((resolve, reject) => {
-                const xhr = bindXhr(new XMLHttpRequest());
-                xhr.upload.onprogress = (e) => {
-                  if (e.lengthComputable) {
-                    const chunkPct = Math.round((e.loaded / e.total) * 100);
-                    const overallPct = Math.round(((partNumber - 1) / totalParts) * 100 + (chunkPct / totalParts));
-                    const normalizedPct = isFolderMode ? 30 + Math.round(overallPct * 0.7) : overallPct;
-                    setProgress(normalizedPct);
-                  }
-                };
-                xhr.onload = () => {
-                  clearActiveXhr(xhr);
-                  if (xhr.status >= 200 && xhr.status < 300) {
-                    const etagHeader = xhr.getResponseHeader("ETag");
-                    if (etagHeader) {
-                      resolve(etagHeader);
-                    } else {
-                      const fallbackEtag = xhr.getResponseHeader("etag") || xhr.getResponseHeader("ETAG");
-                      if (fallbackEtag) resolve(fallbackEtag);
-                      else reject(new Error(`ETag header missing in part ${partNumber} upload response`));
-                    }
-                  } else {
-                    reject(new Error(`Part ${partNumber} upload failed with status ${xhr.status}`));
-                  }
-                };
-                xhr.onabort = () => {
-                  clearActiveXhr(xhr);
-                  reject(new Error("UPLOAD_CANCELED"));
-                };
-                xhr.onerror = () => {
-                  clearActiveXhr(xhr);
-                  reject(new Error(`Network error during part ${partNumber} upload`));
-                };
-                xhr.open("PUT", partUploadUrl);
-                xhr.send(chunk);
-              });
-
-              completedParts.push({ partNumber, etag });
-            }
-
-            // Complete multipart
-            showToast("Assembling parts...", "info");
-            const completeRes = await fetch("/api/proxy/storageto/upload/complete-multipart", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Owner ${ownerToken}`,
-              },
-              body: JSON.stringify({
-                upload_id: uploadId,
-                parts: completedParts,
-              }),
-            });
-
-            if (!completeRes.ok) {
-              const errData = await completeRes.json().catch(() => ({}));
-              throw new Error(errData.error || "Failed to assemble multipart upload");
-            }
-          } else {
-            throw new Error(`Unsupported upload type: ${initData.type}`);
-          }
-
-          // 3. Confirm upload to finalize
-          showToast("Finalizing upload with storage.to...", "info");
-          const confirmRes = await fetch("/api/proxy/storageto/upload/confirm", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Visitor-Token": visitorToken,
             },
-            body: JSON.stringify({
-              filename: finalName,
-              size: fileToUpload.size,
-              content_type: fileToUpload.type || "application/octet-stream",
-              r2_key: r2Key,
-            }),
-          });
-
-          if (!confirmRes.ok) {
-            const errData = await confirmRes.json().catch(() => ({}));
-            throw new Error(errData.error || `Failed to confirm storage.to upload (status ${confirmRes.status})`);
-          }
-
-          const confirmData = await confirmRes.json();
-          if (!confirmData.success || !confirmData.file?.url) {
-            throw new Error(confirmData.error || "Failed to confirm file with storage.to");
-          }
-
-          fileUrl = confirmData.file.raw_url || confirmData.file.url;
-          fileId = confirmData.file.id;
-          ownerToken = confirmData.owner_token || ownerToken;
-
-          // 4. Set custom expiry if it is configured
-          if (fileId && ownerToken && expire) {
-            let days = 3;
-            if (expire === "24h") days = 1;
-            else if (expire === "48h") days = 2;
-            else if (expire === "72h") days = 3;
-            else if (expire === "120h") days = 5;
-            else if (expire === "168h") days = 7;
-
-            if (days !== 3) {
-              try {
-                await fetch(`/api/proxy/storageto/file/${fileId}/expiry`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Owner ${ownerToken}`,
-                  },
-                  body: JSON.stringify({ days }),
-                });
-              } catch (err) {
-                console.warn("Could not set custom expiry for storage.to:", err);
-              }
-            }
-          }
-          }
-        } else if (selectedProvider === "tmpfiles") {
-          showToast("Uploading via tmpfiles.org...", "info");
-          const tfData = new FormData();
-          tfData.append("file", fileToUpload, finalName);
-
-          const uploadResult = await uploadWithProgress(
-            "/api/proxy/tmpfiles",
-            tfData,
-          );
-
-          if (uploadResult && uploadResult.status === "success" && uploadResult.data?.url) {
-            fileUrl = uploadResult.data.url;
-          } else {
-            throw new Error(
-              uploadResult.error ||
-                uploadResult.message ||
-                `Upload failed: ${JSON.stringify(uploadResult)}`
-            );
-          }
-        }
-      } catch (e: any) {
-        if (uploadCancelledRef.current) {
-          throw new Error("UPLOAD_CANCELED");
-        }
-        console.error(`${selectedProvider} upload error:`, e);
-        throw new Error(e.message || "File upload failed");
+            onStatus: (msg) => showToast(msg, "info"),
+            bindXhr,
+            clearActiveXhr,
+            isCancelled: () => uploadCancelledRef.current,
+          },
+          (fromName, toName) => {
+            showToast(`${fromName} unavailable, continuing with ${toName}...`, "info");
+          },
+        );
+        fileUrl = result.fileUrl;
+        actualProviderName = result.providerName;
       }
-    }
 
       showToast("Saving code...", "info");
 
@@ -3987,7 +3284,7 @@ function SendFile({
         detail: {
           kind: "file",
           name: isMulti ? `${uploadedFilesList.length} files` : file.name,
-          provider: selectedProviderInfo.name,
+          provider: actualProviderName,
           sizeBytes: file.size,
           dropCode: generatedCode,
           expiresAt: expiresAtDate.getTime(),
@@ -4294,7 +3591,7 @@ function SendFile({
                     {UPLOAD_PROVIDERS.map((prov) => {
                       const isSelected = selectedProvider === prov.id;
                       const isExpanded = expandedProviderId === prov.id;
-                      const isLargeFileRoute = prov.id === "storageto" || prov.id === "gofile";
+                      const isLargeFileRoute = prov.isLargeFile;
                       return (
                         <motion.div layout key={prov.id} className={`overflow-hidden rounded-[19px] border transition-colors ${isSelected ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.025] text-white"}`}>
                           <div className="flex items-center gap-2 p-2">
@@ -4780,6 +4077,8 @@ function HistoryView({ history, setHistory, showToast }: any) {
         return <MessageSquare size={14} />;
       case "board":
         return <Palette size={14} />;
+      case "space":
+        return <Box size={14} />;
       default:
         return <Clock size={14} />;
     }
@@ -4878,7 +4177,7 @@ export interface HistoryItem {
   isR2?: boolean;
   roomName?: string;
   boardName?: string;
-  type: "file" | "text" | "room" | "board" | "r2_file";
+  type: "file" | "text" | "room" | "board" | "space" | "r2_file";
   action: "sent" | "received" | "created" | "joined";
   createdAt: number;
 }
@@ -9474,6 +8773,19 @@ export default function App() {
       if (code.length === 5) {
         const checkType = async () => {
           try {
+            if (window.location.pathname === "/space") {
+              const spaceSnapshot = await get(child(ref(rtdb), `spaces/${code}`));
+              if (spaceSnapshot.exists()) {
+                setActiveTab("space");
+                setSpaceState((prev) => ({
+                  ...prev,
+                  spaceId: code,
+                  spaceMode: "join",
+                }));
+                return;
+              }
+            }
+
             // Check drops
             const dropSnapshot = await get(child(ref(rtdb), `drops/${code}`));
             if (dropSnapshot.exists()) {
@@ -9498,6 +8810,18 @@ export default function App() {
                 ...prev,
                 boardId: code,
                 boardMode: "join",
+              }));
+              return;
+            }
+
+            // Check spaces
+            const spaceSnapshot = await get(child(ref(rtdb), `spaces/${code}`));
+            if (spaceSnapshot.exists()) {
+              setActiveTab("space");
+              setSpaceState((prev) => ({
+                ...prev,
+                spaceId: code,
+                spaceMode: "join",
               }));
               return;
             }
@@ -9979,7 +9303,7 @@ export default function App() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-start overflow-x-clip bg-[#000000] p-4 text-white selection:bg-white/30 sm:p-6">
       {/* Floating Actions Dock */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+      <div className={activeTab === "space" && spaceState.inSpace ? "hidden" : "fixed top-4 right-4 z-50 flex items-center gap-2"}>
         <button
           onClick={() => {
             vibrate();
@@ -9996,6 +9320,7 @@ export default function App() {
       <DeviceHub
         showToast={showToast}
         onAutoDownload={handleAutoDownload}
+        hideTrigger={activeTab === "space" && spaceState.inSpace}
         onOpenDrop={(code) => {
           setReceiveState({ code, result: null });
           setActiveTab("receive");
@@ -10568,7 +9893,7 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {isDedicatedToolScreen && activeTab !== "home" && (
+            {isDedicatedToolScreen && activeTab !== "home" && !(activeTab === "space" && spaceState.inSpace) && (
               <div className="mb-10 flex flex-col gap-6 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex items-start gap-4">
                   <button
@@ -10763,6 +10088,8 @@ export default function App() {
                       addToHistory={addToHistory}
                       state={spaceState}
                       setState={setSpaceState}
+                      isAdmin={isAdmin}
+                      isFrozen={isFrozen}
                     />
                   </motion.div>
                 )}

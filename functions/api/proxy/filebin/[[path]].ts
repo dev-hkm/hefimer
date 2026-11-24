@@ -1,3 +1,4 @@
+import { forwardProviderUpload } from "../../../lib/proxy-helpers";
 import { isTrustedBrowserRequest, json } from "../../../lib/request-guard";
 
 const SAFE_BIN = /^[a-z0-9][a-z0-9-]{4,63}$/;
@@ -17,26 +18,12 @@ export const onRequestPost: any = async (context: any) => {
     return json({ error: "Invalid Filebin upload path" }, 400);
   }
 
-  try {
-    const bytes = await request.arrayBuffer();
-    const headers = new Headers({
+  return forwardProviderUpload(request, {
+    targetUrl: `https://filebin.net/${encodeURIComponent(bin)}/${encodeURIComponent(fileName)}`,
+    method: "POST",
+    extraHeaders: {
       "Content-Type": request.headers.get("Content-Type") || "application/octet-stream",
-      "Content-Length": String(bytes.byteLength),
-    });
-    const upstream = await fetch(`https://filebin.net/${encodeURIComponent(bin)}/${encodeURIComponent(fileName)}`, {
-      method: "POST",
-      headers,
-      body: bytes,
-    });
-    const body = await upstream.text();
-    return new Response(body, {
-      status: upstream.status,
-      headers: {
-        "Content-Type": upstream.headers.get("Content-Type") || "application/json; charset=utf-8",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  } catch (error: any) {
-    return json({ error: error?.message || "Filebin upload failed" }, 502);
-  }
+    },
+    errorLabel: "Filebin upload failed",
+  });
 };

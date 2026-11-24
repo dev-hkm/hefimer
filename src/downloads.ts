@@ -6,13 +6,24 @@ const PROXIED_HOSTS = new Set([
   "litter.catbox.moe",
   "litterbox.catbox.moe",
   "filebin.net",
+  "trystocare.com",
+  "d.tmpfile.link",
+  "tempfile.org",
+  "temp.sh",
+  "d.uguu.se",
+  "put.icu",
+]);
+
+const TAB_HOSTS = new Set([
+  "gofile.io",
+  "vikingfile.com",
 ]);
 
 export function getDirectDownloadMode(url: string): DirectDownloadMode {
   try {
     const host = new URL(url).hostname.toLowerCase();
     if (PROXIED_HOSTS.has(host)) return "proxy";
-    if (host === "gofile.io") return "tab";
+    if (TAB_HOSTS.has(host)) return "tab";
   } catch {
     return "fetch";
   }
@@ -41,7 +52,26 @@ export async function downloadFileInBrowser(url: string, fileName: string) {
     return "tab" as const;
   }
   if (mode === "proxy") {
-    triggerAnchorDownload(buildDownloadProxyUrl(url, fileName), fileName);
+    const proxyUrl = buildDownloadProxyUrl(url, fileName);
+    let host = "";
+    try {
+      host = new URL(url).hostname.toLowerCase();
+    } catch {
+      host = "";
+    }
+    if (host === "storage.to") {
+      try {
+        const probe = await fetch(`${proxyUrl}&probe=1`);
+        if (!probe.ok) {
+          window.open(url, "_blank", "noopener,noreferrer");
+          return "tab" as const;
+        }
+      } catch {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return "tab" as const;
+      }
+    }
+    triggerAnchorDownload(proxyUrl, fileName);
     return "download" as const;
   }
 

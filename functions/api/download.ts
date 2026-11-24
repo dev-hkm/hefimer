@@ -8,16 +8,22 @@ const ALLOWED_HOSTS = new Set([
   "litter.catbox.moe",
   "litterbox.catbox.moe",
   "filebin.net",
+  "trystocare.com",
+  "d.tmpfile.link",
+  "tempfile.org",
+  "temp.sh",
+  "d.uguu.se",
+  "put.icu",
 ]);
 
 function safeFileName(value: string) {
   return (value || "download").replace(/[\\/\r\n\0"]/g, "_").slice(0, 180) || "download";
 }
 
-function contentDisposition(value: string) {
+function contentDisposition(value: string, disposition: "attachment" | "inline" = "attachment") {
   const original = safeFileName(value);
   const fallback = original.replace(/[^\x20-\x7E]/g, "_");
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(original)}`;
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(original)}`;
 }
 
 function storageToShareId(source: URL) {
@@ -102,11 +108,29 @@ async function fetchFilebinFile(source: URL, headers: Headers) {
 }
 
 async function fetchProviderFile(source: URL, headers: Headers) {
-  if (source.hostname.toLowerCase() === "filebin.net") {
+  const host = source.hostname.toLowerCase();
+
+  if (host === "filebin.net") {
     return fetchFilebinFile(source, headers);
   }
 
-  if (source.hostname.toLowerCase() === "tmpfiles.org") {
+  if (host === "temp.sh") {
+    return fetch(source.toString(), {
+      method: "POST",
+      headers,
+      redirect: "follow",
+    });
+  }
+
+  if (host === "put.icu") {
+    const rawUrl = new URL(source.toString());
+    if (!rawUrl.pathname.startsWith("/s/")) {
+      rawUrl.pathname = `/s${rawUrl.pathname.startsWith("/") ? "" : "/"}${rawUrl.pathname}`;
+    }
+    return fetch(rawUrl.toString(), { headers, redirect: "follow" });
+  }
+
+  if (host === "tmpfiles.org") {
     const page = await fetch(source.toString(), {
       headers: { Accept: "text/html", "Cache-Control": "no-cache" },
       redirect: "follow",
@@ -141,6 +165,8 @@ export const onRequestGet: any = async ({ request }: { request: Request }) => {
 
   const requestUrl = new URL(request.url);
   const sourceValue = requestUrl.searchParams.get("url") || "";
+  const isProbe = requestUrl.searchParams.get("probe") === "1";
+  const isInline = requestUrl.searchParams.get("inline") === "1";
   let source: URL;
   try {
     source = new URL(sourceValue);
@@ -166,13 +192,31 @@ export const onRequestGet: any = async ({ request }: { request: Request }) => {
     }
     const upstream = await fetchProviderFile(source, upstreamHeaders);
     if (!upstream.ok && upstream.status !== 206) {
-      return json({ error: `Provider download failed (${upstream.status})` }, 502);
+      await upstream.body?.cancel().catch(() => {});
+      return json({ error: `Provider download failed (${upstream.status})`, fallbackTab: true }, 502);
     }
+
+    if (isProbe) {
+      await upstream.body?.cancel().catch(() => {});
+      return json({ ok: true });
+    }
+
+    const upstreamType = upstream.headers.get("Content-Type") || "application/octet-stream";
+    const normalizedType = upstreamType.split(";")[0].trim().toLowerCase();
+    const canInline =
+      isInline &&
+      !normalizedType.includes("svg") &&
+      (normalizedType.startsWith("image/") ||
+        normalizedType.startsWith("video/") ||
+        normalizedType.startsWith("audio/"));
 
     const headers = new Headers({
       "Cache-Control": "private, no-store",
-      "Content-Disposition": contentDisposition(requestUrl.searchParams.get("filename") || "download"),
-      "Content-Type": upstream.headers.get("Content-Type") || "application/octet-stream",
+      "Content-Disposition": contentDisposition(
+        requestUrl.searchParams.get("filename") || "download",
+        canInline ? "inline" : "attachment",
+      ),
+      "Content-Type": upstreamType,
       "X-Content-Type-Options": "nosniff",
     });
     for (const name of ["Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"]) {
@@ -182,6 +226,6 @@ export const onRequestGet: any = async ({ request }: { request: Request }) => {
     return new Response(upstream.body, { status: upstream.status, headers });
   } catch (error: any) {
     console.error("Provider download proxy failed:", error);
-    return json({ error: "Could not start provider download" }, 502);
+    return json({ error: "Could not start provider download", fallbackTab: true }, 502);
   }
 };

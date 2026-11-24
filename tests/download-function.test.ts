@@ -161,3 +161,92 @@ test("Filebin verification pages resolve to the provider download", async () => 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("temp.sh downloads use POST and put.icu resolves to /s/ raw path", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { url: string; method: string }[] = [];
+  globalThis.fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method || "GET" });
+    return new Response("raw-data", {
+      headers: { "Content-Type": "text/plain", "Content-Length": "8" },
+    });
+  };
+
+  try {
+    const tempReq = new Request(
+      `https://hefimer.qzz.io/api/download?url=${encodeURIComponent("https://temp.sh/abc/test.txt")}&filename=test.txt`,
+      { headers: { Referer: "https://hefimer.qzz.io/" } },
+    );
+    const tempRes = await onRequestGet({ request: tempReq });
+    assert.equal(tempRes.status, 200);
+    assert.equal(await tempRes.text(), "raw-data");
+
+    const putReq = new Request(
+      `https://hefimer.qzz.io/api/download?url=${encodeURIComponent("https://put.icu/xyz.txt")}&filename=xyz.txt`,
+      { headers: { Referer: "https://hefimer.qzz.io/" } },
+    );
+    const putRes = await onRequestGet({ request: putReq });
+    assert.equal(putRes.status, 200);
+    assert.equal(await putRes.text(), "raw-data");
+
+    assert.deepEqual(calls, [
+      { url: "https://temp.sh/abc/test.txt", method: "POST" },
+      { url: "https://put.icu/s/xyz.txt", method: "GET" },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("download probe returns 502 fallbackTab when upstream blocks server fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("Just a moment...", { status: 403 });
+
+  try {
+    const req = new Request(
+      `https://hefimer.qzz.io/api/download?url=${encodeURIComponent("https://storage.to/abc123")}&filename=a.txt&probe=1`,
+      { headers: { Referer: "https://hefimer.qzz.io/" } },
+    );
+    const res = await onRequestGet({ request: req });
+    assert.equal(res.status, 502);
+    const body = await res.json();
+    assert.equal(body.fallbackTab, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("inline=1 sets inline disposition only for safe media types and forces attachment for html", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("photo")) {
+      return new Response("png-bytes", {
+        headers: { "Content-Type": "image/png", "Content-Length": "9" },
+      });
+    }
+    return new Response("<script>alert(1)</script>", {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Content-Length": "25" },
+    });
+  };
+
+  try {
+    const imgReq = new Request(
+      `https://hefimer.qzz.io/api/download?url=${encodeURIComponent("https://trystocare.com/photo")}&filename=photo.png&inline=1`,
+      { headers: { Referer: "https://hefimer.qzz.io/" } },
+    );
+    const imgRes = await onRequestGet({ request: imgReq });
+    assert.equal(imgRes.status, 200);
+    assert.match(imgRes.headers.get("Content-Disposition") || "", /^inline;/);
+
+    const htmlReq = new Request(
+      `https://hefimer.qzz.io/api/download?url=${encodeURIComponent("https://trystocare.com/page")}&filename=page.html&inline=1`,
+      { headers: { Referer: "https://hefimer.qzz.io/" } },
+    );
+    const htmlRes = await onRequestGet({ request: htmlReq });
+    assert.equal(htmlRes.status, 200);
+    assert.match(htmlRes.headers.get("Content-Disposition") || "", /^attachment;/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

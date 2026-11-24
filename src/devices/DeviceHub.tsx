@@ -39,6 +39,7 @@ interface DeviceHubProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   onOpenDrop: (code: string) => void;
   onAutoDownload: (transfer: DeviceTransfer) => Promise<void>;
+  hideTrigger?: boolean;
 }
 
 const EMPTY_SYNC: DeviceSync = {
@@ -98,7 +99,7 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubProps) {
+export function DeviceHub({ showToast, onOpenDrop, onAutoDownload, hideTrigger = false }: DeviceHubProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [sync, setSync] = useState<DeviceSync>(EMPTY_SYNC);
   const syncRef = useRef(sync);
@@ -346,6 +347,7 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
 
   return (
     <div className="device-hub-theme">
+      {!hideTrigger && (
       <motion.button
         type="button"
         initial={{ opacity: 0, scale: 0.8 }}
@@ -362,6 +364,7 @@ export function DeviceHub({ showToast, onOpenDrop, onAutoDownload }: DeviceHubPr
           </span>
         )}
       </motion.button>
+      )}
 
       <AnimatePresence>
         {incomingPrompt && (

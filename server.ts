@@ -14,6 +14,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
+import { Readable } from "stream";
+import { onRequestGet as handleDownloadProxy } from "./functions/api/download.ts";
 import { randomUUID } from "crypto";
 
 dotenv.config();
@@ -396,6 +398,124 @@ app.post("/api/proxy/tmpfiles", async (req, res) => {
   } catch (error: any) {
     console.error("tmpfiles Proxy Error:", error);
     res.status(500).json({ error: error.message || "tmpfiles proxy failed" });
+  }
+});
+
+async function streamProxyToUpstream(
+  req: express.Request,
+  res: express.Response,
+  targetUrl: string,
+  method: "GET" | "POST" | "PUT" = "POST",
+  forwardHeaderNames: string[] = [],
+  extraHeaders: Record<string, string> = {},
+) {
+  try {
+    const headers: Record<string, string> = { ...extraHeaders };
+    for (const key of ["content-type", "content-length", ...forwardHeaderNames]) {
+      const val = req.headers[key];
+      if (typeof val === "string") {
+        headers[key] = val;
+      }
+    }
+
+    const body =
+      method === "GET"
+        ? undefined
+        : req.readableEnded && req.body && typeof req.body === "object"
+        ? JSON.stringify(req.body)
+        : (req as any);
+
+    const response = await fetch(targetUrl, {
+      method,
+      headers,
+      body,
+      ...(method === "GET" ? {} : { duplex: "half" }),
+    } as any);
+
+    const ct = response.headers.get("content-type");
+    if (ct) res.setHeader("Content-Type", ct);
+    const bodyText = await response.text();
+    res.status(response.status).send(bodyText);
+  } catch (error: any) {
+    console.error(`Proxy error (${targetUrl}):`, error);
+    res.status(502).json({ error: error.message || "Provider proxy failed" });
+  }
+}
+
+app.post("/api/proxy/tempfile", (req, res) =>
+  streamProxyToUpstream(req, res, "https://tempfile.org/api/upload/local", "POST"),
+);
+
+app.post("/api/proxy/tmpfilelink", (req, res) =>
+  streamProxyToUpstream(req, res, "https://tmpfile.link/api/upload", "POST"),
+);
+
+app.post("/api/proxy/tempsh", (req, res) =>
+  streamProxyToUpstream(req, res, "https://temp.sh/upload", "POST"),
+);
+
+app.post("/api/proxy/uguu", (req, res) =>
+  streamProxyToUpstream(req, res, "https://uguu.se/upload", "POST"),
+);
+
+app.post("/api/proxy/filebin/:bin/*", (req, res) => {
+  const bin = req.params.bin || "";
+  const fileName = req.params[0] || "";
+  if (!/^[a-z0-9][a-z0-9-]{4,63}$/.test(bin) || !fileName) {
+    return res.status(400).json({ error: "Invalid Filebin upload path" });
+  }
+  return streamProxyToUpstream(
+    req,
+    res,
+    `https://filebin.net/${encodeURIComponent(bin)}/${encodeURIComponent(fileName)}`,
+    "POST",
+  );
+});
+
+app.put("/api/proxy/puticu/*", (req, res) => {
+  const fileName = req.params[0] || "";
+  if (!fileName) {
+    return res.status(400).json({ error: "Invalid Put.icu upload filename" });
+  }
+  return streamProxyToUpstream(
+    req,
+    res,
+    `https://put.icu/upload/${encodeURIComponent(fileName)}`,
+    "PUT",
+    ["linx-expiry", "accept"],
+    { Accept: "application/json" },
+  );
+});
+
+app.all("/api/proxy/vikingfile/*", (req, res) => {
+  const subpath = req.params[0] || "";
+  if (!["get-server", "get-upload-url", "complete-upload"].includes(subpath)) {
+    return res.status(400).json({ error: "Unsupported VikingFile endpoint" });
+  }
+  const method = subpath === "get-server" ? "GET" : "POST";
+  return streamProxyToUpstream(req, res, `https://vikingfile.com/api/${subpath}`, method);
+});
+
+app.get("/api/download", async (req, res) => {
+  try {
+    const protocol = req.protocol || "http";
+    const host = req.get("host") || `localhost:${PORT}`;
+    const fullUrl = `${protocol}://${host}${req.originalUrl}`;
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (typeof v === "string") headers.set(k, v);
+      else if (Array.isArray(v)) headers.set(k, v.join(", "));
+    }
+    const webRes: Response = await handleDownloadProxy({ request: new Request(fullUrl, { headers }) });
+    res.status(webRes.status);
+    webRes.headers.forEach((value, key) => res.setHeader(key, value));
+    if (!webRes.body) {
+      return res.end();
+    }
+    Readable.fromWeb(webRes.body as any).pipe(res);
+  } catch (error: any) {
+    console.error("Local /api/download Error:", error);
+    res.status(502).json({ error: "Download proxy failed" });
   }
 });
 
