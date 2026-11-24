@@ -403,12 +403,28 @@ class FileUploadEngine(
         )
     }
 
+    private fun asciiSafeWireName(raw: String): String {
+        val ext = raw.substringAfterLast('.', "")
+            .filter { it.isLetterOrDigit() }
+            .take(12)
+        val base = raw.substringBeforeLast('.', raw)
+        val decomposed = java.text.Normalizer.normalize(base, java.text.Normalizer.Form.NFD)
+            .replace(Regex("""\p{InCombiningDiacriticalMarks}+"""), "")
+            .replace('đ', 'd').replace('Đ', 'D')
+            .replace(Regex("""[^A-Za-z0-9._-]+"""), "_")
+            .trim('_', '.')
+            .ifBlank { "file_${System.currentTimeMillis()}" }
+            .take(80)
+        return if (ext.isNotEmpty() && raw.contains('.')) "$decomposed.$ext" else decomposed
+    }
+
     suspend fun uploadWithFallback(
         primaryProviderId: String,
         picked: LocalPickedFile,
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (loadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
         onStatus: (String) -> Unit,
         onFallback: (String, String) -> Unit,
     ): FallbackUploadResult = withContext(Dispatchers.IO) {
@@ -431,6 +447,7 @@ class FileUploadEngine(
                 val prevCfg = UploadProviders.getConfig(eligibleIds[i - 1])
                 onFallback(prevCfg.name, cfg.name)
                 onProgress(0)
+                onBytesProgress(0L, picked.size)
             }
             try {
                 val effectiveExpire = if (i == 0) expire else cfg.defaultExpire
@@ -440,6 +457,7 @@ class FileUploadEngine(
                     expire = effectiveExpire,
                     cancelToken = cancelToken,
                     onProgress = onProgress,
+                    onBytesProgress = onBytesProgress,
                     onStatus = onStatus,
                 )
                 return@withContext FallbackUploadResult(
@@ -463,20 +481,21 @@ class FileUploadEngine(
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String = when (providerId) {
-        "stocare" -> uploadStoCare(picked, cancelToken, onProgress, onStatus)
-        "storageto" -> uploadStorageTo(picked, expire, cancelToken, onProgress, onStatus)
-        "gofile" -> uploadGofile(picked, expire, cancelToken, onProgress, onStatus)
-        "litterbox" -> uploadLitterbox(picked, expire, cancelToken, onProgress, onStatus)
-        "vikingfile" -> uploadVikingFile(picked, cancelToken, onProgress, onStatus)
-        "tmpfilelink" -> uploadTmpfileLink(picked, cancelToken, onProgress, onStatus)
-        "tempfile" -> uploadTempFile(picked, expire, cancelToken, onProgress, onStatus)
-        "filebin" -> uploadFilebin(picked, cancelToken, onProgress, onStatus)
-        "tempsh" -> uploadTempSh(picked, cancelToken, onProgress, onStatus)
-        "tmpfiles" -> uploadTmpfiles(picked, cancelToken, onProgress, onStatus)
-        "uguu" -> uploadUguu(picked, cancelToken, onProgress, onStatus)
-        "puticu" -> uploadPutIcu(picked, expire, cancelToken, onProgress, onStatus)
+        "stocare" -> uploadStoCare(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "storageto" -> uploadStorageTo(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
+        "gofile" -> uploadGofile(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
+        "litterbox" -> uploadLitterbox(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
+        "vikingfile" -> uploadVikingFile(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "tmpfilelink" -> uploadTmpfileLink(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "tempfile" -> uploadTempFile(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
+        "filebin" -> uploadFilebin(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "tempsh" -> uploadTempSh(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "tmpfiles" -> uploadTmpfiles(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "uguu" -> uploadUguu(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "puticu" -> uploadPutIcu(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
         else -> throw IOException("Unsupported upload provider: $providerId")
     }
 
@@ -492,16 +511,19 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         onProgress: (Int) -> Unit,
         cancelToken: UploadCancellationToken,
+        onBytesProgress: (Long, Long) -> Unit = { _, _ -> },
         rangeStart: Long = 0L,
         rangeLength: Long = picked.size,
+        overrideMediaType: MediaType? = picked.mimeType.substringBefore(';').trim().toMediaTypeOrNull(),
+        omitContentType: Boolean = false,
     ): RequestBody = object : RequestBody() {
-        override fun contentType(): MediaType? = picked.mimeType.toMediaTypeOrNull()
+        override fun contentType(): MediaType? = if (omitContentType) null else overrideMediaType
         override fun contentLength(): Long = if (rangeLength > 0L) rangeLength else -1L
 
         override fun writeTo(sink: BufferedSink) {
             val total = rangeLength.coerceAtLeast(1L)
             var uploaded = 0L
-            var lastPct = -1
+            var lastEmitNs = 0L
             openStream(picked).use { input ->
                 if (rangeStart > 0L) {
                     var skipped = 0L
@@ -511,7 +533,7 @@ class FileUploadEngine(
                         skipped += s
                     }
                 }
-                val buf = ByteArray(32 * 1024)
+                val buf = ByteArray(64 * 1024)
                 var remaining = if (rangeLength > 0L) rangeLength else Long.MAX_VALUE
                 while (remaining > 0L) {
                     if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
@@ -521,13 +543,17 @@ class FileUploadEngine(
                     sink.write(buf, 0, read)
                     uploaded += read
                     if (rangeLength > 0L) remaining -= read
-                    val pct = ((uploaded * 100L) / total).toInt().coerceIn(0, 100)
-                    if (pct != lastPct) {
-                        lastPct = pct
+                    val now = System.nanoTime()
+                    if (now - lastEmitNs >= 32_000_000L || uploaded >= total) {
+                        lastEmitNs = now
+                        val pct = ((uploaded * 100L) / total).toInt().coerceIn(0, 100)
                         onProgress(pct)
+                        onBytesProgress(rangeStart + uploaded, picked.size.coerceAtLeast(1L))
                     }
                 }
             }
+            onProgress(100)
+            onBytesProgress((rangeStart + uploaded).coerceAtMost(picked.size), picked.size.coerceAtLeast(1L))
         }
     }
 
@@ -563,13 +589,13 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via sto.care...")
         val req = Request.Builder()
             .url("https://ul.sto.care/${encodePathSeg(picked.name)}")
-            .header("User-Agent", HefimerApiConfig.USER_AGENT)
-            .put(streamingBody(picked, onProgress, cancelToken))
+            .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val (_, text, _) = execute(req, cancelToken)
         val obj = json.parseToJsonElement(text).jsonObject
@@ -582,22 +608,23 @@ class FileUploadEngine(
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Initializing upload with storage.to...")
         val visitorToken = storage.getVisitorToken()
         val jsonMedia = "application/json; charset=utf-8".toMediaTypeOrNull()
+        val cleanMime = picked.mimeType.substringBefore(';').trim().ifBlank { "application/octet-stream" }
 
         val initPayload = buildJsonObject {
             put("filename", JsonPrimitive(picked.name))
-            put("content_type", JsonPrimitive(picked.mimeType))
+            put("content_type", JsonPrimitive(cleanMime))
             put("size", JsonPrimitive(picked.size))
         }.toString()
 
         val initReq = Request.Builder()
             .url("$origin/api/proxy/storageto/upload/init")
             .header("X-Visitor-Token", visitorToken)
-            .header("User-Agent", HefimerApiConfig.USER_AGENT)
             .post(initPayload.toRequestBody(jsonMedia))
             .build()
         val (_, initText, _) = execute(initReq, cancelToken)
@@ -616,7 +643,7 @@ class FileUploadEngine(
             onStatus("Uploading bytes to storage.to...")
             val putReq = Request.Builder()
                 .url(uploadUrl)
-                .put(streamingBody(picked, onProgress, cancelToken))
+                .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress, overrideMediaType = cleanMime.toMediaTypeOrNull()))
                 .build()
             execute(putReq, cancelToken)
         } else if (uploadType == "multipart") {
@@ -660,8 +687,10 @@ class FileUploadEngine(
                                 onProgress(overall.coerceIn(0, 100))
                             },
                             cancelToken = cancelToken,
+                            onBytesProgress = onBytesProgress,
                             rangeStart = start,
                             rangeLength = len,
+                            omitContentType = true,
                         ),
                     )
                     .build()
@@ -700,13 +729,12 @@ class FileUploadEngine(
         val confirmBody = buildJsonObject {
             put("filename", JsonPrimitive(picked.name))
             put("size", JsonPrimitive(picked.size))
-            put("content_type", JsonPrimitive(picked.mimeType))
+            put("content_type", JsonPrimitive(cleanMime))
             put("r2_key", JsonPrimitive(r2Key))
         }.toString()
         val confirmReq = Request.Builder()
             .url("$origin/api/proxy/storageto/upload/confirm")
             .header("X-Visitor-Token", visitorToken)
-            .header("User-Agent", HefimerApiConfig.USER_AGENT)
             .post(confirmBody.toRequestBody(jsonMedia))
             .build()
         val (_, confirmText, _) = execute(confirmReq, cancelToken)
@@ -744,6 +772,7 @@ class FileUploadEngine(
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Getting Gofile server...")
@@ -770,7 +799,7 @@ class FileUploadEngine(
             try {
                 val body = MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
-                    .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken))
+                    .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
                     .build()
                 val req = Request.Builder()
                     .url("https://$server.gofile.io/contents/uploadfile")
@@ -817,22 +846,24 @@ class FileUploadEngine(
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via Litterbox...")
         val allowed = setOf("1h", "12h", "24h", "72h")
         val timeVal = if (expire in allowed) expire else "24h"
+        val wireName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("reqtype", "fileupload")
             .addFormDataPart("time", timeVal)
-            .addFormDataPart("fileToUpload", picked.name, streamingBody(picked, onProgress, cancelToken))
+            .addFormDataPart("fileToUpload", wireName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
 
         val text = try {
             val req = Request.Builder()
                 .url("https://litterbox.catbox.moe/resources/internals/api.php")
-                .header("User-Agent", HefimerApiConfig.USER_AGENT)
+                .header("Accept", "*/*")
                 .post(makeBody())
                 .build()
             execute(req, cancelToken).second.trim()
@@ -854,6 +885,7 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Initializing upload with VikingFile...")
@@ -888,8 +920,10 @@ class FileUploadEngine(
                             onProgress(overall.coerceIn(0, 100))
                         },
                         cancelToken = cancelToken,
+                        onBytesProgress = onBytesProgress,
                         rangeStart = start,
                         rangeLength = len,
+                        omitContentType = true,
                     ),
                 )
                 .build()
@@ -923,12 +957,13 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via tfLink...")
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken))
+            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val req = Request.Builder().url("$origin/api/proxy/tmpfilelink").post(body).build()
         val (_, text, _) = execute(req, cancelToken)
@@ -943,6 +978,7 @@ class FileUploadEngine(
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via TempFile...")
@@ -950,7 +986,7 @@ class FileUploadEngine(
         val validHours = if (hours in listOf(1, 6, 24, 48)) hours else 24
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("files", picked.name, streamingBody(picked, onProgress, cancelToken))
+            .addFormDataPart("files", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .addFormDataPart("expiryHours", validHours.toString())
             .build()
 
@@ -972,29 +1008,35 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via Filebin...")
         val bin = "hefimer-${UUID.randomUUID().toString().replace("-", "").take(20)}"
-        val encodedName = encodePathSeg(picked.name)
+        val safeWireName = asciiSafeWireName(picked.name)
+        val encodedName = encodePathSeg(safeWireName)
         val req = Request.Builder()
             .url("$origin/api/proxy/filebin/$bin/$encodedName")
-            .post(streamingBody(picked, onProgress, cancelToken))
+            .post(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
-        execute(req, cancelToken)
-        return "https://filebin.net/$bin/$encodedName"
+        val (_, text, _) = execute(req, cancelToken)
+        val returnedName = runCatching {
+            json.parseToJsonElement(text).jsonObject["file"]?.jsonObject?.get("filename")?.jsonPrimitive?.contentOrNull
+        }.getOrNull() ?: safeWireName
+        return "https://filebin.net/$bin/${encodePathSeg(returnedName)}"
     }
 
     private fun uploadTempSh(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via temp.sh...")
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken))
+            .addFormDataPart("file", asciiSafeWireName(picked.name), streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val req = Request.Builder().url("$origin/api/proxy/tempsh").post(body).build()
         val (_, text, _) = execute(req, cancelToken)
@@ -1007,12 +1049,13 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via tmpfiles.org...")
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken))
+            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val text = try {
             execute(Request.Builder().url("https://tmpfiles.org/api/v1/upload").post(makeBody()).build(), cancelToken).second
@@ -1030,12 +1073,13 @@ class FileUploadEngine(
         picked: LocalPickedFile,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via Uguu.se...")
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("files[]", picked.name, streamingBody(picked, onProgress, cancelToken))
+            .addFormDataPart("files[]", asciiSafeWireName(picked.name), streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val req = Request.Builder().url("$origin/api/proxy/uguu").post(body).build()
         val (_, text, _) = execute(req, cancelToken)
@@ -1050,15 +1094,16 @@ class FileUploadEngine(
         expire: String,
         cancelToken: UploadCancellationToken,
         onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via Put.icu...")
         val sec = (com.hefimer.app.data.model.parseExpireDurationMs(expire) / 1000L).coerceIn(60L, 86400L)
         val req = Request.Builder()
-            .url("$origin/api/proxy/puticu/${encodePathSeg(picked.name)}")
+            .url("$origin/api/proxy/puticu/${encodePathSeg(asciiSafeWireName(picked.name))}")
             .header("Accept", "application/json")
             .header("Linx-Expiry", sec.toString())
-            .put(streamingBody(picked, onProgress, cancelToken))
+            .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val (_, text, _) = execute(req, cancelToken)
         val obj = json.parseToJsonElement(text).jsonObject

@@ -125,7 +125,8 @@ fun ReceiveScreen(vm: HefimerViewModel) {
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.QrCodeScanner,
                 contentDescription = "Scan QR",
-                onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.RECEIVE)) },
+                modifier = Modifier.heroSource("btn_qr_receive", heroBounds),
+                onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.RECEIVE), "btn_qr_receive") },
             )
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.History,

@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -100,11 +101,14 @@ import com.hefimer.app.ui.components.HefimerSecondaryButton
 import com.hefimer.app.ui.components.QrShareModal
 import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleFluidProgressTrack
+import com.hefimer.app.ui.theme.AppleRollingPercentage
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.AppleSwipeableSheet
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.LocalHeroBounds
+import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
@@ -577,11 +581,11 @@ fun SpaceCanvasOverlay(
                     .align(Alignment.TopCenter)
                     .padding(top = statusTop + 72.dp, start = 20.dp, end = 20.dp)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(22.dp))
                     .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(20.dp))
+                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(22.dp))
                     .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -590,22 +594,36 @@ fun SpaceCanvasOverlay(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(task.fileName, color = HefimerColors.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${task.status} (${task.progress}%)", color = HefimerColors.White50, fontSize = 10.sp)
+                        Text(task.status, color = HefimerColors.White50, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Icon(
-                        Icons.Rounded.Close,
-                        "Cancel",
-                        tint = HefimerColors.Red400,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .applePressable { vm.cancelSpaceUpload() },
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        AppleRollingPercentage(
+                            percent = task.progress,
+                            color = HefimerColors.Emerald400,
+                            style = TextStyle(
+                                fontFamily = UbuntuFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            ),
+                        )
+                        Icon(
+                            Icons.Rounded.Close,
+                            "Cancel",
+                            tint = HefimerColors.Red400,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .applePressable { vm.cancelSpaceUpload() },
+                        )
+                    }
                 }
-                LinearProgressIndicator(
-                    progress = { (task.progress / 100f).coerceIn(0f, 1f) },
-                    color = HefimerColors.Emerald400,
+                AppleFluidProgressTrack(
+                    progress = (task.progress / 100f).coerceIn(0f, 1f),
+                    accentColor = HefimerColors.Emerald400,
                     trackColor = HefimerColors.White10,
-                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                    height = 5.dp,
                 )
             }
         }
@@ -643,14 +661,14 @@ fun SpaceCanvasOverlay(
         }
 
         // Provider Picker Sheet
-        AppleSwipeableSheet(visible = showProviderSheet, onDismiss = { showProviderSheet = false }) {
+        AppleSwipeableSheet(visible = showProviderSheet, onDismiss = { showProviderSheet = false }) { dismiss ->
             ProviderPickerSheetContent(
                 selectedId = state.selectedProviderId,
                 onSelect = {
                     vm.selectSpaceProvider(it)
-                    showProviderSheet = false
+                    dismiss()
                 },
-                onClose = { showProviderSheet = false },
+                onClose = dismiss,
             )
         }
 

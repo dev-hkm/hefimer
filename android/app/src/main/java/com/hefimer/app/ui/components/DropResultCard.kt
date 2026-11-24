@@ -475,8 +475,8 @@ private fun AnimatedCopyPill(
         AnimatedContent(
             targetState = copied,
             transitionSpec = {
-                (fadeIn(tween(150)) + scaleIn(tween(180, easing = AppMotion.AppleEaseOut), initialScale = 0.8f)) togetherWith
-                    (fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.8f))
+                (fadeIn(tween(220, easing = AppMotion.AppleSilk)) + scaleIn(tween(260, easing = AppMotion.AppleSheet), initialScale = 0.8f)) togetherWith
+                    (fadeOut(tween(160, easing = AppMotion.AppleEase)) + scaleOut(tween(160, easing = AppMotion.AppleEase), targetScale = 0.8f))
             },
             label = "copy_icon",
         ) { isCopied ->

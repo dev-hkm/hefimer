@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -52,7 +53,6 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,8 +65,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -92,17 +96,23 @@ import com.hefimer.app.ui.components.CodeHighlighter
 import com.hefimer.app.ui.components.DropResultCard
 import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
 import com.hefimer.app.ui.components.HefimerHeaderIconButton
+import com.hefimer.app.ui.components.HefimerOrbitLogo
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerToggleRow
 import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
-import com.hefimer.app.ui.theme.AppleOdometerNumber
+import com.hefimer.app.ui.theme.AppleFluidProgressTrack
+import com.hefimer.app.ui.theme.AppleRollingPercentage
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.AppleSwipeableSheet
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.LocalHeroBounds
 import com.hefimer.app.ui.theme.UbuntuFontFamily
+import com.hefimer.app.ui.theme.rememberReduceMotion
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
@@ -135,7 +145,8 @@ fun SendScreen(vm: HefimerViewModel) {
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.QrCodeScanner,
                     contentDescription = "Scan QR",
-                    onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.AUTO)) },
+                    modifier = Modifier.heroSource("btn_qr_send", heroBounds),
+                    onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.AUTO), "btn_qr_send") },
                 )
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.History,
@@ -178,14 +189,14 @@ fun SendScreen(vm: HefimerViewModel) {
         AppleSwipeableSheet(
             visible = showProviderPicker,
             onDismiss = { showProviderPicker = false },
-        ) {
+        ) { dismiss ->
             ProviderPickerSheetContent(
                 selectedId = state.selectedProviderId,
                 onSelect = {
                     vm.selectUploadProvider(it)
-                    showProviderPicker = false
+                    dismiss()
                 },
-                onClose = { showProviderPicker = false },
+                onClose = dismiss,
             )
         }
 
@@ -290,18 +301,19 @@ private fun SendFileSection(
         }
 
         // File Dropzone Card
+        val reduceMotion = rememberReduceMotion()
         val dropBg = if (isR2) HefimerColors.EmeraldBg else HefimerColors.White025
         val dropBorder = if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White20
-        val progressAnim by animateFloatAsState(
-            targetValue = (state.fileProgress / 100f).coerceIn(0f, 1f),
-            animationSpec = tween(220, easing = AppMotion.AppleEaseOut),
-            label = "upload_progress",
-        )
+        val dropzoneMode = when {
+            state.fileUploading -> "uploading"
+            state.pickedFiles.isNotEmpty() -> "picked"
+            else -> "empty"
+        }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 152.dp)
+                .heightIn(min = 160.dp)
                 .clip(RoundedCornerShape(34.dp))
                 .background(dropBg)
                 .border(1.dp, dropBorder, RoundedCornerShape(34.dp))
@@ -313,205 +325,294 @@ private fun SendFileSection(
                     }
                 },
         ) {
-            if (state.fileUploading) {
-                // Bottom animated progress bar
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth(progressAnim)
-                        .height(4.dp)
-                        .background(accent),
-                )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CircularProgressIndicator(
-                            color = accent,
-                            strokeWidth = 2.5.dp,
-                            modifier = Modifier.size(26.dp),
+            AnimatedContent(
+                targetState = dropzoneMode,
+                transitionSpec = { AppMotion.sectionTransform(reduceMotion) },
+                label = "dropzone_mode",
+            ) { mode ->
+                when (mode) {
+                    "uploading" -> {
+                        val smoothProgress by animateFloatAsState(
+                            targetValue = state.fileProgressFraction.coerceIn(0f, 1f),
+                            animationSpec = if (reduceMotion) tween(120, easing = AppMotion.AppleEase) else AppMotion.gentleSpring(),
+                            label = "upload_ring_progress",
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 22.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // Orbital Aperture Ring + spinning Hefimer mark
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(84.dp),
+                            ) {
+                                Canvas(modifier = Modifier.size(84.dp)) {
+                                    val strokePx = 3.2.dp.toPx()
+                                    val inset = strokePx / 2f + 2.dp.toPx()
+                                    val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
+                                    val topLeft = Offset(inset, inset)
+                                    // Subtle ring track
+                                    drawArc(
+                                        color = accent.copy(alpha = 0.13f),
+                                        startAngle = 0f,
+                                        sweepAngle = 360f,
+                                        useCenter = false,
+                                        topLeft = topLeft,
+                                        size = arcSize,
+                                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                                    )
+                                    // Smooth spring-interpolated sweep arc
+                                    val sweep = (smoothProgress * 360f).coerceIn(0f, 360f)
+                                    if (sweep > 0.5f) {
+                                        drawArc(
+                                            color = accent,
+                                            startAngle = -90f,
+                                            sweepAngle = sweep,
+                                            useCenter = false,
+                                            topLeft = topLeft,
+                                            size = arcSize,
+                                            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                                        )
+                                        // Leading specular bead at arc tip
+                                        if (smoothProgress in 0.01f..0.99f) {
+                                            val rad = (-90.0 + sweep) * PI / 180.0
+                                            val radius = arcSize.width / 2f
+                                            val cx = size.width / 2f + (radius * cos(rad)).toFloat()
+                                            val cy = size.height / 2f + (radius * sin(rad)).toFloat()
+                                            drawCircle(
+                                                color = accent.copy(alpha = 0.35f),
+                                                radius = strokePx * 1.9f,
+                                                center = Offset(cx, cy),
+                                            )
+                                            drawCircle(
+                                                color = HefimerColors.White,
+                                                radius = strokePx * 0.72f,
+                                                center = Offset(cx, cy),
+                                            )
+                                        }
+                                    }
+                                }
+                                HefimerOrbitLogo(
+                                    size = 34.dp,
+                                    tint = accent,
+                                    spinning = true,
+                                    spinDurationMs = 3_600,
+                                )
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+
+                            // Per-digit independent rolling percentage
+                            AppleRollingPercentage(
+                                percent = state.fileProgress,
+                                color = HefimerColors.White,
+                                style = TextStyle(
+                                    fontFamily = UbuntuFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 32.sp,
+                                    letterSpacing = (-0.6).sp,
+                                ),
+                            )
+
+                            // Live byte telemetry (tabular monospace)
+                            if (state.fileTotalBytes > 0L) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "${formatBytes(state.fileUploadedBytes)} / ${formatBytes(state.fileTotalBytes)}",
+                                    color = accent.copy(alpha = 0.78f),
+                                    style = TextStyle(
+                                        fontFamily = JetBrainsMonoFamily,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        fontFeatureSettings = "tnum",
+                                    ),
+                                )
+                            }
+
+                            if (state.fileStatus.isNotBlank()) {
+                                Spacer(Modifier.height(6.dp))
+                                AnimatedContent(
+                                    targetState = state.fileStatus,
+                                    transitionSpec = { AppMotion.softCrossDissolve() },
+                                    label = "upload_status_text",
+                                ) { statusLine ->
+                                    Text(
+                                        text = statusLine,
+                                        color = HefimerColors.White50,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            // Fluid spring-interpolated track with specular sheen
+                            AppleFluidProgressTrack(
+                                progress = state.fileProgressFraction,
+                                accentColor = accent,
+                                trackColor = HefimerColors.White10,
+                                height = 6.dp,
+                            )
+
+                            Spacer(Modifier.height(16.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(HefimerColors.RedBg)
+                                    .border(1.dp, HefimerColors.RedBorder, CircleShape)
+                                    .applePressable { vm.cancelFileUpload() }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                            ) {
+                                Icon(Icons.Rounded.Close, null, tint = HefimerColors.Red400, modifier = Modifier.size(13.dp))
+                                Text(
+                                    text = "CANCEL UPLOAD",
+                                    color = HefimerColors.Red400,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.4.sp,
+                                )
+                            }
+                        }
+                    }
+
+                    "picked" -> {
+                        val totalSize = state.pickedFiles.sumOf { it.size }
+                        val label = if (state.pickedFiles.size > 1) {
+                            "${state.pickedFiles.size} files selected"
+                        } else {
+                            state.pickedFiles.firstOrNull()?.name.orEmpty()
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(22.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(accent.copy(alpha = 0.10f))
+                                    .border(1.dp, accent.copy(alpha = 0.22f), CircleShape),
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isFolderMode) Icons.Rounded.Folder else Icons.Rounded.Description,
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = label,
+                                    color = HefimerColors.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = formatBytes(totalSize),
+                                    color = accent.copy(alpha = 0.65f),
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(HefimerColors.White)
+                                    .applePressable { vm.clearPickedFiles() },
+                            ) {
+                                Icon(Icons.Rounded.Close, "Remove", tint = HefimerColors.Black, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+
+                    else -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 22.dp, vertical = 26.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(accent.copy(alpha = 0.08f))
+                                    .border(1.dp, accent.copy(alpha = 0.16f), CircleShape),
+                            ) {
+                                Icon(
+                                    imageVector = when {
+                                        isR2 -> Icons.Rounded.Shield
+                                        state.isFolderMode -> Icons.Rounded.CreateNewFolder
+                                        else -> Icons.Rounded.UploadFile
+                                    },
+                                    contentDescription = null,
+                                    tint = accent.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(25.dp),
+                                )
+                            }
+                            Spacer(Modifier.height(12.dp))
                             Text(
-                                text = "Uploading ",
+                                text = if (state.isFolderMode) "Tap to select a folder" else "Tap to select file(s)",
                                 color = HefimerColors.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                             )
-                            AppleOdometerNumber(
-                                value = state.fileProgress,
-                                suffix = "%",
-                                color = accent,
-                                style = TextStyle(
-                                    fontFamily = UbuntuFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                ),
-                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(HefimerColors.Emerald400.copy(alpha = 0.12f))
+                                        .border(1.dp, HefimerColors.Emerald400.copy(alpha = 0.25f), CircleShape)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                                ) {
+                                    Box(Modifier.size(5.dp).clip(CircleShape).background(HefimerColors.Emerald300))
+                                    Text(
+                                        text = if (isR2) "Cloudflare R2" else providerCfg.name,
+                                        color = HefimerColors.Emerald300,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                                Text(
+                                    text = "Max ${if (isR2) "5 GB" else providerCfg.maxSizeLabel}",
+                                    color = HefimerColors.White40,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 10.sp,
+                                )
+                                Text("•", color = HefimerColors.White20, fontSize = 10.sp)
+                                Text(
+                                    text = "Today ${formatBytes(todayBytes)}",
+                                    color = HefimerColors.White40,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 10.sp,
+                                )
+                            }
                         }
-                    }
-                    if (state.fileStatus.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = state.fileStatus,
-                            color = HefimerColors.White50,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(HefimerColors.RedBg)
-                            .border(1.dp, HefimerColors.RedBorder, CircleShape)
-                            .applePressable { vm.cancelFileUpload() }
-                            .padding(horizontal = 14.dp, vertical = 7.dp),
-                    ) {
-                        Icon(Icons.Rounded.Close, null, tint = HefimerColors.Red400, modifier = Modifier.size(13.dp))
-                        Text(
-                            text = "CANCEL UPLOAD",
-                            color = HefimerColors.Red400,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.4.sp,
-                        )
-                    }
-                }
-            } else if (state.pickedFiles.isNotEmpty()) {
-                val totalSize = state.pickedFiles.sumOf { it.size }
-                val label = if (state.pickedFiles.size > 1) {
-                    "${state.pickedFiles.size} files selected"
-                } else {
-                    state.pickedFiles.first().name
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(22.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(accent.copy(alpha = 0.10f))
-                            .border(1.dp, accent.copy(alpha = 0.22f), CircleShape),
-                    ) {
-                        Icon(
-                            imageVector = if (state.isFolderMode) Icons.Rounded.Folder else Icons.Rounded.Description,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = label,
-                            color = HefimerColors.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = formatBytes(totalSize),
-                            color = accent.copy(alpha = 0.65f),
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.White)
-                            .applePressable { vm.clearPickedFiles() },
-                    ) {
-                        Icon(Icons.Rounded.Close, "Remove", tint = HefimerColors.Black, modifier = Modifier.size(16.dp))
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 26.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(accent.copy(alpha = 0.08f))
-                            .border(1.dp, accent.copy(alpha = 0.16f), CircleShape),
-                    ) {
-                        Icon(
-                            imageVector = when {
-                                isR2 -> Icons.Rounded.Shield
-                                state.isFolderMode -> Icons.Rounded.CreateNewFolder
-                                else -> Icons.Rounded.UploadFile
-                            },
-                            contentDescription = null,
-                            tint = accent.copy(alpha = 0.85f),
-                            modifier = Modifier.size(25.dp),
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = if (state.isFolderMode) "Tap to select a folder" else "Tap to select file(s)",
-                        color = HefimerColors.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(HefimerColors.Emerald400.copy(alpha = 0.12f))
-                                .border(1.dp, HefimerColors.Emerald400.copy(alpha = 0.25f), CircleShape)
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
-                        ) {
-                            Box(Modifier.size(5.dp).clip(CircleShape).background(HefimerColors.Emerald300))
-                            Text(
-                                text = if (isR2) "Cloudflare R2" else providerCfg.name,
-                                color = HefimerColors.Emerald300,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                        Text(
-                            text = "Max ${if (isR2) "5 GB" else providerCfg.maxSizeLabel}",
-                            color = HefimerColors.White40,
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 10.sp,
-                        )
-                        Text("•", color = HefimerColors.White20, fontSize = 10.sp)
-                        Text(
-                            text = "Today ${formatBytes(todayBytes)}",
-                            color = HefimerColors.White40,
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 10.sp,
-                        )
                     }
                 }
             }

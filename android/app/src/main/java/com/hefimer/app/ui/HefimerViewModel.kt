@@ -29,6 +29,7 @@ import com.hefimer.app.data.model.ToastType
 import com.hefimer.app.data.model.UploadStats
 import com.hefimer.app.data.model.parseExpireDurationMs
 import com.hefimer.app.data.network.DeviceApiClient
+import com.hefimer.app.data.network.DownloadCancellationToken
 import com.hefimer.app.data.network.DownloadHelper
 import com.hefimer.app.data.network.FileUploadEngine
 import com.hefimer.app.data.network.FirebaseRtdbClient
@@ -77,6 +78,20 @@ enum class ScanTarget { AUTO, RECEIVE, PAIR_TOKEN }
 
 enum class SendSubMode { FILE, TEXT }
 
+data class DownloadProgressState(
+    val fileName: String,
+    val loadedBytes: Long = 0L,
+    val totalBytes: Long = -1L,
+    val percent: Int = 0,
+) {
+    val fraction: Float
+        get() = if (totalBytes > 0L) {
+            (loadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+        } else {
+            (percent / 100f).coerceIn(0f, 1f)
+        }
+}
+
 data class SendUiState(
     val subMode: SendSubMode = SendSubMode.FILE,
     val isR2Mode: Boolean = false,
@@ -92,6 +107,9 @@ data class SendUiState(
     val r2Description: String = "",
     val fileUploading: Boolean = false,
     val fileProgress: Int = 0,
+    val fileProgressFraction: Float = 0f,
+    val fileUploadedBytes: Long = 0L,
+    val fileTotalBytes: Long = 0L,
     val fileStatus: String = "",
     val fileResultCode: String = "",
     val fileResultName: String = "",
@@ -258,8 +276,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     )
     val linkState: StateFlow<LinkUiState> = _linkState.asStateFlow()
 
+    private val _downloadState = MutableStateFlow<DownloadProgressState?>(null)
+    val downloadState: StateFlow<DownloadProgressState?> = _downloadState.asStateFlow()
+
     private var fileCancelToken: UploadCancellationToken? = null
     private var spaceCancelToken: UploadCancellationToken? = null
+    private var activeDownloadToken: DownloadCancellationToken? = null
     private var toastJob: Job? = null
     private var spaceObserverJob: Job? = null
     private var chatObserverJob: Job? = null
@@ -272,6 +294,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private var fileTabTapCount = 0
     private var lastBroadcastId: String? = null
     private var activeChatMemberKey: String? = null
+    private val tabBackStack = ArrayDeque<MainTab>()
+    private var lastRootBackMs = 0L
 
     init {
         startGlobalObservers()
@@ -280,12 +304,118 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         checkChatCodeAvailability(_roomsState.value.chatCreateCode)
     }
 
-    fun selectTab(tab: MainTab) {
+    fun selectTab(tab: MainTab, recordBackStack: Boolean = true) {
+        val current = _selectedTab.value
+        if (recordBackStack && tab != current) {
+            if (tabBackStack.lastOrNull() != current) {
+                tabBackStack.addLast(current)
+                while (tabBackStack.size > 20) tabBackStack.removeFirst()
+            }
+        }
         _selectedTab.value = tab
         if (tab == MainTab.LINK) {
             storage.setDeviceLinkEnabled(true)
             refreshLink(silent = false)
         }
+    }
+
+    /**
+     * Handles back navigation on Layer 0 (when no overlay/sheet is mounted).
+     * Returns true if consumed inside the app, or false only on intentional double-back at root.
+     */
+    fun handleBackNavigation(): Boolean {
+        // 1. Dismiss in-app modals/prompts first
+        if (_sendState.value.showR2AuthDialog) {
+            dismissR2AuthDialog()
+            return true
+        }
+        if (_receiveState.value.passwordPromptOpen) {
+            dismissReceivePasswordPrompt()
+            return true
+        }
+        if (_globalStats.value.broadcast != null) {
+            dismissBroadcast()
+            return true
+        }
+
+        // 2. Step back out of active results / sub-views within the current tab
+        when (_selectedTab.value) {
+            MainTab.SEND -> {
+                val st = _sendState.value
+                if (st.subMode == SendSubMode.FILE && st.fileResultCode.isNotBlank()) {
+                    resetFileResult(clearSelection = false)
+                    return true
+                }
+                if (st.subMode == SendSubMode.TEXT && st.textResultCode.isNotBlank()) {
+                    resetTextResult(clearContent = false)
+                    return true
+                }
+                if (st.subMode == SendSubMode.TEXT) {
+                    setSendSubMode(SendSubMode.FILE)
+                    return true
+                }
+            }
+            MainTab.RECEIVE -> {
+                if (_receiveState.value.result != null) {
+                    resetReceive()
+                    return true
+                }
+            }
+            MainTab.SPACE -> {
+                val sp = _spaceState.value
+                if (sp.createdCode.isNotBlank()) {
+                    clearSpaceCreatedCard()
+                    return true
+                }
+                if (sp.lobbyMode == "create") {
+                    setSpaceLobbyMode("join")
+                    return true
+                }
+            }
+            MainTab.ROOMS -> {
+                val rm = _roomsState.value
+                if (rm.section == "chat" && rm.chatCreatedCode.isNotBlank()) {
+                    clearChatCreatedCard()
+                    return true
+                }
+                if (rm.section == "board" && rm.boardCreatedCode.isNotBlank()) {
+                    clearBoardCreatedCard()
+                    return true
+                }
+                if (rm.section == "board") {
+                    setRoomsSection("chat")
+                    return true
+                }
+            }
+            MainTab.LINK -> {
+                if (_linkState.value.section == "activity") {
+                    setLinkSection("devices")
+                    return true
+                }
+            }
+        }
+
+        // 3. Pop previous tab from navigation history
+        if (tabBackStack.isNotEmpty()) {
+            val prevTab = tabBackStack.removeLast()
+            selectTab(prevTab, recordBackStack = false)
+            return true
+        }
+
+        // 4. Return to Send home tab if currently on another tab
+        if (_selectedTab.value != MainTab.SEND) {
+            selectTab(MainTab.SEND, recordBackStack = false)
+            return true
+        }
+
+        // 5. At root home (Send -> File): require intentional double-back within 2.2s to exit
+        val now = System.currentTimeMillis()
+        if (now - lastRootBackMs > 2_200L) {
+            lastRootBackMs = now
+            showToast("Back again to exit Hefimer", ToastType.INFO)
+            return true
+        }
+        return false
     }
 
     fun openOverlay(overlay: AppOverlay, heroKey: String? = null) {
@@ -557,11 +687,27 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val token = UploadCancellationToken()
             fileCancelToken = token
-            _sendState.update { it.copy(fileUploading = true, fileProgress = 0, fileStatus = "Zipping folder contents...") }
+            _sendState.update {
+                it.copy(
+                    fileUploading = true,
+                    fileProgress = 0,
+                    fileProgressFraction = 0f,
+                    fileUploadedBytes = 0L,
+                    fileTotalBytes = 0L,
+                    fileStatus = "Zipping folder contents...",
+                )
+            }
             try {
                 val zipped = uploader.zipFolderTree(
                     treeUri = treeUri,
-                    onProgress = { pct -> _sendState.update { it.copy(fileProgress = pct) } },
+                    onProgress = { pct ->
+                        _sendState.update {
+                            it.copy(
+                                fileProgress = pct,
+                                fileProgressFraction = (pct / 100f).coerceIn(0f, 1f),
+                            )
+                        }
+                    },
                     cancelToken = token,
                 )
                 _sendState.update {
@@ -570,12 +716,24 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         isFolderMode = true,
                         fileUploading = false,
                         fileProgress = 0,
+                        fileProgressFraction = 0f,
+                        fileUploadedBytes = 0L,
+                        fileTotalBytes = 0L,
                         fileStatus = "",
                     )
                 }
                 showToast("Folder packed as ${zipped.name}", ToastType.SUCCESS)
             } catch (e: Throwable) {
-                _sendState.update { it.copy(fileUploading = false, fileProgress = 0, fileStatus = "") }
+                _sendState.update {
+                    it.copy(
+                        fileUploading = false,
+                        fileProgress = 0,
+                        fileProgressFraction = 0f,
+                        fileUploadedBytes = 0L,
+                        fileTotalBytes = 0L,
+                        fileStatus = "",
+                    )
+                }
                 if (e.message != "UPLOAD_CANCELED") {
                     showToast(e.message ?: "Failed to package folder", ToastType.ERROR)
                 }
@@ -606,7 +764,16 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun cancelFileUpload() {
         fileCancelToken?.cancel()
         fileCancelToken = null
-        _sendState.update { it.copy(fileUploading = false, fileProgress = 0, fileStatus = "") }
+        _sendState.update {
+            it.copy(
+                fileUploading = false,
+                fileProgress = 0,
+                fileProgressFraction = 0f,
+                fileUploadedBytes = 0L,
+                fileTotalBytes = 0L,
+                fileStatus = "",
+            )
+        }
         showToast("Upload canceled", ToastType.INFO)
     }
 
@@ -639,6 +806,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
         val providerCfg = UploadProviders.getConfig(st.selectedProviderId)
         val totalSize = st.pickedFiles.sumOf { it.size }
+        val safeTotal = totalSize.coerceAtLeast(1L)
         if (st.pickedFiles.any { it.size > providerCfg.maxSizeBytes }) {
             showToast("File exceeds limit of ${providerCfg.maxSizeLabel} for ${providerCfg.name}", ToastType.ERROR)
             return
@@ -646,14 +814,23 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
         val token = UploadCancellationToken()
         fileCancelToken = token
-        _sendState.update { it.copy(fileUploading = true, fileProgress = 0, fileStatus = "Preparing upload...") }
+        _sendState.update {
+            it.copy(
+                fileUploading = true,
+                fileProgress = 0,
+                fileProgressFraction = 0f,
+                fileUploadedBytes = 0L,
+                fileTotalBytes = totalSize,
+                fileStatus = "Preparing upload...",
+            )
+        }
 
         viewModelScope.launch {
             try {
                 val isMulti = st.pickedFiles.size > 1
                 var actualProviderName = providerCfg.name
                 val uploadedEntries = mutableListOf<JsonObject>()
-                val progresses = IntArray(st.pickedFiles.size)
+                val fileBytes = LongArray(st.pickedFiles.size)
 
                 st.pickedFiles.forEachIndexed { idx, picked ->
                     val res = uploader.uploadWithFallback(
@@ -662,18 +839,40 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         expire = st.fileExpire,
                         cancelToken = token,
                         onProgress = { pct ->
-                            progresses[idx] = pct
-                            val avg = progresses.sum() / st.pickedFiles.size
-                            _sendState.update { it.copy(fileProgress = avg) }
+                            if (picked.size <= 0L) {
+                                val approx = (pct / 100f / st.pickedFiles.size + idx.toFloat() / st.pickedFiles.size).coerceIn(0f, 1f)
+                                _sendState.update {
+                                    it.copy(
+                                        fileProgress = (approx * 100f).toInt().coerceIn(0, 100),
+                                        fileProgressFraction = approx,
+                                    )
+                                }
+                            }
+                        },
+                        onBytesProgress = { loaded, _ ->
+                            fileBytes[idx] = loaded.coerceIn(0L, picked.size.coerceAtLeast(loaded))
+                            val cumLoaded = fileBytes.sum().coerceIn(0L, safeTotal)
+                            val frac = (cumLoaded.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                            val pct = (frac * 100f).toInt().coerceIn(0, 100)
+                            _sendState.update {
+                                it.copy(
+                                    fileProgress = pct,
+                                    fileProgressFraction = frac,
+                                    fileUploadedBytes = cumLoaded,
+                                    fileTotalBytes = totalSize,
+                                )
+                            }
                         },
                         onStatus = { msg ->
                             val prefix = if (isMulti) "[${idx + 1}/${st.pickedFiles.size}] " else ""
                             _sendState.update { it.copy(fileStatus = "$prefix$msg") }
                         },
                         onFallback = { from, to ->
+                            fileBytes[idx] = 0L
                             showToast("$from unavailable, switching to $to...", ToastType.INFO)
                         },
                     )
+                    fileBytes[idx] = picked.size
                     actualProviderName = res.providerName
                     uploadedEntries.add(
                         buildJsonObject {
@@ -685,7 +884,14 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }
 
-                _sendState.update { it.copy(fileStatus = "Generating 5-digit drop code...") }
+                _sendState.update {
+                    it.copy(
+                        fileProgress = 100,
+                        fileProgressFraction = 1f,
+                        fileUploadedBytes = totalSize,
+                        fileStatus = "Generating 5-digit drop code...",
+                    )
+                }
                 val code = generateUniqueDropCode()
                 val expiresAt = System.currentTimeMillis() + parseExpireDurationMs(st.fileExpire)
                 val firstFile = st.pickedFiles.first()
@@ -733,6 +939,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         fileUploading = false,
                         fileProgress = 100,
+                        fileProgressFraction = 1f,
+                        fileUploadedBytes = totalSize,
+                        fileTotalBytes = totalSize,
                         fileStatus = "",
                         fileResultCode = code,
                         fileResultName = displayName,
@@ -756,7 +965,15 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 if (!token.isCancelled() && e.message != "UPLOAD_CANCELED") {
                     showToast(e.message?.take(140) ?: "Upload failed", ToastType.ERROR)
                 }
-                _sendState.update { it.copy(fileUploading = false, fileStatus = "") }
+                _sendState.update {
+                    it.copy(
+                        fileUploading = false,
+                        fileProgress = 0,
+                        fileProgressFraction = 0f,
+                        fileUploadedBytes = 0L,
+                        fileStatus = "",
+                    )
+                }
             } finally {
                 fileCancelToken = null
             }
@@ -765,31 +982,53 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     private fun uploadFilesToR2() {
         val st = _sendState.value
+        val totalSize = st.pickedFiles.sumOf { it.size }
+        val safeTotal = totalSize.coerceAtLeast(1L)
         val token = UploadCancellationToken()
         fileCancelToken = token
-        _sendState.update { it.copy(fileUploading = true, fileProgress = 0, fileStatus = "Preparing Secret R2...") }
+        _sendState.update {
+            it.copy(
+                fileUploading = true,
+                fileProgress = 0,
+                fileProgressFraction = 0f,
+                fileUploadedBytes = 0L,
+                fileTotalBytes = totalSize,
+                fileStatus = "Preparing Secret R2...",
+            )
+        }
 
         viewModelScope.launch {
             try {
                 val isMulti = st.pickedFiles.size > 1
-                val totalSize = st.pickedFiles.sumOf { it.size }
                 val entries = mutableListOf<JsonObject>()
-                val progresses = IntArray(st.pickedFiles.size)
+                val fileBytes = LongArray(st.pickedFiles.size)
                 var singleKey = ""
-                var singleName = st.r2CustomName.trim().ifBlank { st.pickedFiles.first().name }
+                val singleName = st.r2CustomName.trim().ifBlank { st.pickedFiles.first().name }
 
                 st.pickedFiles.forEachIndexed { idx, picked ->
                     val targetName = if (!isMulti) singleName else picked.name
-                    _sendState.update { it.copy(fileStatus = "Uploading to Secret R2: $targetName") }
+                    val prefix = if (isMulti) "[${idx + 1}/${st.pickedFiles.size}] " else ""
+                    _sendState.update { it.copy(fileStatus = "${prefix}Streaming to Secret R2: $targetName") }
                     val key = r2Service.uploadToR2(
                         picked = picked,
                         customName = targetName,
                         cancelToken = token,
-                        onProgress = { pct ->
-                            progresses[idx] = pct
-                            _sendState.update { it.copy(fileProgress = progresses.sum() / st.pickedFiles.size) }
+                        onProgress = { loaded, _, _ ->
+                            fileBytes[idx] = loaded.coerceIn(0L, picked.size.coerceAtLeast(loaded))
+                            val cumLoaded = fileBytes.sum().coerceIn(0L, safeTotal)
+                            val frac = (cumLoaded.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                            val pct = (frac * 100f).toInt().coerceIn(0, 100)
+                            _sendState.update {
+                                it.copy(
+                                    fileProgress = pct,
+                                    fileProgressFraction = frac,
+                                    fileUploadedBytes = cumLoaded,
+                                    fileTotalBytes = totalSize,
+                                )
+                            }
                         },
                     )
+                    fileBytes[idx] = picked.size
                     if (!isMulti) singleKey = key
                     entries.add(
                         buildJsonObject {
@@ -801,6 +1040,14 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }
 
+                _sendState.update {
+                    it.copy(
+                        fileProgress = 100,
+                        fileProgressFraction = 1f,
+                        fileUploadedBytes = totalSize,
+                        fileStatus = "Finalizing Secret R2 drop...",
+                    )
+                }
                 val code = generateUniqueDropCode()
                 val expiresAt = System.currentTimeMillis() + parseExpireDurationMs(st.fileExpire)
                 val displayName = if (isMulti) "${entries.size} files" else singleName
@@ -836,6 +1083,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         fileUploading = false,
                         fileProgress = 100,
+                        fileProgressFraction = 1f,
+                        fileUploadedBytes = totalSize,
+                        fileTotalBytes = totalSize,
                         fileStatus = "",
                         fileResultCode = code,
                         fileResultName = displayName,
@@ -848,7 +1098,15 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 if (!token.isCancelled() && e.message != "UPLOAD_CANCELED") {
                     showToast(e.message?.take(140) ?: "Secret R2 upload failed", ToastType.ERROR)
                 }
-                _sendState.update { it.copy(fileUploading = false, fileStatus = "") }
+                _sendState.update {
+                    it.copy(
+                        fileUploading = false,
+                        fileProgress = 0,
+                        fileProgressFraction = 0f,
+                        fileUploadedBytes = 0L,
+                        fileStatus = "",
+                    )
+                }
             } finally {
                 fileCancelToken = null
             }
@@ -1055,28 +1313,92 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         return item
     }
 
+    fun cancelActiveDownload() {
+        activeDownloadToken?.cancel()
+        activeDownloadToken = null
+        _downloadState.value = null
+        showToast("Download canceled", ToastType.INFO)
+    }
+
     fun downloadDropFile(entry: DropFileEntry) {
         viewModelScope.launch {
-            try {
-                if (entry.objectKey.isNotBlank()) {
-                    showToast("Generating R2 download link...", ToastType.INFO)
-                    val url = r2Service.getDownloadUrl(entry.objectKey)
-                    DownloadHelper.enqueueSystemDownload(getApplication(), url, entry.resolvedName)
-                    showToast("Download started: ${entry.resolvedName}", ToastType.SUCCESS)
-                } else {
-                    val url = entry.resolvedUrl
-                    if (!url.startsWith("http", ignoreCase = true)) {
-                        showToast("Invalid or missing file link", ToastType.ERROR)
-                        return@launch
-                    }
-                    val mode = DownloadHelper.downloadFile(getApplication(), url, entry.resolvedName)
-                    showToast(
-                        if (mode == "tab") "Opening in browser..." else "Downloading ${entry.resolvedName}...",
-                        ToastType.SUCCESS,
-                    )
+            downloadSingleDropEntry(entry)
+        }
+    }
+
+    private suspend fun downloadSingleDropEntry(entry: DropFileEntry) {
+        val token = DownloadCancellationToken()
+        activeDownloadToken = token
+        val knownSize = entry.resolvedSize.takeIf { it > 0L } ?: -1L
+        _downloadState.value = DownloadProgressState(
+            fileName = entry.resolvedName,
+            loadedBytes = 0L,
+            totalBytes = knownSize,
+            percent = 0,
+        )
+        try {
+            if (entry.objectKey.isNotBlank()) {
+                val url = r2Service.getDownloadUrl(entry.objectKey)
+                DownloadHelper.streamDirectUrlToDownloads(
+                    context = getApplication(),
+                    url = url,
+                    fileName = entry.resolvedName,
+                    cancelToken = token,
+                    onProgress = { loaded, total, pct ->
+                        val effectiveTotal = if (total > 0L) total else knownSize
+                        val effectivePct = if (effectiveTotal > 0L) {
+                            ((loaded * 100L) / effectiveTotal).toInt().coerceIn(0, 100)
+                        } else {
+                            pct
+                        }
+                        _downloadState.value = DownloadProgressState(
+                            fileName = entry.resolvedName,
+                            loadedBytes = loaded,
+                            totalBytes = effectiveTotal,
+                            percent = effectivePct,
+                        )
+                    },
+                )
+                showToast("Saved ${entry.resolvedName} to Downloads", ToastType.SUCCESS)
+            } else {
+                val url = entry.resolvedUrl
+                if (!url.startsWith("http", ignoreCase = true)) {
+                    showToast("Invalid or missing file link", ToastType.ERROR)
+                    return
                 }
-            } catch (e: Throwable) {
-                showToast(e.message ?: "Download failed", ToastType.ERROR)
+                val mode = DownloadHelper.downloadFile(
+                    context = getApplication(),
+                    url = url,
+                    fileName = entry.resolvedName,
+                    cancelToken = token,
+                    onProgress = { loaded, total, pct ->
+                        val effectiveTotal = if (total > 0L) total else knownSize
+                        val effectivePct = if (effectiveTotal > 0L) {
+                            ((loaded * 100L) / effectiveTotal).toInt().coerceIn(0, 100)
+                        } else {
+                            pct
+                        }
+                        _downloadState.value = DownloadProgressState(
+                            fileName = entry.resolvedName,
+                            loadedBytes = loaded,
+                            totalBytes = effectiveTotal,
+                            percent = effectivePct,
+                        )
+                    },
+                )
+                showToast(
+                    if (mode == "tab") "Opening in browser..." else "Saved ${entry.resolvedName} to Downloads",
+                    ToastType.SUCCESS,
+                )
+            }
+        } catch (e: Throwable) {
+            if (!token.isCancelled() && e.message != "DOWNLOAD_CANCELED") {
+                showToast(e.message?.take(140) ?: "Download failed", ToastType.ERROR)
+            }
+        } finally {
+            if (activeDownloadToken === token) {
+                activeDownloadToken = null
+                _downloadState.value = null
             }
         }
     }
@@ -1085,8 +1407,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             showToast("Downloading ${files.size} files...", ToastType.INFO)
             files.forEachIndexed { idx, entry ->
-                downloadDropFile(entry)
-                if (idx < files.lastIndex) delay(450L)
+                downloadSingleDropEntry(entry)
+                if (idx < files.lastIndex) delay(250L)
             }
         }
     }

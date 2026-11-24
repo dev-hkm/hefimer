@@ -814,12 +814,8 @@ fun FloatingIncomingOfferBanner(
 ) {
     AnimatedVisibility(
         visible = transfer != null,
-        enter = slideInVertically(tween(380, easing = AppMotion.AppleSheet)) { it / 2 } +
-            fadeIn(tween(260, easing = AppMotion.AppleSilk)) +
-            scaleIn(tween(340, easing = AppMotion.AppleSheet), initialScale = 0.94f),
-        exit = slideOutVertically(tween(260, easing = AppMotion.AppleSilk)) { it / 2 } +
-            fadeOut(tween(180, easing = AppMotion.AppleEase)) +
-            scaleOut(tween(220), targetScale = 0.95f),
+        enter = AppMotion.floatingBarEnter,
+        exit = AppMotion.floatingBarExit,
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
         val current = transfer ?: return@AnimatedVisibility

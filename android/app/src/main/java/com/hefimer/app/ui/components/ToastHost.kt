@@ -30,6 +30,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -49,8 +52,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.data.model.ToastMessage
 import com.hefimer.app.data.model.ToastType
+import com.hefimer.app.data.model.formatBytes
+import com.hefimer.app.ui.DownloadProgressState
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleFluidProgressTrack
+import com.hefimer.app.ui.theme.AppleRollingPercentage
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.applePressable
 
@@ -64,7 +72,7 @@ fun HefimerToastHost(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = statusTop + 56.dp, start = 20.dp, end = 20.dp),
+            .padding(top = statusTop + 8.dp, start = 20.dp, end = 20.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         AnimatedVisibility(
@@ -317,3 +325,117 @@ fun HefimerToggleRow(
         }
     }
 }
+
+@Composable
+fun FloatingDownloadProgressBanner(
+    state: DownloadProgressState?,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(
+        visible = state != null,
+        enter = AppMotion.floatingBarEnter,
+        exit = AppMotion.floatingBarExit,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+    ) {
+        val current = state ?: return@AnimatedVisibility
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xF2101010))
+                .border(1.dp, HefimerColors.White15, RoundedCornerShape(24.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(HefimerColors.EmeraldBg)
+                        .border(1.dp, HefimerColors.EmeraldBorder, CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        tint = HefimerColors.Emerald400,
+                        modifier = Modifier.size(17.dp),
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = current.fileName,
+                        color = HefimerColors.White,
+                        fontFamily = UbuntuFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val subtitle = if (current.totalBytes > 0L) {
+                        "${formatBytes(current.loadedBytes)} / ${formatBytes(current.totalBytes)}"
+                    } else if (current.loadedBytes > 0L) {
+                        "Downloaded ${formatBytes(current.loadedBytes)}"
+                    } else {
+                        "Connecting to host..."
+                    }
+                    Text(
+                        text = subtitle,
+                        color = HefimerColors.White50,
+                        style = TextStyle(
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 10.sp,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                AppleRollingPercentage(
+                    percent = current.percent,
+                    color = HefimerColors.Emerald400,
+                    style = TextStyle(
+                        fontFamily = UbuntuFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                    ),
+                )
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(HefimerColors.White08)
+                        .border(1.dp, HefimerColors.White12, CircleShape)
+                        .applePressable(onClick = onCancel),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = "Cancel download",
+                        tint = HefimerColors.White70,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+            }
+
+            AppleFluidProgressTrack(
+                progress = current.fraction,
+                accentColor = HefimerColors.Emerald400,
+                trackColor = HefimerColors.White10,
+                height = 5.dp,
+            )
+        }
+    }
+}
+

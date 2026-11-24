@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
+import com.hefimer.app.ui.components.FloatingDownloadProgressBanner
 import com.hefimer.app.ui.components.HefimerFloatingBottomDock
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerToastHost
@@ -96,7 +97,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             HefimerTheme {
-                HefimerRootScreen(vm = viewModel)
+                HefimerRootScreen(
+                    vm = viewModel,
+                    onExitApp = { finish() },
+                )
             }
         }
     }
@@ -109,13 +113,17 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun HefimerRootScreen(vm: HefimerViewModel) {
+private fun HefimerRootScreen(
+    vm: HefimerViewModel,
+    onExitApp: () -> Unit,
+) {
     val selectedTab by vm.selectedTab.collectAsState()
     val activeOverlay by vm.activeOverlay.collectAsState()
     val activeHeroKey by vm.activeHeroKey.collectAsState()
     val toast by vm.toast.collectAsState()
     val sendState by vm.sendState.collectAsState()
     val linkState by vm.linkState.collectAsState()
+    val downloadState by vm.downloadState.collectAsState()
     val globalStats by vm.globalStats.collectAsState()
     val noticeDismissed by vm.noticeDismissed.collectAsState()
 
@@ -145,6 +153,11 @@ private fun HefimerRootScreen(vm: HefimerViewModel) {
                 overlay = activeOverlay,
                 heroKey = activeHeroKey,
                 onDismissOverlay = { vm.dismissOverlay() },
+                onRootBack = {
+                    if (!vm.handleBackNavigation()) {
+                        onExitApp()
+                    }
+                },
                 bottomChrome = { overlayReveal ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Global floating incoming Hefimer Link offer banner
@@ -157,10 +170,10 @@ private fun HefimerRootScreen(vm: HefimerViewModel) {
                             },
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = navBottom + 94.dp),
+                                .padding(bottom = navBottom + if (downloadState != null) 166.dp else 78.dp),
                         )
 
-                        // Floating translucent edge-to-edge Bottom Navigation Dock
+                        // Floating compact pill Bottom Navigation Dock
                         HefimerFloatingBottomDock(
                             selectedTab = selectedTab,
                             onSelectTab = { vm.selectTab(it) },
@@ -185,18 +198,27 @@ private fun HefimerRootScreen(vm: HefimerViewModel) {
                         MainTab.LINK -> LinkScreen(vm)
                     }
                 },
-                renderOverlay = { overlay ->
+                renderOverlay = { overlay, dismiss ->
                     when (overlay) {
-                        AppOverlay.History -> HistoryOverlayScreen(vm = vm, onClose = { vm.dismissOverlay() })
+                        AppOverlay.History -> HistoryOverlayScreen(vm = vm, onClose = dismiss)
                         is AppOverlay.QrScanner -> QrScannerOverlay(
                             onResult = { code -> vm.handleScannedOrDeepLink(code, overlay.target) },
-                            onClose = { vm.dismissOverlay() },
+                            onClose = dismiss,
                         )
-                        is AppOverlay.SpaceCanvas -> SpaceCanvasOverlay(vm = vm, onClose = { vm.dismissOverlay() })
-                        is AppOverlay.ChatRoom -> ChatRoomOverlay(vm = vm, onClose = { vm.dismissOverlay() })
-                        is AppOverlay.Whiteboard -> WhiteboardOverlay(vm = vm, onClose = { vm.dismissOverlay() })
+                        is AppOverlay.SpaceCanvas -> SpaceCanvasOverlay(vm = vm, onClose = dismiss)
+                        is AppOverlay.ChatRoom -> ChatRoomOverlay(vm = vm, onClose = dismiss)
+                        is AppOverlay.Whiteboard -> WhiteboardOverlay(vm = vm, onClose = dismiss)
                     }
                 },
+            )
+
+            // Live native download progress banner (visible across both tabs and overlays)
+            FloatingDownloadProgressBanner(
+                state = downloadState,
+                onCancel = { vm.cancelActiveDownload() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = navBottom + if (activeOverlay == null) 78.dp else 20.dp),
             )
 
             // Global Notice Banner (from Firebase stats)

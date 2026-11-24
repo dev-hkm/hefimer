@@ -17,9 +17,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,8 +27,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Download
@@ -56,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.HefimerColors
-import com.hefimer.app.ui.theme.UbuntuFontFamily
 
 enum class MainTab(val label: String, val icon: ImageVector) {
     SEND("Send", Icons.Rounded.Upload),
@@ -67,8 +64,10 @@ enum class MainTab(val label: String, val icon: ImageVector) {
 }
 
 /**
- * Floating translucent monochrome bottom navigation dock harmonized seamlessly
- * with the transparent Android system navigation bar (edge-to-edge, zero hard cut).
+ * Compact floating round pill bottom navigation dock harmonized seamlessly
+ * with the transparent Android navigation bar.
+ * Features a sleek concentric pill capsule inside that glides fluidly between tabs
+ * driven by AppMotion.layoutSpring() with tactile press compression and zero Material ripples.
  */
 @Composable
 fun HefimerFloatingBottomDock(
@@ -91,66 +90,76 @@ fun HefimerFloatingBottomDock(
             .background(
                 Brush.verticalGradient(
                     0f to Color.Transparent,
-                    0.45f to HefimerColors.Black.copy(alpha = 0.72f),
-                    1f to HefimerColors.Black.copy(alpha = 0.94f),
+                    0.5f to HefimerColors.Black.copy(alpha = 0.65f),
+                    1f to HefimerColors.Black.copy(alpha = 0.92f),
                 ),
             )
-            .padding(top = 18.dp, bottom = navBottom + 10.dp, start = 16.dp, end = 16.dp),
+            .padding(top = 14.dp, bottom = navBottom + 10.dp, start = 24.dp, end = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val outerRadius = 28.dp
-        val innerPadding = 5.dp
-        val innerRadius = outerRadius - innerPadding // Concentric: 23.dp
+        val pillHeight = 52.dp
+        val innerPadding = 4.dp
+        val thumbHeight = pillHeight - innerPadding * 2
 
         BoxWithConstraints(
             modifier = Modifier
+                .widthIn(max = 312.dp)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(outerRadius))
-                .background(Color(0xE60B0B0B))
-                .border(1.dp, HefimerColors.White12, RoundedCornerShape(outerRadius))
+                .height(pillHeight)
+                .clip(CircleShape)
+                .background(Color(0xEB0D0D0D))
+                .border(1.dp, HefimerColors.White15, CircleShape)
                 .padding(innerPadding),
         ) {
-            val itemWidth = maxWidth / tabs.size
-            val pillOffsetX by animateDpAsState(
-                targetValue = itemWidth * selectedIndex,
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val slotWidth = maxWidth / tabs.size
+            val slotWidthPx = with(density) { slotWidth.toPx() }
+            val thumbOffsetPx by animateFloatAsState(
+                targetValue = slotWidthPx * selectedIndex,
                 animationSpec = AppMotion.layoutSpring(),
-                label = "dock_pill_x",
+                label = "pill_thumb_x",
+            )
+            val thumbColor by animateColorAsState(
+                targetValue = activeAccent,
+                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                label = "pill_thumb_color",
             )
 
-            // Gliding concentric active capsule
+            // Gliding round pill capsule inside the outer pill (GPU-only translationX)
             Box(
                 modifier = Modifier
-                    .offset(x = pillOffsetX)
-                    .width(itemWidth)
-                    .height(54.dp)
-                    .clip(RoundedCornerShape(innerRadius))
-                    .background(activeAccent),
+                    .graphicsLayer { translationX = thumbOffsetPx }
+                    .width(slotWidth)
+                    .height(thumbHeight)
+                    .clip(CircleShape)
+                    .background(thumbColor),
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 tabs.forEach { tab ->
                     val isSelected = tab == selectedTab
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val pressScale by animateFloatAsState(
-                        targetValue = if (isPressed) 0.92f else 1f,
+                        targetValue = if (isPressed) 0.88f else 1f,
                         animationSpec = if (isPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
-                        label = "dock_item_press",
+                        label = "dock_press",
                     )
-                    val contentColor by animateColorAsState(
+                    val iconTint by animateColorAsState(
                         targetValue = if (isSelected) HefimerColors.Black else HefimerColors.White50,
                         animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
-                        label = "dock_item_color",
+                        label = "dock_tint",
                     )
 
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp)
+                            .height(thumbHeight)
                             .graphicsLayer {
                                 scaleX = pressScale
                                 scaleY = pressScale
@@ -163,65 +172,50 @@ fun HefimerFloatingBottomDock(
                                 onSelectTab(tab)
                             },
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Box {
-                                Icon(
-                                    imageVector = tab.icon,
-                                    contentDescription = tab.label,
-                                    tint = contentColor,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                if (tab == MainTab.LINK) {
-                                    // Online paired indicator dot
-                                    if (linkGroupActive && linkBadgeCount == 0) {
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .offset(x = 4.dp, y = (-2).dp)
-                                                .size(6.dp)
-                                                .clip(CircleShape)
-                                                .background(if (isSelected) HefimerColors.Black else HefimerColors.Emerald400),
-                                        )
-                                    }
-                                    // Incoming transfers badge
-                                    androidx.compose.animation.AnimatedVisibility(
-                                        visible = linkBadgeCount > 0,
-                                        enter = scaleIn(AppMotion.softPopSpring(), initialScale = 0.7f) + fadeIn(tween(150)),
-                                        exit = scaleOut(tween(140), targetScale = 0.7f) + fadeOut(tween(120)),
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label,
+                                tint = iconTint,
+                                modifier = Modifier.size(21.dp),
+                            )
+                            if (tab == MainTab.LINK) {
+                                if (linkGroupActive && linkBadgeCount == 0) {
+                                    Box(
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
-                                            .offset(x = 8.dp, y = (-5).dp),
+                                            .offset(x = 4.dp, y = (-3).dp)
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) HefimerColors.Black else HefimerColors.Emerald400),
+                                    )
+                                }
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = linkBadgeCount > 0,
+                                    enter = scaleIn(AppMotion.softPopSpring(), initialScale = 0.7f) +
+                                        fadeIn(tween(150, easing = AppMotion.AppleSilk)),
+                                    exit = scaleOut(tween(140, easing = AppMotion.AppleEase), targetScale = 0.7f) +
+                                        fadeOut(tween(120, easing = AppMotion.AppleEase)),
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 8.dp, y = (-5).dp),
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) HefimerColors.Black else HefimerColors.Emerald400),
                                     ) {
-                                        Box(
-                                            contentAlignment = Alignment.Center,
-                                            modifier = Modifier
-                                                .size(16.dp)
-                                                .clip(CircleShape)
-                                                .background(if (isSelected) HefimerColors.Black else HefimerColors.Emerald400),
-                                        ) {
-                                            Text(
-                                                text = if (linkBadgeCount > 9) "9+" else linkBadgeCount.toString(),
-                                                color = if (isSelected) HefimerColors.White else HefimerColors.Black,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
+                                        Text(
+                                            text = if (linkBadgeCount > 9) "9+" else linkBadgeCount.toString(),
+                                            color = if (isSelected) HefimerColors.White else HefimerColors.Black,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
                                     }
                                 }
                             }
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = tab.label,
-                                color = contentColor,
-                                fontFamily = UbuntuFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                letterSpacing = 0.2.sp,
-                                maxLines = 1,
-                            )
                         }
                     }
                 }
