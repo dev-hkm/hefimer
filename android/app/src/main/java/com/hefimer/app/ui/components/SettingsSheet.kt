@@ -19,15 +19,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -77,6 +80,7 @@ fun SettingsSheetContent(
     onToggleSmartClipboardBanner: () -> Unit,
     onToggleHapticEnabled: () -> Unit,
     onOpenProviderPicker: () -> Unit,
+    onOpenInfoDoc: (HefimerInfoDoc) -> Unit,
     onReplayOnboarding: () -> Unit,
     onClearHistory: () -> Unit,
     onClose: () -> Unit,
@@ -439,6 +443,35 @@ fun SettingsSheetContent(
             Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White45, modifier = Modifier.size(18.dp))
         }
 
+        // Help, Security & Legal (Web parity: FAQ, Privacy Policy, Terms of Service)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = tr("HELP, SECURITY & LEGAL", "HỖ TRỢ, BẢO MẬT & PHÁP LÝ"),
+                color = HefimerColors.White40,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            SettingsLinkRow(
+                icon = Icons.AutoMirrored.Rounded.HelpOutline,
+                title = tr("FAQ & How It Works", "Câu hỏi thường gặp (FAQ)"),
+                subtitle = tr("Codes, expiration, One-Time mode & Hefimer Link", "Cách gửi nhận, thời hạn, xem 1 lần & Hefimer Link"),
+                onClick = { onOpenInfoDoc(HefimerInfoDoc.FAQ) },
+            )
+            SettingsLinkRow(
+                icon = Icons.Rounded.Shield,
+                title = tr("Privacy & Security", "Bảo mật & Quyền riêng tư"),
+                subtitle = tr("Zero account, HTTPS/TLS, auto-deletion & data policy", "Không tài khoản, HTTPS/TLS, tự hủy & dữ liệu"),
+                onClick = { onOpenInfoDoc(HefimerInfoDoc.PRIVACY) },
+            )
+            SettingsLinkRow(
+                icon = Icons.Rounded.Description,
+                title = tr("Terms of Service", "Điều khoản Dịch vụ"),
+                subtitle = tr("Usage rules, third-party hosts & responsibilities", "Quy định sử dụng, máy chủ lưu trữ & trách nhiệm"),
+                onClick = { onOpenInfoDoc(HefimerInfoDoc.TERMS) },
+            )
+        }
+
         // Clear local history
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -501,5 +534,54 @@ fun SettingsSheetContent(
                 fontSize = 11.sp,
             )
         }
+    }
+}
+
+@Composable
+private fun SettingsLinkRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .appleGlassSurface(
+                shape = RoundedCornerShape(24.dp),
+                variant = AppleGlassVariant.Clear,
+                elevation = 0.dp,
+            )
+            .applePressable(pressedScale = 0.975f, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(36.dp)
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(14.dp),
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                ),
+        ) {
+            Icon(icon, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = HefimerColors.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = subtitle,
+                color = HefimerColors.White45,
+                fontSize = 11.sp,
+            )
+        }
+        Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White45, modifier = Modifier.size(18.dp))
     }
 }

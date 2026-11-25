@@ -65,6 +65,8 @@ import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.components.FloatingDownloadProgressBanner
 import com.hefimer.app.ui.components.HefimerConfirmDialog
 import com.hefimer.app.ui.components.HefimerFloatingBottomDock
+import com.hefimer.app.ui.components.HefimerInfoDoc
+import com.hefimer.app.ui.components.HefimerInfoDocSheetContent
 import com.hefimer.app.ui.components.HefimerLaunchIntro
 import com.hefimer.app.ui.components.HefimerOnboardingOverlay
 import com.hefimer.app.ui.components.HefimerPrimaryButton
@@ -195,6 +197,7 @@ private fun HefimerRootScreen(
     val savedFilePrompt by vm.savedFilePrompt.collectAsState()
     val clipboardSuggestion by vm.clipboardSuggestion.collectAsState()
     val history by vm.history.collectAsState()
+    var activeInfoDoc by remember { mutableStateOf<HefimerInfoDoc?>(null) }
 
     LaunchedEffect(hapticEnabled) {
         HefimerHaptics.enabled = hapticEnabled
@@ -401,6 +404,10 @@ private fun HefimerRootScreen(
                         dismiss()
                         vm.openSendProviderPicker()
                     },
+                    onOpenInfoDoc = { doc ->
+                        dismiss()
+                        activeInfoDoc = doc
+                    },
                     onReplayOnboarding = {
                         dismiss()
                         vm.replayOnboarding()
@@ -421,6 +428,19 @@ private fun HefimerRootScreen(
                     },
                     onClose = dismiss,
                 )
+            }
+
+            // FAQ, Privacy & Security, and Terms of Service Sheet (Web parity)
+            AppleSwipeableSheet(
+                visible = activeInfoDoc != null,
+                onDismiss = { activeInfoDoc = null },
+            ) { dismiss ->
+                activeInfoDoc?.let { doc ->
+                    HefimerInfoDocSheetContent(
+                        doc = doc,
+                        onClose = dismiss,
+                    )
+                }
             }
 
             // Post-Save "Open With App" Bottom Sheet

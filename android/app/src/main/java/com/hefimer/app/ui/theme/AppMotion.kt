@@ -59,6 +59,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -833,6 +834,9 @@ fun <T> AppleSegmentedControl(
         val pillWidthPx = with(density) { pillWidth.toPx() }.coerceAtLeast(1f)
         var scrubbedIndex by remember { mutableIntStateOf(-1) }
         val activeIdx = if (scrubbedIndex in options.indices) scrubbedIndex else selectedIndex
+        val currentSelectedIndex by rememberUpdatedState(selectedIndex)
+        val currentOptions by rememberUpdatedState(options)
+        val currentOnSelect by rememberUpdatedState(onSelect)
 
         val pillOffsetX by animateDpAsState(
             targetValue = pillWidth * activeIdx,
@@ -874,19 +878,21 @@ fun <T> AppleSegmentedControl(
                 .pointerInput(options.size, pillWidthPx) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        var curIdx = (down.position.x / pillWidthPx).toInt().coerceIn(0, options.lastIndex)
+                        val opts = currentOptions
+                        if (opts.isEmpty()) return@awaitEachGesture
+                        var curIdx = (down.position.x / pillWidthPx).toInt().coerceIn(0, opts.lastIndex)
                         scrubbedIndex = curIdx
                         var moved = false
                         while (true) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             if (!change.pressed) {
-                                val finalIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, options.lastIndex)
-                                if (finalIdx != selectedIndex || moved) {
+                                val finalIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, opts.lastIndex)
+                                if (finalIdx != currentSelectedIndex || moved) {
                                     if (HefimerHaptics.enabled) {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     }
-                                    onSelect(options[finalIdx])
+                                    currentOnSelect(opts[finalIdx])
                                 }
                                 scrubbedIndex = -1
                                 break
@@ -895,14 +901,14 @@ fun <T> AppleSegmentedControl(
                                 moved = true
                                 change.consume()
                             }
-                            val hoverIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, options.lastIndex)
+                            val hoverIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, opts.lastIndex)
                             if (hoverIdx != curIdx) {
                                 curIdx = hoverIdx
                                 scrubbedIndex = hoverIdx
                                 if (HefimerHaptics.enabled) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 }
-                                onSelect(options[hoverIdx])
+                                currentOnSelect(opts[hoverIdx])
                             }
                         }
                     }
