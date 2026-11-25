@@ -877,6 +877,8 @@ class FileUploadEngine(
             val req = Request.Builder()
                 .url("https://litterbox.catbox.moe/resources/internals/api.php")
                 .header("Accept", "*/*")
+                .header("Origin", "https://litterbox.catbox.moe")
+                .header("Referer", "https://litterbox.catbox.moe/")
                 .post(makeBody())
                 .build()
             execute(req, cancelToken).second.trim()

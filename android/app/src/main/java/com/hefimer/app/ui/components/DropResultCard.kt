@@ -413,8 +413,11 @@ private fun AnimatedDigitTile(
     val progress = remember(digit, index) { Animatable(if (reduceMotion) 1f else 0f) }
     LaunchedEffect(digit, index) {
         if (!reduceMotion) {
-            delay(index * 55L + 40L)
-            progress.animateTo(1f, AppMotion.softPopSpring())
+            delay(index * 72L + 60L)
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 540, easing = AppMotion.AppleSheet),
+            )
         }
     }
     Box(
@@ -424,11 +427,11 @@ private fun AnimatedDigitTile(
             .height(72.dp)
             .graphicsLayer {
                 val p = progress.value
-                alpha = p.coerceIn(0f, 1f)
-                val s = 0.86f + 0.14f * p
+                alpha = (p * 1.15f).coerceIn(0f, 1f)
+                val s = 0.88f + 0.12f * p
                 scaleX = s
                 scaleY = s
-                translationY = (1f - p) * 26f
+                translationY = (1f - p) * 32f
             }
             .clip(RoundedCornerShape(22.dp))
             .background(

@@ -75,7 +75,7 @@ object DownloadHelper {
     fun getDirectDownloadMode(url: String): DirectDownloadMode {
         val host = runCatching { URI(url).host?.lowercase().orEmpty() }.getOrDefault("")
         return when {
-            host in PROXIED_HOSTS -> DirectDownloadMode.PROXY
+            host in PROXIED_HOSTS || host.endsWith(".uguu.se") || host.endsWith(".catbox.moe") -> DirectDownloadMode.PROXY
             host in TAB_HOSTS -> DirectDownloadMode.TAB
             else -> DirectDownloadMode.FETCH
         }
@@ -167,9 +167,13 @@ object DownloadHelper {
                 if (cancelToken.isCancelled() || e.message == "DOWNLOAD_CANCELED") throw e
                 // Fallback: try direct download from phone's own IP (works great for sto.care, litterbox, tmpfile.link, put.icu)
                 try {
-                    val directTarget = if (host == "put.icu" && !url.contains("/s/")) {
-                        url.replaceFirst("put.icu/", "put.icu/s/")
-                    } else url
+                    val directTarget = when {
+                        host == "put.icu" && !url.contains("/s/") ->
+                            url.replaceFirst("put.icu/", "put.icu/s/")
+                        host == "tmpfiles.org" && !url.contains("/dl/") ->
+                            url.replaceFirst("tmpfiles.org/", "tmpfiles.org/dl/")
+                        else -> url
+                    }
                     streamToDownloads(context, directTarget, safeName, cancelToken, onProgress)
                     return@withContext "download"
                 } catch (directErr: Throwable) {

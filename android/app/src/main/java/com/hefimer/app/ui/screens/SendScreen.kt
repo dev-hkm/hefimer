@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,6 +97,7 @@ import com.hefimer.app.ui.ScanTarget
 import com.hefimer.app.ui.SendSubMode
 import com.hefimer.app.ui.SendUiState
 import com.hefimer.app.ui.components.CodeHighlighter
+import com.hefimer.app.ui.components.CodeSyntaxVisualTransformation
 import com.hefimer.app.ui.components.DropResultCard
 import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
 import com.hefimer.app.ui.components.HefimerHeaderIconButton
@@ -112,14 +114,13 @@ import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.LocalHeroBounds
 import com.hefimer.app.ui.theme.UbuntuFontFamily
-import com.hefimer.app.ui.theme.rememberReduceMotion
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlinx.coroutines.launch
 
 @Composable
@@ -232,26 +233,32 @@ private fun SendFileSection(
         if (treeUri != null) vm.onFolderPicked(treeUri)
     }
 
-    if (state.fileResultCode.isNotBlank()) {
-        DropResultCard(
-            code = state.fileResultCode,
-            heading = if (state.fileResultIsR2) "Secret R2 Code" else "Your Drop Code",
-            subtitle = state.fileResultName,
-            expiresAt = state.fileResultExpiresAt,
-            isR2 = state.fileResultIsR2,
-            onBack = { vm.resetFileResult(clearSelection = false) },
-            onReset = { vm.resetFileResult(clearSelection = true) },
-            onToast = { msg, err -> vm.showToast(msg, if (err) ToastType.ERROR else ToastType.SUCCESS) },
-        )
-        return
-    }
+    val reduceMotion = rememberReduceMotion()
+    AnimatedContent(
+        targetState = state.fileResultCode.isNotBlank(),
+        transitionSpec = { AppMotion.sectionTransform(reduceMotion) },
+        label = "send_file_result_switch",
+    ) { hasResult ->
+        if (hasResult) {
+            DropResultCard(
+                code = state.fileResultCode,
+                heading = if (state.fileResultIsR2) "Secret R2 Code" else "Your Drop Code",
+                subtitle = state.fileResultName,
+                expiresAt = state.fileResultExpiresAt,
+                isR2 = state.fileResultIsR2,
+                onBack = { vm.resetFileResult(clearSelection = false) },
+                onReset = { vm.resetFileResult(clearSelection = true) },
+                onToast = { msg, err -> vm.showToast(msg, if (err) ToastType.ERROR else ToastType.SUCCESS) },
+            )
+            return@AnimatedContent
+        }
 
-    val isR2 = state.isR2Mode
-    val accent = if (isR2) HefimerColors.Emerald400 else HefimerColors.White
-    val providerCfg = UploadProviders.getConfig(state.selectedProviderId)
-    val expireOptions = if (isR2) UploadProviders.STANDARD_EXPIRE_OPTIONS else providerCfg.expireOptions
+        val isR2 = state.isR2Mode
+        val accent = if (isR2) HefimerColors.Emerald400 else HefimerColors.White
+        val providerCfg = UploadProviders.getConfig(state.selectedProviderId)
+        val expireOptions = if (isR2) UploadProviders.STANDARD_EXPIRE_OPTIONS else providerCfg.expireOptions
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (isR2) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -836,6 +843,7 @@ private fun SendFileSection(
             accentColor = accent,
             onClick = { vm.uploadFiles() },
         )
+        }
     }
 }
 
@@ -847,30 +855,36 @@ private fun SendTextSection(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val reduceMotion = rememberReduceMotion()
     var showLineNumbers by remember { mutableStateOf(false) }
     var showLangPicker by remember { mutableStateOf(false) }
     var showAdvanced by remember { mutableStateOf(false) }
-    var previewHighlight by remember { mutableStateOf(false) }
+    var liveHighlight by remember { mutableStateOf(true) }
 
-    if (state.textResultCode.isNotBlank()) {
-        DropResultCard(
-            code = state.textResultCode,
-            heading = "Your Drop Code",
-            expiresAt = state.textResultExpiresAt,
-            onBack = { vm.resetTextResult(clearContent = false) },
-            onReset = { vm.resetTextResult(clearContent = true) },
-            onToast = { msg, err -> vm.showToast(msg, if (err) ToastType.ERROR else ToastType.SUCCESS) },
-        )
-        return
-    }
+    AnimatedContent(
+        targetState = state.textResultCode.isNotBlank(),
+        transitionSpec = { AppMotion.sectionTransform(reduceMotion) },
+        label = "send_text_result_switch",
+    ) { hasResult ->
+        if (hasResult) {
+            DropResultCard(
+                code = state.textResultCode,
+                heading = "Your Drop Code",
+                expiresAt = state.textResultExpiresAt,
+                onBack = { vm.resetTextResult(clearContent = false) },
+                onReset = { vm.resetTextResult(clearContent = true) },
+                onToast = { msg, err -> vm.showToast(msg, if (err) ToastType.ERROR else ToastType.SUCCESS) },
+            )
+            return@AnimatedContent
+        }
 
-    val detected = remember(state.textContent) { CodeHighlighter.detectLanguage(state.textContent) }
-    val activeLang = state.manualLangId?.let { id ->
-        CodeHighlighter.SUPPORTED_LANGUAGES.firstOrNull { it.id == id }
-    } ?: detected
-    val lines = remember(state.textContent) { maxOf(1, state.textContent.count { it == '\n' } + 1) }
+        val detected = remember(state.textContent) { CodeHighlighter.detectLanguage(state.textContent) }
+        val activeLang = state.manualLangId?.let { id ->
+            CodeHighlighter.SUPPORTED_LANGUAGES.firstOrNull { it.id == id }
+        } ?: detected
+        val lines = remember(state.textContent) { maxOf(1, state.textContent.count { it == '\n' } + 1) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Editor Card matching web SendText
         Column(
             modifier = Modifier
@@ -916,8 +930,8 @@ private fun SendTextSection(
                     )
                     EditorMiniIcon(
                         icon = Icons.Rounded.Code,
-                        active = previewHighlight,
-                        onClick = { previewHighlight = !previewHighlight },
+                        active = liveHighlight,
+                        onClick = { liveHighlight = !liveHighlight },
                     )
                     EditorMiniIcon(
                         icon = Icons.Rounded.Download,
@@ -1029,47 +1043,39 @@ private fun SendTextSection(
                     )
                 }
 
-                if (previewHighlight && state.textContent.isNotBlank()) {
-                    val highlighted = remember(state.textContent, activeLang.id) {
-                        CodeHighlighter.highlight(state.textContent, activeLang.id)
+                val syntaxTransform = remember(activeLang.id, liveHighlight) {
+                    if (liveHighlight && activeLang.id != "text") {
+                        CodeSyntaxVisualTransformation(activeLang.id)
+                    } else {
+                        VisualTransformation.None
                     }
-                    Text(
-                        text = highlighted,
+                }
+                BasicTextField(
+                    value = state.textContent,
+                    onValueChange = { vm.setTextContent(it) },
+                    visualTransformation = syntaxTransform,
+                    textStyle = TextStyle(
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         color = HefimerColors.White,
-                        modifier = Modifier
-                            .weight(1f)
-                            .applePressable(pressedScale = 0.995f, enableHaptic = false) { previewHighlight = false },
-                    )
-                } else {
-                    BasicTextField(
-                        value = state.textContent,
-                        onValueChange = { vm.setTextContent(it) },
-                        textStyle = TextStyle(
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp,
-                            color = HefimerColors.White,
-                        ),
-                        cursorBrush = SolidColor(HefimerColors.White),
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 180.dp),
-                        decorationBox = { inner ->
-                            if (state.textContent.isEmpty()) {
-                                Text(
-                                    text = "Paste code, links, or text here...",
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 13.sp,
-                                    color = HefimerColors.White30,
-                                )
-                            }
-                            inner()
-                        },
-                    )
-                }
+                    ),
+                    cursorBrush = SolidColor(HefimerColors.White),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 180.dp),
+                    decorationBox = { inner ->
+                        if (state.textContent.isEmpty()) {
+                            Text(
+                                text = "Paste code, links, or text here...",
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 13.sp,
+                                color = HefimerColors.White30,
+                            )
+                        }
+                        inner()
+                    },
+                )
             }
 
             // Bottom stats bar
@@ -1167,6 +1173,7 @@ private fun SendTextSection(
             enabled = state.textContent.isNotBlank() && !state.textLoading,
             onClick = { vm.generateTextDrop() },
         )
+        }
     }
 }
 

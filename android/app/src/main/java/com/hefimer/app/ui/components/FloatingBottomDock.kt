@@ -97,14 +97,13 @@ fun HefimerFloatingBottomDock(
             .padding(top = 14.dp, bottom = navBottom + 10.dp, start = 24.dp, end = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val pillHeight = 52.dp
-        val innerPadding = 4.dp
+        val pillHeight = 48.dp
+        val innerPadding = 3.5.dp
         val thumbHeight = pillHeight - innerPadding * 2
 
         BoxWithConstraints(
             modifier = Modifier
-                .widthIn(max = 312.dp)
-                .fillMaxWidth()
+                .width(244.dp)
                 .height(pillHeight)
                 .clip(CircleShape)
                 .background(HefimerColors.DockBg)

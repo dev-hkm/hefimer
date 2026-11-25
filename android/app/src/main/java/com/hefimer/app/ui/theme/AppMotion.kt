@@ -95,28 +95,28 @@ object AppMotion {
     val AppleEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
     // Unhurried, silky Apple-calibrated duration tokens (ms)
-    const val Screen = 580
-    const val ScreenPop = 520
-    const val Tab = 460
-    const val Sheet = 540
-    const val Content = 460
-    const val Fast = 300
-    const val Micro = 240
+    const val Screen = 640
+    const val ScreenPop = 580
+    const val Tab = 540
+    const val Sheet = 600
+    const val Content = 560
+    const val Fast = 360
+    const val Micro = 280
 
     // Perceptual springs tuned for calm, silky, unhurried Apple glide (zero wobble on taps)
-    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 170f)
-    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.90f, stiffness = 185f)
-    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.90f, stiffness = 195f)
-    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.94f, stiffness = 140f)
-    fun <T> snappySpring() = spring<T>(dampingRatio = 0.86f, stiffness = 250f)
-    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.90f, stiffness = 340f)
-    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.78f, stiffness = 210f)
-    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.82f, stiffness = 250f)
-    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.76f, stiffness = 220f)
+    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.94f, stiffness = 140f)
+    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 155f)
+    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 165f)
+    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.95f, stiffness = 115f)
+    fun <T> snappySpring() = spring<T>(dampingRatio = 0.88f, stiffness = 210f)
+    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 310f)
+    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.82f, stiffness = 180f)
+    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.86f, stiffness = 185f)
+    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.80f, stiffness = 190f)
 
-    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.90f, stiffness = 195f)
-    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.90f, stiffness = 185f)
-    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.90f, stiffness = 195f)
+    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.92f, stiffness = 165f)
+    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.92f, stiffness = 155f)
+    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.92f, stiffness = 165f)
 
     // Peer tab switch: unhurried silk cross-dissolve + subtle vertical breath
     fun tabTransform(reduceMotion: Boolean = false): ContentTransform {
@@ -124,7 +124,7 @@ object AppMotion {
             return fadeIn(tween(150, easing = AppleEase)) togetherWith fadeOut(tween(120, easing = AppleEase))
         }
         val enter = fadeIn(tween(Tab, easing = AppleSilk)) +
-            slideInVertically(tween(Tab, easing = AppleSheet)) { (it * 0.022f).toInt() }
+            slideInVertically(tween(Tab, easing = AppleSheet)) { (it * 0.025f).toInt() }
         val exit = fadeOut(tween(Fast, easing = AppleEase))
         return enter togetherWith exit
     }
@@ -135,14 +135,15 @@ object AppMotion {
             return fadeIn(tween(140, easing = AppleEase)) togetherWith fadeOut(tween(120, easing = AppleEase))
         }
         val enter = fadeIn(tween(Content, easing = AppleSilk)) +
+            slideInVertically(tween(Content, easing = AppleSheet)) { (it * 0.028f).toInt() } +
             scaleIn(
                 animationSpec = tween(Content, easing = AppleSheet),
-                initialScale = 0.972f,
+                initialScale = 0.955f,
             )
         val exit = fadeOut(tween(Fast, easing = AppleEase)) +
             scaleOut(
                 animationSpec = tween(Fast, easing = AppleSilk),
-                targetScale = 0.985f,
+                targetScale = 0.975f,
             )
         return enter togetherWith exit
     }
@@ -152,22 +153,22 @@ object AppMotion {
             fadeOut(tween(Fast, easing = AppleEase))
 
     val softExpandEnter: EnterTransition =
-        expandVertically(animationSpec = tween(420, easing = AppleSheet)) +
-            fadeIn(tween(380, easing = AppleSilk))
+        expandVertically(animationSpec = tween(480, easing = AppleSheet)) +
+            fadeIn(tween(440, easing = AppleSilk))
 
     val softExpandExit: ExitTransition =
-        shrinkVertically(animationSpec = tween(320, easing = AppleSilk)) +
-            fadeOut(tween(240, easing = AppleEase))
+        shrinkVertically(animationSpec = tween(360, easing = AppleSilk)) +
+            fadeOut(tween(280, easing = AppleEase))
 
     val floatingBarEnter: EnterTransition =
         slideInVertically(tween(Sheet, easing = AppleSheet)) { it / 2 } +
-            fadeIn(tween(380, easing = AppleSilk)) +
+            fadeIn(tween(440, easing = AppleSilk)) +
             scaleIn(tween(Sheet, easing = AppleSheet), initialScale = 0.94f)
 
     val floatingBarExit: ExitTransition =
-        slideOutVertically(tween(380, easing = AppleSilk)) { it / 2 } +
-            fadeOut(tween(260, easing = AppleEase)) +
-            scaleOut(tween(380, easing = AppleSilk), targetScale = 0.95f)
+        slideOutVertically(tween(420, easing = AppleSilk)) { it / 2 } +
+            fadeOut(tween(300, easing = AppleEase)) +
+            scaleOut(tween(420, easing = AppleSilk), targetScale = 0.95f)
 }
 
 fun projectOffset(velocityPxPerSec: Float, decelerationRate: Float = 0.998f): Float =

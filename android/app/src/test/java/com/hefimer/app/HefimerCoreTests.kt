@@ -81,6 +81,8 @@ class HefimerCoreTests {
     fun downloadHelperRoutesProvidersCorrectly() {
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://storage.to/abc"))
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://trystocare.com/abc"))
+        assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://h.uguu.se/abc.txt"))
+        assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://litter.catbox.moe/abc.txt"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://gofile.io/d/xyz"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://vikingfile.com/f/xyz"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://storage.to/a.png", "image/png"))
@@ -96,5 +98,28 @@ class HefimerCoreTests {
         assertEquals("link", CodeHighlighter.getSmartAction("https://hefimer.qzz.io")?.type)
         assertEquals(3_600_000L, parseExpireDurationMs("1h"))
         assertEquals(300_000L, parseExpireDurationMs("5p"))
+    }
+
+    @Test
+    fun codeHighlighterHighlightsFullLargeFileAndMultipleLanguages() {
+        // Verify 45,000+ char file highlights all the way to the last line (no early cutoff)
+        val unit = "fun compute(value: Int): String {\n    // comment\n    return \"item_\${value + 42}\"\n}\n"
+        val bigCode = unit.repeat(550) // ~45,650 chars
+        assertTrue(bigCode.length > 40_000)
+        val highlighted = CodeHighlighter.highlight(bigCode, "kotlin")
+        assertEquals(bigCode.length, highlighted.length)
+        assertTrue("Expected spans near the end of large file", highlighted.spanStyles.any { it.start > 40_000 })
+
+        // Verify HTML, JSON, CSS, SQL all emit syntax spans
+        assertTrue(CodeHighlighter.highlight("<div class=\"card\">Hello</div>", "markup").spanStyles.size >= 3)
+        assertTrue(CodeHighlighter.highlight("{\"key\": 123, \"ok\": true}", "json").spanStyles.size >= 4)
+        assertTrue(CodeHighlighter.highlight(".btn { color: #ff79c6; padding: 12px; }", "css").spanStyles.size >= 4)
+        assertTrue(CodeHighlighter.highlight("select id from users where active = true -- ok", "sql").spanStyles.size >= 5)
+
+        // Verify CodeSyntaxVisualTransformation preserves exact text length & Identity mapping
+        val vt = com.hefimer.app.ui.components.CodeSyntaxVisualTransformation("kotlin")
+        val transformed = vt.filter(androidx.compose.ui.text.AnnotatedString(unit))
+        assertEquals(unit, transformed.text.text)
+        assertTrue(transformed.text.spanStyles.isNotEmpty())
     }
 }
