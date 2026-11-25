@@ -37,7 +37,7 @@ data class AdminOverviewDto(
 )
 
 class AdminApiClient {
-    private val origin = HefimerApiConfig.ORIGIN
+    private val origin = HefimerApiConfig.SITE_ORIGIN
     private val client = HefimerApiConfig.apiClient
     private val json = HefimerApiConfig.json
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
