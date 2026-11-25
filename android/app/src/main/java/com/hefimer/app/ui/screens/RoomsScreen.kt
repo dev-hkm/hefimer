@@ -78,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -854,7 +855,7 @@ private fun ChatBubbleItem(
             }
         }
 
-        // Expandable custom monochrome vector reaction picker (zero emojis)
+        // Expandable custom monochrome vector reaction picker with staggered micro-wave entrance
         AnimatedVisibility(visible = showReactionBar, enter = AppMotion.softExpandEnter, exit = AppMotion.softExpandExit) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -869,11 +870,23 @@ private fun ChatBubbleItem(
                     )
                     .padding(horizontal = 8.dp, vertical = 5.dp),
             ) {
-                CHAT_REACTIONS.forEach { (id, _) ->
+                CHAT_REACTIONS.forEachIndexed { idx, (id, _) ->
+                    val reactionScale = remember(id) { androidx.compose.animation.core.Animatable(0.84f) }
+                    LaunchedEffect(showReactionBar) {
+                        if (showReactionBar) {
+                            reactionScale.snapTo(0.84f)
+                            kotlinx.coroutines.delay(idx * 22L)
+                            reactionScale.animateTo(1f, AppMotion.softPopSpring())
+                        }
+                    }
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(32.dp)
+                            .graphicsLayer {
+                                scaleX = reactionScale.value
+                                scaleY = reactionScale.value
+                            }
                             .clip(CircleShape)
                             .background(HefimerColors.White06)
                             .applePressable(pressedScale = 0.84f) { onReact(id) },

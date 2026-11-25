@@ -1327,7 +1327,7 @@ private fun SpaceComposerDialog(
         else -> if (editing != null) tr("EDIT ITEM", "CHỈNH SỬA") else tr("ADD ITEM", "THÊM MỤC")
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -1398,7 +1398,7 @@ private fun SpaceComposerDialog(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
+                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = close, modifier = Modifier.weight(1f))
                     HefimerPrimaryButton(
                         text = if (editing != null) tr("Update", "Cập nhật") else tr("Place", "Đặt lên bảng"),
                         height = 48.dp,
@@ -1438,7 +1438,7 @@ private fun SpaceItemPreviewDialog(
     onCopy: (String) -> Unit,
     onOpenLink: (String) -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -1465,7 +1465,7 @@ private fun SpaceItemPreviewDialog(
                         modifier = Modifier
                             .size(34.dp)
                             .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
-                            .applePressable(pressedScale = 0.89f, onClick = onDismiss),
+                            .applePressable(pressedScale = 0.89f, onClick = close),
                     ) {
                         Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White75, modifier = Modifier.size(16.dp))
                     }

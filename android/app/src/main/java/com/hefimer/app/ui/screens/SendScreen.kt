@@ -911,7 +911,7 @@ private fun RenamePickedFileDialog(
     onConfirm: (String) -> Unit,
 ) {
     var nameInput by remember(initialName) { mutableStateOf(initialName) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -935,7 +935,7 @@ private fun RenamePickedFileDialog(
                     mono = true,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    com.hefimer.app.ui.components.HefimerSecondaryButton(tr("Cancel", "Hủy"), height = 48.dp, modifier = Modifier.weight(1f), onClick = onDismiss)
+                    com.hefimer.app.ui.components.HefimerSecondaryButton(tr("Cancel", "Hủy"), height = 48.dp, modifier = Modifier.weight(1f), onClick = close)
                     HefimerPrimaryButton(
                         text = tr("Save Name", "Lưu tên"),
                         height = 48.dp,

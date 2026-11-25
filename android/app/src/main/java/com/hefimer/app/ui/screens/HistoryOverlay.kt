@@ -183,8 +183,8 @@ private fun HistoryItemCard(
     onOpen: () -> Unit,
     onCopy: () -> Unit,
 ) {
-    val badgeBg = if (item.isR2) HefimerColors.EmeraldBg else HefimerColors.White10
-    val badgeFg = if (item.isR2) HefimerColors.Emerald400 else HefimerColors.White75
+    val badgeBg = HefimerColors.White10
+    val badgeFg = HefimerColors.White75
     val badgeLabel = when (item.action) {
         "sent", "created" -> tr("CREATED", "ĐÃ TẠO")
         "joined" -> tr("JOINED", "ĐÃ THAM GIA")
@@ -247,7 +247,7 @@ private fun HistoryItemCard(
                 Icon(
                     imageVector = typeIcon,
                     contentDescription = null,
-                    tint = if (item.isR2) HefimerColors.Emerald400 else HefimerColors.White50,
+                    tint = HefimerColors.White50,
                     modifier = Modifier.size(13.dp),
                 )
                 Text(

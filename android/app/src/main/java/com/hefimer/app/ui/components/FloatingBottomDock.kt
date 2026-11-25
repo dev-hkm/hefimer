@@ -1,5 +1,6 @@
 package com.hefimer.app.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -11,6 +12,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -242,31 +244,31 @@ fun HefimerFloatingBottomDock(
             val currentTabs by rememberUpdatedState(tabs)
             val currentOnSelectTab by rememberUpdatedState(onSelectTab)
 
-            // Smooth horizontal glide for both the orb and the glass bar's concave notch
+            // Smooth unhurried horizontal glide for both the orb and the glass bar's concave notch
             val animatedIndex by animateFloatAsState(
                 targetValue = activeIndex.toFloat(),
-                animationSpec = if (reduceMotion) tween(140, easing = AppMotion.AppleEase) else AppMotion.layoutSpring(),
+                animationSpec = if (reduceMotion) tween(150, easing = AppMotion.AppleEase) else AppMotion.fluidSpring(),
                 label = "notched_dock_idx",
             )
             val orbCenterX = horizPadPx + slotWidthPx * (animatedIndex + 0.5f)
 
-            // Soft liquid droplet bounce on tab change
+            // Soft liquid droplet breathe on tab settle
             val orbBounceOffset = remember { Animatable(0f) }
             LaunchedEffect(selectedTab) {
                 if (!reduceMotion) {
-                    orbBounceOffset.snapTo(4.5f)
+                    orbBounceOffset.snapTo(3.0f)
                     orbBounceOffset.animateTo(0f, AppMotion.softPopSpring())
                 }
             }
 
             // Liquid squish-and-stretch on press/scrub
             val orbSquishX by animateFloatAsState(
-                targetValue = if (hoveredTabIdx >= 0) 1.09f else 1f,
+                targetValue = if (hoveredTabIdx >= 0) 1.07f else 1f,
                 animationSpec = if (hoveredTabIdx >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                 label = "orb_squish_x",
             )
             val orbSquishY by animateFloatAsState(
-                targetValue = if (hoveredTabIdx >= 0) 0.89f else 1f,
+                targetValue = if (hoveredTabIdx >= 0) 0.91f else 1f,
                 animationSpec = if (hoveredTabIdx >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                 label = "orb_squish_y",
             )
@@ -328,19 +330,37 @@ fun HefimerFloatingBottomDock(
                     .background(orbColor)
                     .border(1.dp, HefimerColors.White20, CircleShape),
             ) {
-                DockTabIconWithBadge(
-                    tab = activeTab,
-                    tint = HefimerColors.Black,
-                    badgeBg = HefimerColors.Black,
-                    badgeFg = HefimerColors.White,
-                    dotColor = HefimerColors.Black,
-                    linkBadgeCount = linkBadgeCount,
-                    linkGroupActive = linkGroupActive,
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = orbIconScale
-                        scaleY = orbIconScale
+                AnimatedContent(
+                    targetState = activeTab,
+                    transitionSpec = {
+                        if (reduceMotion) {
+                            fadeIn(tween(130, easing = AppMotion.AppleEase)) togetherWith
+                                fadeOut(tween(110, easing = AppMotion.AppleEase))
+                        } else {
+                            (fadeIn(tween(AppMotion.Fast, easing = AppMotion.AppleSilk)) +
+                                scaleIn(tween(AppMotion.Tab, easing = AppMotion.AppleSheet), initialScale = 0.84f))
+                                .togetherWith(
+                                    fadeOut(tween(AppMotion.Micro, easing = AppMotion.AppleEase)) +
+                                        scaleOut(tween(AppMotion.Micro, easing = AppMotion.AppleSilk), targetScale = 0.90f),
+                                )
+                        }
                     },
-                )
+                    label = "orb_icon_morph",
+                ) { tabInOrb ->
+                    DockTabIconWithBadge(
+                        tab = tabInOrb,
+                        tint = HefimerColors.Black,
+                        badgeBg = HefimerColors.Black,
+                        badgeFg = HefimerColors.White,
+                        dotColor = HefimerColors.Black,
+                        linkBadgeCount = linkBadgeCount,
+                        linkGroupActive = linkGroupActive,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = orbIconScale
+                            scaleY = orbIconScale
+                        },
+                    )
+                }
             }
 
             // Interactive touch/scrub strip covering the entire dock height
@@ -393,16 +413,16 @@ fun HefimerFloatingBottomDock(
                     val isHovered = idx == hoveredTabIdx
                     val iconAlpha by animateFloatAsState(
                         targetValue = if (isSelected) 0f else 1f,
-                        animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                        animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
                         label = "dock_bar_alpha_$idx",
                     )
                     val iconYOffset by animateFloatAsState(
-                        targetValue = if (isSelected) -orbRisePx * 0.38f else 0f,
-                        animationSpec = AppMotion.snappySpring(),
+                        targetValue = if (isSelected) -orbRisePx * 0.34f else 0f,
+                        animationSpec = if (reduceMotion) tween(120, easing = AppMotion.AppleEase) else AppMotion.fluidSpring(),
                         label = "dock_bar_y_$idx",
                     )
                     val pressScale by animateFloatAsState(
-                        targetValue = if (isHovered && !isSelected) 0.86f else 1f,
+                        targetValue = if (isHovered && !isSelected) 0.88f else 1f,
                         animationSpec = if (isHovered) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                         label = "dock_bar_press_$idx",
                     )
@@ -437,10 +457,10 @@ fun HefimerFloatingBottomDock(
                         // Active-only short label nestled cleanly underneath the floating orb
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isSelected,
-                            enter = fadeIn(tween(180, easing = AppMotion.AppleSilk)) +
-                                slideInVertically(AppMotion.snappySpring()) { it / 2 },
-                            exit = fadeOut(tween(110, easing = AppMotion.AppleEase)) +
-                                slideOutVertically(tween(110, easing = AppMotion.AppleEase)) { it / 2 },
+                            enter = fadeIn(tween(300, easing = AppMotion.AppleSilk)) +
+                                slideInVertically(AppMotion.fluidSpring()) { it / 2 },
+                            exit = fadeOut(tween(180, easing = AppMotion.AppleEase)) +
+                                slideOutVertically(tween(200, easing = AppMotion.AppleSilk)) { it / 2 },
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = 6.dp),

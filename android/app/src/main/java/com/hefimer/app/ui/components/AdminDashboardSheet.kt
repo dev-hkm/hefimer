@@ -63,10 +63,10 @@ fun AdminLoginDialog(
     onSubmit: (String) -> Unit,
 ) {
     var pass by remember { mutableStateOf("") }
-    Dialog(
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+        dismissEnabled = !loading,
+    ) { close ->
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -127,7 +127,7 @@ fun AdminLoginDialog(
                             .weight(1f)
                             .height(46.dp)
                             .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp)
-                            .applePressable(pressedScale = 0.96f, onClick = onDismiss),
+                            .applePressable(enabled = !loading, pressedScale = 0.96f, onClick = close),
                     ) {
                         Text(tr("Cancel", "Hủy"), color = HefimerColors.White60, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }

@@ -101,31 +101,33 @@ object AppMotion {
     val AppleSheet = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
     val AppleSilk = CubicBezierEasing(0.28f, 0.11f, 0.14f, 1f)
     val AppleEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+    val AppleExpoOut = CubicBezierEasing(0.16f, 1f, 0.30f, 1f)
+    val AppleInOut = CubicBezierEasing(0.77f, 0f, 0.175f, 1f)
     val AppleEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
-    // Apple-calibrated duration tokens (ms) — responsive frame 1 lift-off & unhurried feather settle
-    const val Screen = 460
-    const val ScreenPop = 340
-    const val Tab = 340
-    const val Sheet = 440
-    const val Content = 420
-    const val Fast = 240
-    const val Micro = 180
+    // Unhurried Apple-calibrated duration tokens (ms) — instant touch lift-off, slow velvety feather settle
+    const val Screen = 540
+    const val ScreenPop = 430
+    const val Tab = 440
+    const val Sheet = 520
+    const val Content = 480
+    const val Fast = 290
+    const val Micro = 220
 
-    // Perceptual springs tuned per Apple WWDC spring specs + soft liquid-droplet tactile rebound
-    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.90f, stiffness = 240f)
-    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 260f)
-    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 270f)
-    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 210f)
-    fun <T> snappySpring() = spring<T>(dampingRatio = 0.80f, stiffness = 360f)
-    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.84f, stiffness = 430f)
-    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.60f, stiffness = 310f)
-    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.72f, stiffness = 340f)
-    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.65f, stiffness = 300f)
+    // Perceptual springs tuned per WWDC specs for serene, deliberate gliding with soft organic settle
+    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 190f)
+    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.90f, stiffness = 205f)
+    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.89f, stiffness = 215f)
+    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.95f, stiffness = 160f)
+    fun <T> snappySpring() = spring<T>(dampingRatio = 0.85f, stiffness = 275f)
+    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 350f)
+    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.72f, stiffness = 240f)
+    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.78f, stiffness = 260f)
+    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.72f, stiffness = 230f)
 
-    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.88f, stiffness = 270f)
-    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.88f, stiffness = 260f)
-    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.88f, stiffness = 270f)
+    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.89f, stiffness = 215f)
+    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.90f, stiffness = 205f)
+    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.89f, stiffness = 215f)
 
     // Peer tab switch: unhurried silk cross-dissolve + subtle vertical breath
     fun tabTransform(reduceMotion: Boolean = false): ContentTransform {
@@ -133,7 +135,7 @@ object AppMotion {
             return fadeIn(tween(150, easing = AppleEase)) togetherWith fadeOut(tween(120, easing = AppleEase))
         }
         val enter = fadeIn(tween(Tab, easing = AppleSilk)) +
-            slideInVertically(tween(Tab, easing = AppleSheet)) { (it * 0.025f).toInt() }
+            slideInVertically(tween(Tab, easing = AppleSheet)) { (it * 0.022f).toInt() }
         val exit = fadeOut(tween(Fast, easing = AppleEase))
         return enter togetherWith exit
     }
@@ -144,15 +146,15 @@ object AppMotion {
             return fadeIn(tween(140, easing = AppleEase)) togetherWith fadeOut(tween(120, easing = AppleEase))
         }
         val enter = fadeIn(tween(Content, easing = AppleSilk)) +
-            slideInVertically(tween(Content, easing = AppleSheet)) { (it * 0.032f).toInt() } +
+            slideInVertically(tween(Content, easing = AppleSheet)) { (it * 0.030f).toInt() } +
             scaleIn(
                 animationSpec = tween(Content, easing = AppleSheet),
-                initialScale = 0.955f,
+                initialScale = 0.96f,
             )
         val exit = fadeOut(tween(Micro, easing = AppleEase)) +
             scaleOut(
                 animationSpec = tween(Micro, easing = AppleSilk),
-                targetScale = 0.975f,
+                targetScale = 0.98f,
             )
         return enter togetherWith exit
     }
@@ -162,22 +164,22 @@ object AppMotion {
             fadeOut(tween(Fast, easing = AppleEase))
 
     val softExpandEnter: EnterTransition =
-        expandVertically(animationSpec = tween(360, easing = AppleSheet)) +
-            fadeIn(tween(300, easing = AppleSilk))
+        expandVertically(animationSpec = tween(460, easing = AppleSheet)) +
+            fadeIn(tween(380, easing = AppleSilk))
 
     val softExpandExit: ExitTransition =
-        shrinkVertically(animationSpec = tween(260, easing = AppleSilk)) +
-            fadeOut(tween(200, easing = AppleEase))
+        shrinkVertically(animationSpec = tween(340, easing = AppleSilk)) +
+            fadeOut(tween(240, easing = AppleEase))
 
     val floatingBarEnter: EnterTransition =
         slideInVertically(tween(Sheet, easing = AppleSheet)) { it / 2 } +
-            fadeIn(tween(320, easing = AppleSilk)) +
-            scaleIn(tween(Sheet, easing = AppleSheet), initialScale = 0.94f)
+            fadeIn(tween(380, easing = AppleSilk)) +
+            scaleIn(tween(Sheet, easing = AppleSheet), initialScale = 0.945f)
 
     val floatingBarExit: ExitTransition =
-        slideOutVertically(tween(280, easing = AppleSilk)) { it / 2 } +
-            fadeOut(tween(220, easing = AppleEase)) +
-            scaleOut(tween(280, easing = AppleSilk), targetScale = 0.95f)
+        slideOutVertically(tween(340, easing = AppleSilk)) { it / 2 } +
+            fadeOut(tween(240, easing = AppleEase)) +
+            scaleOut(tween(320, easing = AppleSilk), targetScale = 0.955f)
 }
 
 fun projectOffset(velocityPxPerSec: Float, decelerationRate: Float = 0.998f): Float =
@@ -243,8 +245,8 @@ fun Modifier.applePressable(
         label = "apple_press_sy",
     )
     val pressAlpha by animateFloatAsState(
-        targetValue = if (isPressed && enabled && !reduceMotion) 0.85f else 1f,
-        animationSpec = tween(if (isPressed) 85 else 210, easing = AppMotion.AppleSilk),
+        targetValue = if (isPressed && enabled && !reduceMotion) 0.87f else 1f,
+        animationSpec = tween(if (isPressed) 115 else 270, easing = AppMotion.AppleSilk),
         label = "apple_press_alpha",
     )
 
@@ -272,8 +274,8 @@ fun Modifier.applePressable(
  */
 fun Modifier.appleEntrance(
     index: Int = 0,
-    stepDelayMs: Int = 42,
-    translationYFromPx: Float = 24f,
+    stepDelayMs: Int = 56,
+    translationYFromPx: Float = 26f,
 ): Modifier = composed {
     val reduceMotion = rememberReduceMotion()
     if (reduceMotion) return@composed this
@@ -297,7 +299,7 @@ fun Modifier.appleEntrance(
         label = "entrance_ty",
     )
     val scale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.975f,
+        targetValue = if (visible) 1f else 0.97f,
         animationSpec = tween(AppMotion.Content, easing = AppMotion.AppleSheet),
         label = "entrance_scale",
     )
@@ -307,6 +309,72 @@ fun Modifier.appleEntrance(
         this.translationY = offsetY
         this.scaleX = scale
         this.scaleY = scale
+    }
+}
+
+/**
+ * Unhurried Apple-grade animated modal wrapper for Compose Dialogs.
+ * Drives GPU scale (0.92 -> 1.0), subtle rise, and coordinated dismiss glide from a single Animatable scalar.
+ */
+@Composable
+fun AppleAnimatedDialog(
+    onDismissRequest: () -> Unit,
+    dismissEnabled: Boolean = true,
+    content: @Composable (requestDismiss: () -> Unit) -> Unit,
+) {
+    val reduceMotion = rememberReduceMotion()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val reveal = remember { Animatable(if (reduceMotion) 1f else 0f) }
+    var isClosing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        if (!reduceMotion) {
+            reveal.animateTo(1f, AppMotion.fluidSpring())
+        }
+    }
+
+    val requestDismiss: () -> Unit = {
+        if (dismissEnabled && !isClosing) {
+            isClosing = true
+            scope.launch {
+                try {
+                    reveal.animateTo(
+                        targetValue = 0f,
+                        animationSpec = if (reduceMotion) {
+                            tween(130, easing = AppMotion.AppleEase)
+                        } else {
+                            tween(AppMotion.Fast, easing = AppMotion.AppleSilk)
+                        },
+                    )
+                } finally {
+                    onDismissRequest()
+                }
+            }
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = requestDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        val travelPx = with(density) { 22.dp.toPx() }
+        val p = reveal.value.coerceIn(0f, 1f)
+        Box(
+            modifier = Modifier
+                .imePadding()
+                .graphicsLayer {
+                alpha = p
+                if (!reduceMotion) {
+                    val s = 0.92f + 0.08f * p
+                    scaleX = s
+                    scaleY = s
+                    translationY = (1f - p) * travelPx
+                }
+            },
+        ) {
+            content(requestDismiss)
+        }
     }
 }
 
@@ -919,13 +987,13 @@ fun <T> AppleSegmentedControl(
             options.forEachIndexed { idx, item ->
                 val isSelected = idx == activeIdx
                 val segScale by animateFloatAsState(
-                    targetValue = if (scrubbedIndex == idx) 0.93f else 1f,
+                    targetValue = if (scrubbedIndex == idx) 0.945f else 1f,
                     animationSpec = if (scrubbedIndex == idx) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                     label = "seg_press_scale",
                 )
                 val segTextColor by animateColorAsState(
                     targetValue = if (isSelected) selectedTextColor else HefimerColors.White55,
-                    animationSpec = tween(220, easing = AppMotion.AppleSilk),
+                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
                     label = "seg_text_color",
                 )
                 Box(
@@ -974,11 +1042,11 @@ fun AppleOdometerNumber(
                 fadeIn(tween(120, easing = AppMotion.AppleEase)) togetherWith
                     fadeOut(tween(100, easing = AppMotion.AppleEase))
             } else {
-                (slideInVertically(tween(340, easing = AppMotion.AppleSheet)) { it * dir } +
-                    fadeIn(tween(260, easing = AppMotion.AppleSilk)))
+                (slideInVertically(tween(420, easing = AppMotion.AppleSheet)) { it * dir } +
+                    fadeIn(tween(340, easing = AppMotion.AppleSilk)))
                     .togetherWith(
-                        slideOutVertically(tween(280, easing = AppMotion.AppleSilk)) { -it * dir } +
-                            fadeOut(tween(200, easing = AppMotion.AppleEase)),
+                        slideOutVertically(tween(340, easing = AppMotion.AppleSilk)) { -it * dir } +
+                            fadeOut(tween(240, easing = AppMotion.AppleEase)),
                     )
                     .using(SizeTransform(clip = false))
             }
@@ -1022,11 +1090,11 @@ fun AppleRollingPercentage(
                             fadeIn(tween(100, easing = AppMotion.AppleEase)) togetherWith
                                 fadeOut(tween(90, easing = AppMotion.AppleEase))
                         } else {
-                            (slideInVertically(tween(340, easing = AppMotion.AppleSheet)) { (it * 0.78f * dir).toInt() } +
-                                fadeIn(tween(260, easing = AppMotion.AppleSilk)))
+                            (slideInVertically(tween(420, easing = AppMotion.AppleSheet)) { (it * 0.72f * dir).toInt() } +
+                                fadeIn(tween(340, easing = AppMotion.AppleSilk)))
                                 .togetherWith(
-                                    slideOutVertically(tween(280, easing = AppMotion.AppleSilk)) { (-it * 0.78f * dir).toInt() } +
-                                        fadeOut(tween(180, easing = AppMotion.AppleEase)),
+                                    slideOutVertically(tween(340, easing = AppMotion.AppleSilk)) { (-it * 0.72f * dir).toInt() } +
+                                        fadeOut(tween(220, easing = AppMotion.AppleEase)),
                                 )
                                 .using(SizeTransform(clip = true))
                         }
@@ -1077,7 +1145,7 @@ fun AppleFluidProgressTrack(
             initialValue = -0.35f,
             targetValue = 1.35f,
             animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                animation = tween(1900, easing = androidx.compose.animation.core.LinearEasing),
+                animation = tween(2500, easing = androidx.compose.animation.core.LinearEasing),
             ),
             label = "sheen_x",
         )

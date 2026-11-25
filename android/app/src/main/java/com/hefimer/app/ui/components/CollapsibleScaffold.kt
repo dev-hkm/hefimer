@@ -76,12 +76,12 @@ fun HefimerCollapsibleScaffold(
 
     val compactAlpha by animateFloatAsState(
         targetValue = if (isCollapsed) 1f else 0f,
-        animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+        animationSpec = tween(360, easing = AppMotion.AppleSilk),
         label = "compact_header_alpha",
     )
     val compactSlideY by animateFloatAsState(
-        targetValue = if (isCollapsed) 0f else 10f,
-        animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSheet),
+        targetValue = if (isCollapsed) 0f else 14f,
+        animationSpec = tween(420, easing = AppMotion.AppleSheet),
         label = "compact_header_slide",
     )
 
@@ -207,7 +207,7 @@ fun HefimerCollapsibleScaffold(
                             }
                             .applePressable(pressedScale = 0.88f) {
                                 logoScope.launch {
-                                    tapSpin.animateTo(tapSpin.value + 120f, AppMotion.navigationSpring())
+                                    tapSpin.animateTo(tapSpin.value + 180f, AppMotion.gentleSpring())
                                 }
                                 onTitleClick?.invoke()
                             },

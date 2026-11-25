@@ -1081,7 +1081,7 @@ private fun JoinByCodeOrQrDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -1108,7 +1108,7 @@ private fun JoinByCodeOrQrDialog(
                         modifier = Modifier
                             .size(34.dp)
                             .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
-                            .applePressable(pressedScale = 0.89f, onClick = onDismiss),
+                            .applePressable(pressedScale = 0.89f, onClick = close),
                     ) {
                         Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
                     }

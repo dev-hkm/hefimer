@@ -4,11 +4,20 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -124,6 +133,7 @@ import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
+import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.tr
@@ -257,10 +267,11 @@ fun FiveDigitPinSlots(
     onDone: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val reduceMotion = rememberReduceMotion()
     val blink = rememberInfiniteTransition(label = "pin_cursor").animateFloat(
         initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(550, easing = AppMotion.AppleEase), RepeatMode.Reverse),
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(tween(720, easing = AppMotion.AppleSilk), RepeatMode.Reverse),
         label = "cursor_alpha",
     )
 
@@ -270,7 +281,7 @@ fun FiveDigitPinSlots(
             .height(78.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Visual 5 Apple Glass slots (clean borderless-bottom slots without inner underline)
+        // Visual 5 Apple Glass slots with calm slot breathe & digit morph
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -278,39 +289,76 @@ fun FiveDigitPinSlots(
             for (i in 0 until 5) {
                 val ch = code.getOrNull(i)?.toString().orEmpty()
                 val isCursorSlot = focused && code.length == i
-                val borderTint = when {
-                    isCursorSlot -> HefimerColors.White
-                    ch.isNotEmpty() -> HefimerColors.White20
-                    else -> null
-                }
+                val slotScale by animateFloatAsState(
+                    targetValue = when {
+                        reduceMotion -> 1f
+                        isCursorSlot -> 1.045f
+                        ch.isNotEmpty() -> 1.015f
+                        else -> 1f
+                    },
+                    animationSpec = AppMotion.fluidSpring(),
+                    label = "pin_slot_scale_$i",
+                )
+                val borderTint by animateColorAsState(
+                    targetValue = when {
+                        isCursorSlot -> HefimerColors.White
+                        ch.isNotEmpty() -> HefimerColors.White20
+                        else -> Color.Transparent
+                    },
+                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                    label = "pin_slot_border_$i",
+                )
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .width(54.dp)
                         .height(70.dp)
+                        .graphicsLayer {
+                            scaleX = slotScale
+                            scaleY = slotScale
+                        }
                         .appleGlassSurface(
                             shape = RoundedCornerShape(18.dp),
                             variant = AppleGlassVariant.Clear,
-                            accentBorderTint = borderTint,
+                            accentBorderTint = if (borderTint.alpha > 0.01f) borderTint else null,
                             elevation = 0.dp,
                         ),
                 ) {
-                    if (ch.isNotEmpty()) {
-                        Text(
-                            text = ch,
-                            fontFamily = UbuntuFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 32.sp,
-                            color = HefimerColors.White,
-                        )
-                    } else if (isCursorSlot) {
-                        Box(
-                            modifier = Modifier
-                                .width(2.dp)
-                                .height(26.dp)
-                                .alpha(blink.value)
-                                .background(HefimerColors.White),
-                        )
+                    AnimatedContent(
+                        targetState = if (ch.isNotEmpty()) ch else if (isCursorSlot) "|" else "",
+                        transitionSpec = {
+                            if (reduceMotion) {
+                                fadeIn(tween(110, easing = AppMotion.AppleEase)) togetherWith
+                                    fadeOut(tween(90, easing = AppMotion.AppleEase))
+                            } else {
+                                (fadeIn(tween(280, easing = AppMotion.AppleSilk)) +
+                                    scaleIn(tween(340, easing = AppMotion.AppleSheet), initialScale = 0.82f) +
+                                    slideInVertically(tween(340, easing = AppMotion.AppleSheet)) { it / 5 })
+                                    .togetherWith(
+                                        fadeOut(tween(150, easing = AppMotion.AppleEase)) +
+                                            scaleOut(tween(150, easing = AppMotion.AppleSilk), targetScale = 0.88f),
+                                    )
+                            }
+                        },
+                        label = "pin_char_$i",
+                    ) { token ->
+                        when (token) {
+                            "" -> Spacer(Modifier.size(2.dp))
+                            "|" -> Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .height(26.dp)
+                                    .graphicsLayer { alpha = blink.value }
+                                    .background(HefimerColors.White),
+                            )
+                            else -> Text(
+                                text = token,
+                                fontFamily = UbuntuFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 32.sp,
+                                color = HefimerColors.White,
+                            )
+                        }
                     }
                 }
             }
@@ -1033,8 +1081,8 @@ private fun UnlockPasswordDialog(
     onUnlock: (String) -> Unit,
 ) {
     var pw by remember { mutableStateOf("") }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
+        Box(modifier = Modifier.fillMaxWidth().imePadding().padding(horizontal = 24.dp)) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -1071,7 +1119,7 @@ private fun UnlockPasswordDialog(
                     isPassword = true,
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
+                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = close, modifier = Modifier.weight(1f))
                     HefimerPrimaryButton(tr("Unlock", "Mở khóa"), height = 48.dp, onClick = { onUnlock(pw) }, modifier = Modifier.weight(1f))
                 }
             }
@@ -1086,8 +1134,8 @@ private fun SaveTextRenameDialog(
     onSave: (String) -> Unit,
 ) {
     var input by remember { mutableStateOf(defaultName) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
+        Box(modifier = Modifier.fillMaxWidth().imePadding().padding(horizontal = 24.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
@@ -1105,7 +1153,7 @@ private fun SaveTextRenameDialog(
                 }
                 HefimerTextField(value = input, onValueChange = { input = it }, placeholder = tr("filename.txt", "ten_tep.txt"), mono = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
+                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = close, modifier = Modifier.weight(1f))
                     HefimerPrimaryButton(
                         text = tr("Save", "Lưu"),
                         accentColor = HefimerColors.White,

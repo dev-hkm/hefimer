@@ -458,10 +458,10 @@ private fun AnimatedDigitTile(
     val progress = remember(digit, index) { Animatable(if (reduceMotion) 1f else 0f) }
     LaunchedEffect(digit, index) {
         if (!reduceMotion) {
-            delay(index * 105L + 90L)
+            delay(index * 115L + 90L)
             progress.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 760, easing = AppMotion.AppleSheet),
+                animationSpec = tween(durationMillis = 820, easing = AppMotion.AppleSheet),
             )
         }
     }
@@ -473,16 +473,14 @@ private fun AnimatedDigitTile(
             .graphicsLayer {
                 val p = progress.value
                 alpha = (p * 1.15f).coerceIn(0f, 1f)
-                val s = 0.85f + 0.15f * p
+                val s = 0.88f + 0.12f * p
                 scaleX = s
                 scaleY = s
-                translationY = (1f - p) * 38f
+                translationY = (1f - p) * 28f
             }
             .appleGlassSurface(
                 shape = RoundedCornerShape(26.dp),
                 variant = AppleGlassVariant.Clear,
-                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
-                accentFillTint = if (isR2) HefimerColors.EmeraldBg.copy(alpha = 0.25f) else null,
                 elevation = 2.dp,
             ),
     ) {
@@ -505,10 +503,10 @@ private fun AnimatedCopyPill(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val activeBg = if (isR2) HefimerColors.Emerald400 else HefimerColors.White
+    val activeBg = HefimerColors.White
     val fgColor by animateColorAsState(
-        targetValue = if (copied) HefimerColors.Black else if (isR2) HefimerColors.Emerald400 else HefimerColors.White85,
-        animationSpec = tween(260, easing = AppMotion.AppleSilk),
+        targetValue = if (copied) HefimerColors.Black else HefimerColors.White85,
+        animationSpec = tween(340, easing = AppMotion.AppleSilk),
         label = "copy_pill_fg",
     )
 
@@ -525,7 +523,6 @@ private fun AnimatedCopyPill(
             .appleGlassSurface(
                 shape = pillShape,
                 variant = AppleGlassVariant.Clear,
-                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
                 elevation = 0.dp,
             )
     }
@@ -538,10 +535,10 @@ private fun AnimatedCopyPill(
         AnimatedContent(
             targetState = copied to label,
             transitionSpec = {
-                (fadeIn(tween(260, easing = AppMotion.AppleSilk)) +
-                    scaleIn(tween(300, easing = AppMotion.AppleSheet), initialScale = 0.90f)) togetherWith
-                    (fadeOut(tween(170, easing = AppMotion.AppleEase)) +
-                        scaleOut(tween(170, easing = AppMotion.AppleEase), targetScale = 0.92f))
+                (fadeIn(tween(340, easing = AppMotion.AppleSilk)) +
+                    scaleIn(tween(380, easing = AppMotion.AppleSheet), initialScale = 0.92f)) togetherWith
+                    (fadeOut(tween(200, easing = AppMotion.AppleEase)) +
+                        scaleOut(tween(200, easing = AppMotion.AppleEase), targetScale = 0.94f))
             },
             label = "copy_pill_content",
         ) { (isCopied, lbl) ->

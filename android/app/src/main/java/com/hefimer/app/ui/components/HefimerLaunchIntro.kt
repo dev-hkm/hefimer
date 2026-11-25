@@ -43,31 +43,31 @@ fun HefimerLaunchIntro(
 
         // Phase 1: Immediate visible large logo smoothly expands & sweeps one calm orbital turn
         val scaleJob = launch {
-            logoScale.animateTo(1.04f, tween(760, easing = AppMotion.AppleSheet))
-            logoScale.animateTo(1f, AppMotion.navigationSpring())
+            logoScale.animateTo(1.03f, tween(920, easing = AppMotion.AppleSheet))
+            logoScale.animateTo(1f, AppMotion.gentleSpring())
         }
         val spinJob = launch {
-            logoRotation.animateTo(360f, tween(1260, easing = AppMotion.AppleSheet))
+            logoRotation.animateTo(360f, tween(1480, easing = AppMotion.AppleSheet))
         }
 
         scaleJob.join()
         spinJob.join()
 
-        delay(100L)
+        delay(120L)
 
         // Phase 2: Slow, velvety iris zoom-dissolve into the live app
         val exitScale = launch {
-            logoScale.animateTo(1.26f, tween(580, easing = AppMotion.AppleSheet))
+            logoScale.animateTo(1.28f, tween(680, easing = AppMotion.AppleSheet))
         }
         val exitSpin = launch {
-            logoRotation.animateTo(415f, tween(580, easing = AppMotion.AppleSilk))
+            logoRotation.animateTo(418f, tween(680, easing = AppMotion.AppleSilk))
         }
         val exitLogoFade = launch {
-            logoAlpha.animateTo(0f, tween(420, easing = AppMotion.AppleEase))
+            logoAlpha.animateTo(0f, tween(500, easing = AppMotion.AppleSilk))
         }
         val exitBgFade = launch {
-            delay(80L)
-            backdropAlpha.animateTo(0f, tween(520, easing = AppMotion.AppleSilk))
+            delay(90L)
+            backdropAlpha.animateTo(0f, tween(580, easing = AppMotion.AppleSilk))
         }
 
         exitScale.join()

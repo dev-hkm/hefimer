@@ -83,12 +83,12 @@ fun HefimerToastHost(
     ) {
         AnimatedVisibility(
             visible = toast != null,
-            enter = slideInVertically(tween(340, easing = AppMotion.AppleSheet)) { -it / 2 } +
-                fadeIn(tween(240, easing = AppMotion.AppleSilk)) +
-                scaleIn(tween(320, easing = AppMotion.AppleSheet), initialScale = 0.94f),
-            exit = slideOutVertically(tween(240, easing = AppMotion.AppleSilk)) { -it / 2 } +
-                fadeOut(tween(180, easing = AppMotion.AppleEase)) +
-                scaleOut(tween(220, easing = AppMotion.AppleEase), targetScale = 0.95f),
+            enter = slideInVertically(tween(440, easing = AppMotion.AppleSheet)) { -it / 2 } +
+                fadeIn(tween(320, easing = AppMotion.AppleSilk)) +
+                scaleIn(tween(420, easing = AppMotion.AppleSheet), initialScale = 0.935f),
+            exit = slideOutVertically(tween(320, easing = AppMotion.AppleSilk)) { -it / 2 } +
+                fadeOut(tween(220, easing = AppMotion.AppleEase)) +
+                scaleOut(tween(280, easing = AppMotion.AppleSilk), targetScale = 0.955f),
         ) {
             val current = toast ?: return@AnimatedVisibility
             val isInfo = current.type == ToastType.INFO
@@ -178,10 +178,10 @@ fun HefimerPrimaryButton(
         AnimatedContent(
             targetState = Triple(loading, icon, text),
             transitionSpec = {
-                (fadeIn(tween(300, easing = AppMotion.AppleSilk)) +
-                    scaleIn(tween(340, easing = AppMotion.AppleSheet), initialScale = 0.93f)) togetherWith
-                    (fadeOut(tween(180, easing = AppMotion.AppleEase)) +
-                        scaleOut(tween(180, easing = AppMotion.AppleEase), targetScale = 0.95f))
+                (fadeIn(tween(340, easing = AppMotion.AppleSilk)) +
+                    scaleIn(tween(380, easing = AppMotion.AppleSheet), initialScale = 0.94f)) togetherWith
+                    (fadeOut(tween(210, easing = AppMotion.AppleEase)) +
+                        scaleOut(tween(210, easing = AppMotion.AppleEase), targetScale = 0.96f))
             },
             label = "primary_btn_content",
         ) { (isLoading, ic, labelText) ->
@@ -263,10 +263,10 @@ fun HefimerSecondaryButton(
         AnimatedContent(
             targetState = icon to text,
             transitionSpec = {
-                (fadeIn(tween(280, easing = AppMotion.AppleSilk)) +
-                    scaleIn(tween(320, easing = AppMotion.AppleSheet), initialScale = 0.93f)) togetherWith
-                    (fadeOut(tween(180, easing = AppMotion.AppleEase)) +
-                        scaleOut(tween(180, easing = AppMotion.AppleEase), targetScale = 0.95f))
+                (fadeIn(tween(320, easing = AppMotion.AppleSilk)) +
+                    scaleIn(tween(360, easing = AppMotion.AppleSheet), initialScale = 0.94f)) togetherWith
+                    (fadeOut(tween(200, easing = AppMotion.AppleEase)) +
+                        scaleOut(tween(200, easing = AppMotion.AppleEase), targetScale = 0.96f))
             },
             label = "sec_btn_content",
         ) { (ic, labelText) ->
@@ -367,7 +367,7 @@ fun HefimerToggleRow(
     )
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 20.dp else 2.dp,
-        animationSpec = AppMotion.snappySpring(),
+        animationSpec = AppMotion.layoutSpring(),
         label = "toggle_thumb",
     )
 

@@ -56,10 +56,7 @@ fun HefimerConfirmDialog(
     onDismiss: () -> Unit,
 ) {
     val accent = if (request.isDestructive) HefimerColors.Red400 else HefimerColors.White
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -122,7 +119,7 @@ fun HefimerConfirmDialog(
                         text = tr("Cancel", "Hủy"),
                         height = 48.dp,
                         modifier = Modifier.weight(1f),
-                        onClick = onDismiss,
+                        onClick = close,
                     )
                     HefimerPrimaryButton(
                         text = request.confirmLabel.ifBlank { tr("Confirm", "Xác nhận") },
@@ -132,7 +129,7 @@ fun HefimerConfirmDialog(
                         modifier = Modifier.weight(1f),
                         onClick = {
                             val act = request.onConfirm
-                            onDismiss()
+                            close()
                             act()
                         },
                     )
@@ -156,10 +153,7 @@ fun RedownloadConfirmDialog(
         prompt.matchedRecord.fileName.ifBlank { prompt.files.firstOrNull()?.resolvedName.orEmpty() }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -231,7 +225,7 @@ fun RedownloadConfirmDialog(
                         text = tr("Cancel", "Hủy"),
                         height = 48.dp,
                         modifier = Modifier.weight(1f),
-                        onClick = onDismiss,
+                        onClick = close,
                     )
                     HefimerPrimaryButton(
                         text = tr("Download Again", "Tải lại"),
@@ -285,20 +279,20 @@ fun PostSaveBottomSheetContent(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(HefimerColors.EmeraldBg)
-                    .border(1.dp, HefimerColors.EmeraldBorder, RoundedCornerShape(16.dp)),
+                    .background(HefimerColors.White08)
+                    .border(1.dp, HefimerColors.White20, RoundedCornerShape(16.dp)),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.CheckCircle,
                     contentDescription = null,
-                    tint = HefimerColors.Emerald400,
+                    tint = HefimerColors.White,
                     modifier = Modifier.size(24.dp),
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tr("SAVED TO DEVICE", "ĐÃ LƯU VÀO THIẾT BỊ"),
-                    color = HefimerColors.Emerald400,
+                    color = HefimerColors.White70,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,

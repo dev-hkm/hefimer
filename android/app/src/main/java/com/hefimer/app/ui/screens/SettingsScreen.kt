@@ -675,10 +675,10 @@ private fun CustomS3EditorDialog(
 
     val canSave = !isTesting && endpoint.isNotBlank() && bucket.isNotBlank() && accessKeyId.isNotBlank() && secretAccessKey.isNotBlank()
 
-    Dialog(
-        onDismissRequest = { if (!isTesting) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+    com.hefimer.app.ui.theme.AppleAnimatedDialog(
+        onDismissRequest = onDismiss,
+        dismissEnabled = !isTesting,
+    ) { close ->
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -688,7 +688,12 @@ private fun CustomS3EditorDialog(
                 .padding(20.dp),
         ) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .let {
+                        @Suppress("Unused")
+                        it
+                    },
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
@@ -774,7 +779,7 @@ private fun CustomS3EditorDialog(
                             .weight(1f)
                             .height(44.dp)
                             .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp)
-                            .applePressable(enabled = !isTesting, pressedScale = 0.96f, onClick = onDismiss),
+                            .applePressable(enabled = !isTesting, pressedScale = 0.96f, onClick = close),
                     ) {
                         Text(tr("Cancel", "Hủy"), color = HefimerColors.White60, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
