@@ -7228,7 +7228,7 @@ function PolicyModal({
         {isPrivacy ? (
           <div className="text-white/60 text-[13px] leading-relaxed space-y-4">
             <p>
-              <strong className="text-white/80">Last Updated:</strong> May 2026
+              <strong className="text-white/80">Last Updated:</strong> November 2026
             </p>
 
             <div>
@@ -7251,8 +7251,9 @@ function PolicyModal({
               </p>
               <p>
                 • <strong className="text-white/70">Shared Content:</strong>{" "}
-                Text and files you upload are stored temporarily on our systems
-                (Firebase/Google Cloud for text, Gofile.io for files).
+                Text and drop metadata are stored temporarily in Firebase
+                Realtime Database, while uploaded files are hosted by the
+                provider you select (such as storage.to, sto.care, or Catbox).
               </p>
               <p>
                 • <strong className="text-white/70">Technical Data:</strong> We
@@ -7301,8 +7302,13 @@ function PolicyModal({
                 policy.
               </p>
               <p>
-                • <strong className="text-white/70">Gofile.io:</strong> Stores
-                uploaded files. See Gofile's privacy policy.
+                •{" "}
+                <strong className="text-white/70">
+                  Selected File Hosts:
+                </strong>{" "}
+                Uploaded file bytes are stored on the third-party host selected
+                during upload (e.g., storage.to, sto.care, Catbox, etc.) and
+                follow that provider's retention and privacy policies.
               </p>
             </div>
 
@@ -7327,15 +7333,12 @@ function PolicyModal({
                   contact@hefimer.com
                 </strong>
               </p>
-              <p className="mt-1 text-white/40 text-[11px] italic">
-                (Please replace with your actual email address)
-              </p>
             </div>
           </div>
         ) : (
           <div className="text-white/60 text-[13px] leading-relaxed space-y-4">
             <p>
-              <strong className="text-white/80">Last Updated:</strong> May 2026
+              <strong className="text-white/80">Last Updated:</strong> November 2026
             </p>
 
             <div>
@@ -7401,8 +7404,9 @@ function PolicyModal({
                 5. Third-Party Services
               </h3>
               <p>
-                • File sharing uses Gofile.io. You must also comply with their
-                terms of service.
+                • File sharing routes through external storage providers you
+                select (such as storage.to, sto.care, Catbox, etc.). You must
+                also comply with the chosen provider's terms of service.
               </p>
               <p>
                 • We do not control and are not responsible for the content or
