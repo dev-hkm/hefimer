@@ -13,7 +13,7 @@
 
     <application
         android:name=".HefimerApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:backupInForeground="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"

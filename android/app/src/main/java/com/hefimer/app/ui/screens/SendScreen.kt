@@ -352,74 +352,22 @@ private fun SendFileSection(
             ) { mode ->
                 when (mode) {
                     "uploading" -> {
-                        val smoothProgress by animateFloatAsState(
-                            targetValue = state.fileProgressFraction.coerceIn(0f, 1f),
-                            animationSpec = if (reduceMotion) tween(120, easing = AppMotion.AppleEase) else AppMotion.gentleSpring(),
-                            label = "upload_ring_progress",
-                        )
-
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp, vertical = 22.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            // Orbital Aperture Ring + spinning Hefimer mark
+                            // Enlarged spinning Hefimer mark (no outer ring)
                             Box(
                                 contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(84.dp),
+                                modifier = Modifier.size(72.dp),
                             ) {
-                                Canvas(modifier = Modifier.size(84.dp)) {
-                                    val strokePx = 3.2.dp.toPx()
-                                    val inset = strokePx / 2f + 2.dp.toPx()
-                                    val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
-                                    val topLeft = Offset(inset, inset)
-                                    // Subtle ring track
-                                    drawArc(
-                                        color = accent.copy(alpha = 0.13f),
-                                        startAngle = 0f,
-                                        sweepAngle = 360f,
-                                        useCenter = false,
-                                        topLeft = topLeft,
-                                        size = arcSize,
-                                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
-                                    )
-                                    // Smooth spring-interpolated sweep arc
-                                    val sweep = (smoothProgress * 360f).coerceIn(0f, 360f)
-                                    if (sweep > 0.5f) {
-                                        drawArc(
-                                            color = accent,
-                                            startAngle = -90f,
-                                            sweepAngle = sweep,
-                                            useCenter = false,
-                                            topLeft = topLeft,
-                                            size = arcSize,
-                                            style = Stroke(width = strokePx, cap = StrokeCap.Round),
-                                        )
-                                        // Leading specular bead at arc tip
-                                        if (smoothProgress in 0.01f..0.99f) {
-                                            val rad = (-90.0 + sweep) * PI / 180.0
-                                            val radius = arcSize.width / 2f
-                                            val cx = size.width / 2f + (radius * cos(rad)).toFloat()
-                                            val cy = size.height / 2f + (radius * sin(rad)).toFloat()
-                                            drawCircle(
-                                                color = accent.copy(alpha = 0.35f),
-                                                radius = strokePx * 1.9f,
-                                                center = Offset(cx, cy),
-                                            )
-                                            drawCircle(
-                                                color = HefimerColors.White,
-                                                radius = strokePx * 0.72f,
-                                                center = Offset(cx, cy),
-                                            )
-                                        }
-                                    }
-                                }
                                 HefimerOrbitLogo(
-                                    size = 34.dp,
+                                    size = 64.dp,
                                     tint = accent,
                                     spinning = true,
-                                    spinDurationMs = 3_600,
+                                    spinDurationMs = 2_400,
                                 )
                             }
 
