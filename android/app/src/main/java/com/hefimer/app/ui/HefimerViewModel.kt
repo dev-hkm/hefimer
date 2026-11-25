@@ -607,6 +607,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         _selectedTab.value = tab
+        if (tab != MainTab.SEND) {
+            _sendState.update { if (it.showProviderPicker) it.copy(showProviderPicker = false) else it }
+        }
         if (tab == MainTab.LINK) {
             storage.setDeviceLinkEnabled(true)
             refreshLink(silent = false)
@@ -869,6 +872,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         when (intent.action) {
             Intent.ACTION_VIEW -> {
                 val uri = intent.data ?: return
+                closeSendProviderPicker()
+                _showSettingsSheet.value = false
+                _activeOverlay.value = null
                 handleScannedOrDeepLink(uri.toString(), ScanTarget.AUTO)
             }
             Intent.ACTION_SEND -> {

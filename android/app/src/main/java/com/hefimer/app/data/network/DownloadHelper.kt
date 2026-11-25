@@ -18,6 +18,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Call
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -65,7 +66,6 @@ object DownloadHelper {
         "litterbox.catbox.moe",
         "filebin.net",
         "trystocare.com",
-        "d.tmpfile.link",
         "tempfile.org",
         "temp.sh",
         "d.uguu.se",
@@ -76,9 +76,6 @@ object DownloadHelper {
         "gofile.io",
         "vikingfile.com",
         "buzzheavier.com",
-        "fileditch.com",
-        "new.fileditch.com",
-        "itsfileditchfiles.st",
     )
 
     private val SKIP_INLINE_PREVIEW_HOSTS = setOf(
@@ -86,9 +83,6 @@ object DownloadHelper {
         "vikingfile.com",
         "storage.to",
         "buzzheavier.com",
-        "fileditch.com",
-        "new.fileditch.com",
-        "itsfileditchfiles.st",
         "qu.ax",
         "temp.sh",
     )
@@ -102,11 +96,16 @@ object DownloadHelper {
         "n.uguu.se",
     )
 
+    private fun isFileditchHost(host: String): Boolean =
+        host.contains("fileditch") || host == "yescatvideos.com"
+
+    private class HtmlUpstreamException(message: String) : IOException(message)
+
     fun getDirectDownloadMode(url: String): DirectDownloadMode {
         val host = runCatching { URI(url).host?.lowercase().orEmpty() }.getOrDefault("")
         return when {
             host in PROXIED_HOSTS || host.endsWith(".uguu.se") -> DirectDownloadMode.PROXY
-            host in TAB_HOSTS -> DirectDownloadMode.TAB
+            host in TAB_HOSTS || isFileditchHost(host) -> DirectDownloadMode.TAB
             else -> DirectDownloadMode.FETCH
         }
     }
@@ -126,7 +125,7 @@ object DownloadHelper {
         val parsed = runCatching { URI(url) }.getOrNull() ?: return null
         if (parsed.scheme?.lowercase() != "https") return null
         val host = parsed.host?.lowercase().orEmpty()
-        if (host in SKIP_INLINE_PREVIEW_HOSTS) return null
+        if (host in SKIP_INLINE_PREVIEW_HOSTS || isFileditchHost(host)) return null
         if (host in DIRECT_INLINE_PREVIEW_HOSTS) return url
         return buildProxyUrl(url, "preview", inline = true)
     }
@@ -201,7 +200,7 @@ object DownloadHelper {
             return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
         }
 
-        // 3. For proxied hosts (sto.care, tmpfile.link, tempfile, temp.sh, tmpfiles, put.icu, litterbox, filebin, uguu):
+        // 3. For proxied hosts (sto.care, tempfile, temp.sh, tmpfiles, put.icu, litterbox, filebin, uguu):
         //    Stream through /api/download with trusted same-origin headers, with direct fallback if proxy fails.
         if (mode == DirectDownloadMode.PROXY) {
             val proxyUrl = buildProxyUrl(url, safeName)
@@ -218,7 +217,14 @@ object DownloadHelper {
                             resolveTmpfilesDirectUrl(url) ?: url.replaceFirst("tmpfiles.org/", "tmpfiles.org/dl/")
                         else -> url
                     }
-                    return@withContext streamToDownloads(context, directTarget, safeName, cancelToken, onProgress)
+                    return@withContext streamToDownloads(
+                        context = context,
+                        url = directTarget,
+                        safeName = safeName,
+                        cancelToken = cancelToken,
+                        onProgress = onProgress,
+                        usePost = (host == "temp.sh"),
+                    )
                 } catch (directErr: Throwable) {
                     if (cancelToken.isCancelled() || directErr.message == "DOWNLOAD_CANCELED") throw directErr
                     openExternalUrl(context, url)
@@ -227,8 +233,14 @@ object DownloadHelper {
             }
         }
 
-        // 4. Direct URLs (x0.at, pomf2.lain.la, files.catbox.moe, Cloudflare R2 presigned URLs)
-        streamToDownloads(context, url, safeName, cancelToken, onProgress)
+        // 4. Direct URLs (x0.at, pomf2.lain.la, files.catbox.moe, d.tmpfile.link, Cloudflare R2 presigned URLs)
+        try {
+            streamToDownloads(context, url, safeName, cancelToken, onProgress)
+        } catch (e: HtmlUpstreamException) {
+            if (cancelToken.isCancelled()) throw e
+            openExternalUrl(context, url)
+            DownloadOutcome(mode = "tab", fileName = safeName)
+        }
     }
 
     private fun resolveQuAxOnDevice(shareUrl: String): String? {
@@ -239,7 +251,7 @@ object DownloadHelper {
             if (!ct.contains("text/html", ignoreCase = true)) return shareUrl
             resp.body?.string().orEmpty()
         }
-        val rel = Regex("""href=["'](/x/[^"']+)["']""", RegexOption.IGNORE_CASE).find(html)?.groupValues?.get(1)
+        val rel = Regex("""(?:https?://qu\.ax)?(/x/[^"'\s<>]+)""", RegexOption.IGNORE_CASE).find(html)?.groupValues?.get(1)
             ?: return null
         return "https://qu.ax$rel"
     }
@@ -329,11 +341,15 @@ object DownloadHelper {
         cancelToken: DownloadCancellationToken,
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit,
         referer: String? = null,
+        usePost: Boolean = false,
     ): DownloadOutcome {
         if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
-        val reqBuilder = Request.Builder()
-            .url(url)
-            .get()
+        val reqBuilder = Request.Builder().url(url)
+        if (usePost) {
+            reqBuilder.post("".toRequestBody(null))
+        } else {
+            reqBuilder.get()
+        }
         if (!referer.isNullOrBlank()) {
             reqBuilder.header("Referer", referer)
         }
@@ -354,9 +370,11 @@ object DownloadHelper {
                     com.hefimer.app.ui.theme.tr("Empty download response", "Phản hồi tải xuống trống"),
                 )
                 val rawCt = resp.header("Content-Type")?.substringBefore(';')?.trim() ?: "application/octet-stream"
-                // Guard against accidentally saving a provider HTML error page as a binary file
-                if (rawCt.equals("text/html", ignoreCase = true) && !safeName.endsWith(".html", true) && !safeName.endsWith(".htm", true)) {
-                    throw IOException(
+                // Guard against accidentally saving a provider HTML error/challenge page as a binary file
+                val isHtmlPage = rawCt.equals("text/html", ignoreCase = true) ||
+                    rawCt.equals("application/xhtml+xml", ignoreCase = true)
+                if (isHtmlPage && !safeName.endsWith(".html", true) && !safeName.endsWith(".htm", true)) {
+                    throw HtmlUpstreamException(
                         com.hefimer.app.ui.theme.tr(
                             "Upstream returned an HTML page instead of file bytes",
                             "Máy chủ trả về trang HTML thay vì dữ liệu tệp",

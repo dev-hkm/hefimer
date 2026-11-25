@@ -362,7 +362,7 @@ object UploadProviders {
         ),
         UploadProviderConfig(
             id = "tmpfiles",
-            name = "tmpfiles",
+            name = "tmpfiles.org",
             maxSizeBytes = 100L * MB,
             maxSizeLabel = "100 MB",
             expiry = "Deletes after 60 minutes",
@@ -452,7 +452,7 @@ object UploadProviders {
             url.contains("files.catbox.moe") -> "Catbox"
             url.contains("catbox.moe") -> "Litterbox"
             url.contains("buzzheavier.com") -> "Buzzheavier"
-            url.contains("itsfileditchfiles.st") || url.contains("fileditch.com") -> "Fileditch"
+            url.contains("fileditch") || url.contains("yescatvideos.com") -> "Fileditch"
             url.contains("gofile.io") -> "Gofile"
             url.contains("vikingfile.com") -> "VikingFile"
             url.contains("pixeldrain.com") -> "Pixeldrain"
@@ -646,6 +646,23 @@ class FileUploadEngine(
         }
         throw lastError ?: IOException(
             com.hefimer.app.ui.theme.tr("All upload providers failed", "Tất cả máy chủ tải lên đều thất bại"),
+        )
+    }
+
+    internal suspend fun uploadForProvider(
+        providerId: String,
+        picked: LocalPickedFile,
+        expire: String = UploadProviders.getConfig(providerId).defaultExpire,
+        cancelToken: UploadCancellationToken = UploadCancellationToken(),
+    ): String = withContext(Dispatchers.IO) {
+        uploadSingle(
+            providerId = providerId,
+            picked = picked,
+            expire = expire,
+            cancelToken = cancelToken,
+            onProgress = {},
+            onBytesProgress = { _, _ -> },
+            onStatus = {},
         )
     }
 

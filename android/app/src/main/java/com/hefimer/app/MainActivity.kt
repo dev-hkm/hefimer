@@ -461,7 +461,7 @@ private fun HefimerRootScreen(
 
             // Send Provider Picker Sheet (mounted above bottom nav & Settings so it is NEVER covered)
             AppleSwipeableSheet(
-                visible = sendState.showProviderPicker,
+                visible = sendState.showProviderPicker && selectedTab == MainTab.SEND && activeOverlay == null,
                 onDismiss = { vm.closeSendProviderPicker() },
             ) { dismiss ->
                 ProviderPickerSheetContent(

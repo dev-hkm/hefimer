@@ -83,6 +83,7 @@ class HefimerCoreTests {
         assertEquals("Catbox", UploadProviders.getProviderNameFromUrl("https://files.catbox.moe/abc.png"))
         assertEquals("Buzzheavier", UploadProviders.getProviderNameFromUrl("https://buzzheavier.com/abc"))
         assertEquals("Fileditch", UploadProviders.getProviderNameFromUrl("https://itsfileditchfiles.st/f/abc"))
+        assertEquals("Fileditch", UploadProviders.getProviderNameFromUrl("https://fileditchvids.st/charlie67/abc/vid.mp4"))
         assertEquals("Cloudflare R2", UploadProviders.getProviderNameFromUrl("https://example.com", hasObjectKey = true))
     }
 
@@ -92,6 +93,7 @@ class HefimerCoreTests {
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://trystocare.com/abc"))
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://h.uguu.se/abc.txt"))
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://litter.catbox.moe/abc.txt"))
+        assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://d.tmpfile.link/public/a.txt"))
         assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://files.catbox.moe/abc.txt"))
         assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://x0.at/abc.txt"))
         assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://pomf2.lain.la/f/abc.txt"))
@@ -100,8 +102,12 @@ class HefimerCoreTests {
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://vikingfile.com/f/xyz"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://buzzheavier.com/xyz"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://itsfileditchfiles.st/f/xyz"))
+        assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://fileditchvids.st/charlie67/id/vid.mp4"))
+        assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://yescatvideos.com/charlie67/id/thumbs.png"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://storage.to/a.png", "image/png"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://buzzheavier.com/a.png", "image/png"))
+        assertNull(DownloadHelper.getMediaPreviewUrl("https://fileditchvids.st/a.mp4", "video/mp4"))
+        assertNull(DownloadHelper.getMediaPreviewUrl("https://itsfileditchfiles.st/a.png", "image/png"))
         assertNotNull(DownloadHelper.getMediaPreviewUrl("https://trystocare.com/a.png", "image/png"))
         assertEquals(
             "https://files.catbox.moe/a.png",
