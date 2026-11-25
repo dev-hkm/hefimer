@@ -15,7 +15,7 @@ fun HefimerTheme(
         lightColorScheme(
             primary = HefimerColors.White,
             onPrimary = HefimerColors.Black,
-            secondary = HefimerColors.Emerald400,
+            secondary = HefimerColors.White85,
             onSecondary = HefimerColors.Black,
             background = HefimerColors.Black,
             onBackground = HefimerColors.White,
@@ -32,7 +32,7 @@ fun HefimerTheme(
         darkColorScheme(
             primary = HefimerColors.White,
             onPrimary = HefimerColors.Black,
-            secondary = HefimerColors.Emerald400,
+            secondary = HefimerColors.White85,
             onSecondary = HefimerColors.Black,
             background = HefimerColors.Black,
             onBackground = HefimerColors.White,
@@ -49,7 +49,7 @@ fun HefimerTheme(
 
     MaterialTheme(
         colorScheme = scheme,
-        typography = HefimerTypography,
+        typography = hefimerTypography(HefimerLang.isVi),
         content = content,
     )
 }

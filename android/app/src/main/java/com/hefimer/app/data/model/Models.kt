@@ -74,6 +74,18 @@ data class HistoryItem(
 )
 
 @Serializable
+data class CustomS3Provider(
+    val id: String,
+    val name: String,
+    val endpoint: String,
+    val region: String = "auto",
+    val bucket: String,
+    val accessKeyId: String,
+    val secretAccessKey: String,
+    val publicBaseUrl: String = "",
+)
+
+@Serializable
 data class UploadStats(
     val firstUploadTime: Long = 0L,
     val totalSize: Long = 0L,

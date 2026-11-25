@@ -77,7 +77,6 @@ import com.hefimer.app.ui.components.MainTab
 import com.hefimer.app.ui.components.PostSaveBottomSheetContent
 import com.hefimer.app.ui.components.QrScannerOverlay
 import com.hefimer.app.ui.components.RedownloadConfirmDialog
-import com.hefimer.app.ui.components.SettingsSheetContent
 import com.hefimer.app.ui.screens.ChatRoomOverlay
 import com.hefimer.app.ui.screens.FloatingIncomingOfferBanner
 import com.hefimer.app.ui.screens.HistoryOverlayScreen
@@ -86,6 +85,7 @@ import com.hefimer.app.ui.screens.ProviderPickerSheetContent
 import com.hefimer.app.ui.screens.ReceiveScreen
 import com.hefimer.app.ui.screens.RoomsScreen
 import com.hefimer.app.ui.screens.SendScreen
+import com.hefimer.app.ui.screens.SettingsScreen
 import com.hefimer.app.ui.screens.SpaceCanvasOverlay
 import com.hefimer.app.ui.screens.SpaceScreen
 import com.hefimer.app.ui.screens.WhiteboardOverlay
@@ -188,6 +188,7 @@ private fun HefimerRootScreen(
     val appLanguage by vm.appLanguage.collectAsState()
     val defaultProviderId by vm.defaultProviderId.collectAsState()
     val storageToApiToken by vm.storageToApiToken.collectAsState()
+    val customS3Providers by vm.customS3Providers.collectAsState()
     val showSettingsSheet by vm.showSettingsSheet.collectAsState()
     val showOnboarding by vm.showOnboarding.collectAsState()
     val promptOpenAfterDownload by vm.promptOpenAfterDownload.collectAsState()
@@ -228,7 +229,7 @@ private fun HefimerRootScreen(
     CompositionLocalProvider(LocalHeroBounds provides heroRegistry) {
         Box(modifier = Modifier.fillMaxSize()) {
             AppleMonochromeBackdrop(
-                isR2Mode = sendState.isR2Mode && selectedTab == MainTab.SEND,
+                isR2Mode = false,
             )
             AppleLayeredNavigationHost(
                 currentTab = selectedTab,
@@ -256,13 +257,13 @@ private fun HefimerRootScreen(
                                 .padding(bottom = navBottom + if (downloadState != null) 166.dp else 78.dp),
                         )
 
-                        // Floating compact pill Bottom Navigation Dock
+                        // Floating curved-notch Bottom Navigation Dock
                         HefimerFloatingBottomDock(
                             selectedTab = selectedTab,
                             onSelectTab = { vm.selectTab(it) },
                             linkBadgeCount = linkBadgeCount,
                             linkGroupActive = linkState.sync.group != null,
-                            isR2Mode = sendState.isR2Mode,
+                            isR2Mode = false,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .graphicsLayer {
@@ -284,6 +285,63 @@ private fun HefimerRootScreen(
                 renderOverlay = { overlay, dismiss ->
                     when (overlay) {
                         AppOverlay.History -> HistoryOverlayScreen(vm = vm, onClose = dismiss)
+                        AppOverlay.Settings -> SettingsScreen(
+                            isLightMode = isLightMode,
+                            appLanguage = appLanguage,
+                            defaultStartTab = defaultStartTab,
+                            defaultProviderId = defaultProviderId,
+                            storageToApiToken = storageToApiToken,
+                            customS3Providers = customS3Providers,
+                            promptOpenAfterDownload = promptOpenAfterDownload,
+                            confirmRedownload = confirmRedownload,
+                            smartClipboardBanner = smartClipboardBanner,
+                            hapticEnabled = hapticEnabled,
+                            historyCount = history.size,
+                            onSetLightMode = { vm.setLightMode(it) },
+                            onSetAppLanguage = { vm.setAppLanguage(it) },
+                            onSetDefaultStartTab = { vm.setDefaultStartTab(it) },
+                            onSetStorageToApiToken = { vm.setStorageToApiToken(it) },
+                            onSaveCustomS3 = { vm.saveCustomS3Provider(it) },
+                            onDeleteCustomS3 = { item ->
+                                vm.requestConfirm(
+                                    title = tr("Delete ${item.name}?", "Xóa ${item.name}?"),
+                                    message = tr(
+                                        "This custom S3/R2 bucket configuration will be removed from this device.",
+                                        "Cấu hình máy chủ S3/R2 riêng này sẽ bị xóa khỏi thiết bị.",
+                                    ),
+                                    confirmLabel = tr("Delete", "Xóa"),
+                                    isDestructive = true,
+                                ) {
+                                    vm.deleteCustomS3Provider(item.id)
+                                }
+                            },
+                            onSetDefaultProvider = { vm.setDefaultUploadProvider(it) },
+                            onTogglePromptOpenAfterDownload = { vm.togglePromptOpenAfterDownload() },
+                            onToggleConfirmRedownload = { vm.toggleConfirmRedownload() },
+                            onToggleSmartClipboardBanner = { vm.toggleSmartClipboardBanner() },
+                            onToggleHapticEnabled = { vm.toggleHapticEnabled() },
+                            onOpenProviderPicker = { vm.openSendProviderPicker() },
+                            onOpenInfoDoc = { doc -> activeInfoDoc = doc },
+                            onOpenAdmin = { vm.openAdminEntry() },
+                            onReplayOnboarding = {
+                                dismiss()
+                                vm.replayOnboarding()
+                            },
+                            onClearHistory = {
+                                vm.requestConfirm(
+                                    title = tr("Clear All History?", "Xóa toàn bộ lịch sử?"),
+                                    message = tr(
+                                        "All saved transfer codes and shortcuts will be removed from this device.",
+                                        "Tất cả mã chia sẻ và lịch sử đã lưu trên thiết bị này sẽ bị xóa.",
+                                    ),
+                                    confirmLabel = tr("Clear History", "Xóa lịch sử"),
+                                    isDestructive = true,
+                                ) {
+                                    vm.clearHistory()
+                                }
+                            },
+                            onBack = dismiss,
+                        )
                         is AppOverlay.QrScanner -> QrScannerOverlay(
                             onResult = { code -> vm.handleScannedOrDeepLink(code, overlay.target) },
                             onClose = dismiss,
@@ -379,64 +437,6 @@ private fun HefimerRootScreen(
                 }
             }
 
-            // Settings Sheet (Appearance, Language, Start Tab, UX Toggles, Default Provider, History)
-            AppleSwipeableSheet(
-                visible = showSettingsSheet,
-                onDismiss = { vm.closeSettings() },
-            ) { dismiss ->
-                SettingsSheetContent(
-                    isLightMode = isLightMode,
-                    appLanguage = appLanguage,
-                    defaultStartTab = defaultStartTab,
-                    defaultProviderId = defaultProviderId,
-                    storageToApiToken = storageToApiToken,
-                    promptOpenAfterDownload = promptOpenAfterDownload,
-                    confirmRedownload = confirmRedownload,
-                    smartClipboardBanner = smartClipboardBanner,
-                    hapticEnabled = hapticEnabled,
-                    historyCount = history.size,
-                    onSetLightMode = { vm.setLightMode(it) },
-                    onSetAppLanguage = { vm.setAppLanguage(it) },
-                    onSetDefaultStartTab = { vm.setDefaultStartTab(it) },
-                    onSetStorageToApiToken = { vm.setStorageToApiToken(it) },
-                    onTogglePromptOpenAfterDownload = { vm.togglePromptOpenAfterDownload() },
-                    onToggleConfirmRedownload = { vm.toggleConfirmRedownload() },
-                    onToggleSmartClipboardBanner = { vm.toggleSmartClipboardBanner() },
-                    onToggleHapticEnabled = { vm.toggleHapticEnabled() },
-                    onOpenProviderPicker = {
-                        dismiss()
-                        vm.openSendProviderPicker()
-                    },
-                    onOpenInfoDoc = { doc ->
-                        dismiss()
-                        activeInfoDoc = doc
-                    },
-                    onOpenAdmin = {
-                        dismiss()
-                        vm.openAdminEntry()
-                    },
-                    onReplayOnboarding = {
-                        dismiss()
-                        vm.replayOnboarding()
-                    },
-                    onClearHistory = {
-                        vm.requestConfirm(
-                            title = tr("Clear All History?", "Xóa toàn bộ lịch sử?"),
-                            message = tr(
-                                "All saved transfer codes and shortcuts will be removed from this device.",
-                                "Tất cả mã chia sẻ và lịch sử đã lưu trên thiết bị này sẽ bị xóa.",
-                            ),
-                            confirmLabel = tr("Clear History", "Xóa lịch sử"),
-                            isDestructive = true,
-                        ) {
-                            vm.clearHistory()
-                            dismiss()
-                        }
-                    },
-                    onClose = dismiss,
-                )
-            }
-
             // FAQ, Privacy & Security, and Terms of Service Sheet (Web parity)
             AppleSwipeableSheet(
                 visible = activeInfoDoc != null,
@@ -525,10 +525,11 @@ private fun HefimerRootScreen(
 
             // Send Provider Picker Sheet (mounted above bottom nav & Settings so it is NEVER covered)
             AppleSwipeableSheet(
-                visible = sendState.showProviderPicker && selectedTab == MainTab.SEND && activeOverlay == null,
+                visible = sendState.showProviderPicker,
                 onDismiss = { vm.closeSendProviderPicker() },
             ) { dismiss ->
                 ProviderPickerSheetContent(
+                    providers = UploadProviders.allProviders(customS3Providers),
                     selectedId = sendState.selectedProviderId,
                     defaultProviderId = defaultProviderId,
                     onSetDefault = { vm.setDefaultUploadProvider(it) },

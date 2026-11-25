@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import com.hefimer.app.data.local.HefimerStorage
+import com.hefimer.app.data.model.CustomS3Provider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -628,10 +629,60 @@ object UploadProviders {
         "vikingfile",
     )
 
-    fun getConfig(id: String): UploadProviderConfig = ALL.firstOrNull { it.id == id } ?: ALL.first()
+    fun toConfig(custom: CustomS3Provider): UploadProviderConfig = UploadProviderConfig(
+        id = custom.id,
+        name = custom.name.ifBlank { custom.bucket },
+        maxSizeBytes = 5L * GB,
+        maxSizeLabel = "5 GB",
+        limitDetail = "5 GB direct PUT to your bucket (${custom.bucket})",
+        limitDetailVi = "Tối đa 5 GB tải thẳng lên bucket của bạn (${custom.bucket})",
+        expiry = "Controlled by your bucket lifecycle (presigned links up to 7d)",
+        expiryVi = "Theo cấu hình bucket của bạn (link ký sẵn tối đa 7 ngày)",
+        speed = "Direct AWS SigV4 presigned PUT from phone to ${custom.endpoint.removePrefix("https://")}",
+        speedVi = "PUT trực tiếp có chữ ký AWS SigV4 từ máy tới ${custom.endpoint.removePrefix("https://")}",
+        downloadFlow = if (custom.publicBaseUrl.isNotBlank()) {
+            "Direct download via your custom domain"
+        } else {
+            "Direct S3/R2 download via presigned GET URL"
+        },
+        downloadFlowVi = if (custom.publicBaseUrl.isNotBlank()) {
+            "Tải thẳng qua tên miền CDN riêng của bạn"
+        } else {
+            "Tải thẳng từ S3/R2 qua liên kết GET đã ký sẵn"
+        },
+        privacyDetail = "100% user-owned storage; credentials stay strictly on this device",
+        privacyDetailVi = "Kho lưu trữ riêng 100%; khóa truy cập chỉ lưu cục bộ trên máy này",
+        bestFor = "Private or team files stored in your own Cloudflare R2 / S3 bucket",
+        bestForVi = "Tệp riêng tư hoặc công việc lưu thẳng vào R2 / S3 của chính bạn",
+        limitations = "Requires valid CORS / endpoint credentials on your bucket",
+        limitationsVi = "Yêu cầu endpoint và khóa S3/R2 hợp lệ trên bucket của bạn",
+        features = "Custom user-configured S3/R2 provider (${custom.region.ifBlank { "auto" }}).",
+        featuresVi = "Máy chủ R2 / S3 tùy chỉnh do bạn tự cấu hình (${custom.region.ifBlank { "auto" }}).",
+        isLargeFile = true,
+        defaultExpire = "72h",
+        expireOptions = listOf(
+            ExpireOption("1 day", "1 ngày", "24h"),
+            ExpireOption("2 days", "2 ngày", "48h"),
+            ExpireOption("3 days (Default)", "3 ngày (Mặc định)", "72h"),
+            ExpireOption("5 days", "5 ngày", "120h"),
+            ExpireOption("7 days", "7 ngày", "168h"),
+        ),
+    )
 
-    fun normalizeExpire(providerId: String, currentExpire: String): String {
-        val cfg = getConfig(providerId)
+    fun allProviders(customProviders: List<CustomS3Provider> = emptyList()): List<UploadProviderConfig> =
+        customProviders.map { toConfig(it) } + ALL
+
+    fun getConfig(id: String, customProviders: List<CustomS3Provider> = emptyList()): UploadProviderConfig =
+        customProviders.firstOrNull { it.id == id }?.let { toConfig(it) }
+            ?: ALL.firstOrNull { it.id == id }
+            ?: ALL.first()
+
+    fun normalizeExpire(
+        providerId: String,
+        currentExpire: String,
+        customProviders: List<CustomS3Provider> = emptyList(),
+    ): String {
+        val cfg = getConfig(providerId, customProviders)
         return if (cfg.expireOptions.any { it.value == currentExpire }) currentExpire else cfg.defaultExpire
     }
 
@@ -790,13 +841,14 @@ class FileUploadEngine(
                 ),
             )
         }
+        val customProviders = storage.loadCustomS3Providers()
         val orderedIds = listOf(primaryProviderId) +
             UploadProviders.FALLBACK_PRIORITY.filter { it != primaryProviderId }
         val eligibleIds = orderedIds.filter { id ->
-            picked.size <= UploadProviders.getConfig(id).maxSizeBytes
+            picked.size <= UploadProviders.getConfig(id, customProviders).maxSizeBytes
         }
         if (eligibleIds.isEmpty()) {
-            val primary = UploadProviders.getConfig(primaryProviderId)
+            val primary = UploadProviders.getConfig(primaryProviderId, customProviders)
             throw IOException(
                 com.hefimer.app.ui.theme.tr(
                     "File size exceeds limit of ${primary.maxSizeLabel} for ${primary.name}",
@@ -809,9 +861,9 @@ class FileUploadEngine(
         for (i in eligibleIds.indices) {
             if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
             val providerId = eligibleIds[i]
-            val cfg = UploadProviders.getConfig(providerId)
+            val cfg = UploadProviders.getConfig(providerId, customProviders)
             if (i > 0) {
-                val prevCfg = UploadProviders.getConfig(eligibleIds[i - 1])
+                val prevCfg = UploadProviders.getConfig(eligibleIds[i - 1], customProviders)
                 onFallback(prevCfg.name, cfg.name)
                 onProgress(0)
                 onBytesProgress(0L, picked.size)
@@ -888,12 +940,59 @@ class FileUploadEngine(
         "tmpfiles" -> uploadTmpfiles(picked, cancelToken, onProgress, onBytesProgress, onStatus)
         "uguu" -> uploadUguu(picked, cancelToken, onProgress, onBytesProgress, onStatus)
         "puticu" -> uploadPutIcu(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
-        else -> throw IOException(
-            com.hefimer.app.ui.theme.tr(
-                "Unsupported upload provider: $providerId",
-                "Máy chủ tải lên không được hỗ trợ: $providerId",
-            ),
+        else -> {
+            val custom = storage.loadCustomS3Providers().firstOrNull { it.id == providerId }
+            if (custom != null) {
+                uploadCustomS3(custom, picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
+            } else {
+                throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "Unsupported upload provider: $providerId",
+                        "Máy chủ tải lên không được hỗ trợ: $providerId",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun uploadCustomS3(
+        provider: CustomS3Provider,
+        picked: LocalPickedFile,
+        expire: String,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading to ${provider.name}...", "Đang tải lên ${provider.name}..."))
+        val safeName = asciiSafeWireName(picked.name)
+        val objectKey = "hefimer/${UUID.randomUUID().toString().take(12)}/$safeName"
+        val putUrl = S3SigV4Signer.presignUrl(
+            provider = provider,
+            method = "PUT",
+            objectKey = objectKey,
+            expiresSeconds = 3600L,
         )
+        val putReq = Request.Builder()
+            .url(putUrl)
+            .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress, omitContentType = true))
+            .build()
+        execute(putReq, cancelToken)
+
+        val getExpireSec = when (expire) {
+            "24h" -> 86_400L
+            "48h" -> 172_800L
+            "72h" -> 259_200L
+            "120h" -> 432_000L
+            else -> 604_800L
+        }
+        return S3SigV4Signer.buildPublicUrl(provider, objectKey)
+            ?: S3SigV4Signer.presignUrl(
+                provider = provider,
+                method = "GET",
+                objectKey = objectKey,
+                expiresSeconds = getExpireSec,
+            )
     }
 
     private fun <T> withPartRetry(cancelToken: UploadCancellationToken, block: () -> T): T {

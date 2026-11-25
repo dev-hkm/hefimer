@@ -141,19 +141,11 @@ fun SendScreen(vm: HefimerViewModel) {
     val heroBounds = LocalHeroBounds.current
     val reduceMotion = rememberReduceMotion()
 
-    val accent = if (state.isR2Mode && state.subMode == SendSubMode.FILE) {
-        HefimerColors.Emerald400
-    } else {
-        HefimerColors.White
-    }
+    val accent = HefimerColors.White
 
     Box {
         HefimerCollapsibleScaffold(
-            kicker = if (state.isR2Mode && state.subMode == SendSubMode.FILE) {
-                tr("Secret R2 Mode", "Chế độ Secret R2")
-            } else {
-                tr("Create a drop", "Tạo phiên chia sẻ")
-            },
+            kicker = tr("Create a drop", "Tạo phiên chia sẻ"),
             title = tr("Send", "Gửi"),
             subtitle = tr(
                 "Share a file or text that disappears when its moment is over.",
@@ -202,20 +194,12 @@ fun SendScreen(vm: HefimerViewModel) {
                     SendSubMode.FILE -> SendFileSection(
                         vm = vm,
                         state = state,
-                        todayBytes = if (state.isR2Mode) r2Stats.totalSize else stdStats.totalSize,
+                        todayBytes = stdStats.totalSize,
                         onOpenProviderPicker = { vm.openSendProviderPicker() },
                     )
                     SendSubMode.TEXT -> SendTextSection(vm = vm, state = state)
                 }
             }
-        }
-
-        // Secret R2 Passcode Modal (triggered by 6 taps on Send File)
-        if (state.showR2AuthDialog) {
-            SecretR2PasscodeModal(
-                onDismiss = { vm.dismissR2AuthDialog() },
-                onSubmit = { vm.verifyR2Passcode(it) },
-            )
         }
     }
 }
@@ -270,53 +254,12 @@ private fun SendFileSection(
             return@AnimatedContent
         }
 
-        val isR2 = state.isR2Mode
-        val accent = if (isR2) HefimerColors.Emerald400 else HefimerColors.White
-        val providerCfg = UploadProviders.getConfig(state.selectedProviderId)
-        val expireOptions = if (isR2) UploadProviders.STANDARD_EXPIRE_OPTIONS else providerCfg.expireOptions
+        val accent = HefimerColors.White
+        val customS3 by vm.customS3Providers.collectAsState()
+        val providerCfg = UploadProviders.getConfig(state.selectedProviderId, customS3)
+        val expireOptions = providerCfg.expireOptions
 
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (isR2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.Emerald400),
-                    )
-                    Text(
-                        text = tr("SECRET CLOUDFLARE R2", "CLOUDFLARE R2 BÍ MẬT"),
-                        color = HefimerColors.Emerald400.copy(alpha = 0.85f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                    )
-                }
-                Text(
-                    text = tr("EXIT", "THOÁT"),
-                    color = HefimerColors.White60,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.4.sp,
-                    modifier = Modifier
-                        .appleGlassSurface(
-                            shape = CircleShape,
-                            variant = AppleGlassVariant.Clear,
-                            elevation = 0.dp,
-                        )
-                        .applePressable(pressedScale = 0.94f) { vm.exitR2Mode() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
-        }
 
         // File Dropzone Card (hugs picked file snugly with zero dead space)
         val dropzoneMode = when {
@@ -333,8 +276,6 @@ private fun SendFileSection(
                 .appleGlassSurface(
                     shape = RoundedCornerShape(36.dp),
                     variant = AppleGlassVariant.Regular,
-                    accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
-                    accentFillTint = if (isR2) HefimerColors.EmeraldBg.copy(alpha = 0.25f) else null,
                     elevation = 12.dp,
                 )
                 .applePressable(enabled = !state.fileUploading, pressedScale = 0.985f) {
@@ -487,7 +428,7 @@ private fun SendFileSection(
                                             .background(HefimerColors.Black)
                                             .border(
                                                 1.dp,
-                                                if (isR2) HefimerColors.Emerald400.copy(alpha = 0.5f) else HefimerColors.White15,
+                                                HefimerColors.White15,
                                                 RoundedCornerShape(16.dp),
                                             ),
                                     )
@@ -499,7 +440,6 @@ private fun SendFileSection(
                                             .appleGlassSurface(
                                                 shape = CircleShape,
                                                 variant = AppleGlassVariant.Clear,
-                                                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
                                                 elevation = 0.dp,
                                             ),
                                     ) {
@@ -627,16 +567,11 @@ private fun SendFileSection(
                                     .appleGlassSurface(
                                         shape = CircleShape,
                                         variant = AppleGlassVariant.Clear,
-                                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
                                         elevation = 0.dp,
                                     ),
                             ) {
                                 Icon(
-                                    imageVector = when {
-                                        isR2 -> Icons.Rounded.Shield
-                                        state.isFolderMode -> Icons.Rounded.CreateNewFolder
-                                        else -> Icons.Rounded.UploadFile
-                                    },
+                                    imageVector = if (state.isFolderMode) Icons.Rounded.CreateNewFolder else Icons.Rounded.UploadFile,
                                     contentDescription = null,
                                     tint = accent.copy(alpha = 0.9f),
                                     modifier = Modifier.size(25.dp),
@@ -661,21 +596,20 @@ private fun SendFileSection(
                                         .appleGlassSurface(
                                             shape = CircleShape,
                                             variant = AppleGlassVariant.Clear,
-                                            accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
                                             elevation = 0.dp,
                                         )
                                         .padding(horizontal = 8.dp, vertical = 3.dp),
                                 ) {
-                                    Box(Modifier.size(5.dp).clip(CircleShape).background(if (isR2) HefimerColors.Emerald400 else HefimerColors.White80))
+                                    Box(Modifier.size(5.dp).clip(CircleShape).background(HefimerColors.White80))
                                     Text(
-                                        text = if (isR2) "Cloudflare R2" else providerCfg.name,
-                                        color = if (isR2) HefimerColors.Emerald400 else HefimerColors.White85,
+                                        text = providerCfg.name,
+                                        color = HefimerColors.White85,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                     )
                                 }
                                 Text(
-                                    text = "${tr("Max", "Tối đa")} ${if (isR2) "5 GB" else providerCfg.localizedMaxSize()}",
+                                    text = "${tr("Max", "Tối đa")} ${providerCfg.localizedMaxSize()}",
                                     color = HefimerColors.White45,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 10.sp,
@@ -694,8 +628,8 @@ private fun SendFileSection(
             }
         }
 
-        // Upload Provider Picker Row (for standard mode)
-        if (!isR2) {
+        // Upload Provider Picker Row
+        if (true) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -790,7 +724,6 @@ private fun SendFileSection(
                 .appleGlassSurface(
                     shape = RoundedCornerShape(26.dp),
                     variant = AppleGlassVariant.Regular,
-                    accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
                     elevation = 6.dp,
                 ),
         ) {
@@ -948,8 +881,6 @@ private fun SendFileSection(
         HefimerPrimaryButton(
             text = if (state.fileUploading) {
                 tr("Uploading...", "Đang tải lên...")
-            } else if (isR2) {
-                tr("Upload to Secret R2", "Tải lên Secret R2")
             } else {
                 tr("Upload & Generate Code", "Tải lên & Tạo mã")
             },
@@ -1426,6 +1357,7 @@ private fun EditorMiniIcon(
 
 @Composable
 fun ProviderPickerSheetContent(
+    providers: List<UploadProviderConfig> = UploadProviders.ALL,
     selectedId: String,
     defaultProviderId: String? = null,
     onSetDefault: ((String) -> Unit)? = null,
@@ -1509,7 +1441,7 @@ fun ProviderPickerSheetContent(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(UploadProviders.ALL, key = { it.id }) { prov ->
+            items(providers, key = { it.id }) { prov ->
                 ProviderRowCard(
                     prov = prov,
                     selected = prov.id == selectedId,

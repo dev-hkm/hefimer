@@ -18,14 +18,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AcUnit
-import androidx.compose.material.icons.rounded.AdminPanelSettings
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Shield
+import com.adamglin.PhosphorIcons
+import com.adamglin.phosphoricons.Regular
+import com.adamglin.phosphoricons.regular.Bell
+import com.adamglin.phosphoricons.regular.CloudArrowUp
+import com.adamglin.phosphoricons.regular.Lock
+import com.adamglin.phosphoricons.regular.ShieldCheck
+import com.adamglin.phosphoricons.regular.Snowflake
+import com.adamglin.phosphoricons.regular.UserGear
+import com.adamglin.phosphoricons.regular.X
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -86,7 +87,7 @@ fun AdminLoginDialog(
                         .size(48.dp)
                         .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp),
                 ) {
-                    Icon(Icons.Rounded.AdminPanelSettings, null, tint = HefimerColors.White, modifier = Modifier.size(22.dp))
+                    Icon(PhosphorIcons.Regular.UserGear, null, tint = HefimerColors.White, modifier = Modifier.size(22.dp))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -111,7 +112,7 @@ fun AdminLoginDialog(
                     value = pass,
                     onValueChange = { pass = it },
                     placeholder = tr("Admin password...", "Mật khẩu quản trị..."),
-                    leadingIcon = Icons.Rounded.Lock,
+                    leadingIcon = PhosphorIcons.Regular.Lock,
                     isPassword = true,
                 )
                 Row(
@@ -214,7 +215,7 @@ fun AdminDashboardSheetContent(
                     .size(38.dp)
                     .appleGlassSurface(shape = RoundedCornerShape(14.dp), variant = AppleGlassVariant.Clear, elevation = 0.dp),
             ) {
-                Icon(Icons.Rounded.AdminPanelSettings, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                Icon(PhosphorIcons.Regular.UserGear, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -238,7 +239,7 @@ fun AdminDashboardSheetContent(
                     .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp)
                     .applePressable(pressedScale = 0.89f, onClick = onClose),
             ) {
-                Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                Icon(PhosphorIcons.Regular.X, tr("Close", "Đóng"), tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -272,7 +273,7 @@ fun AdminDashboardSheetContent(
                     subtitle = tr("Temporarily lock public uploads & drops", "Tạm khóa tải lên và chia sẻ công khai"),
                     checked = stats.isFrozen,
                     onToggle = onToggleFreeze,
-                    icon = Icons.Rounded.AcUnit,
+                    icon = PhosphorIcons.Regular.Snowflake,
                     activeColor = HefimerColors.Red400,
                 )
                 Text(
@@ -324,7 +325,7 @@ fun AdminDashboardSheetContent(
                     .padding(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Notifications, null, tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                    Icon(PhosphorIcons.Regular.Bell, null, tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
                     Text(
                         text = tr("GLOBAL BROADCAST", "THÔNG BÁO TOÀN HỆ THỐNG"),
                         color = HefimerColors.White45,
@@ -395,7 +396,7 @@ fun AdminDashboardSheetContent(
                     .padding(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Shield, null, tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                    Icon(PhosphorIcons.Regular.ShieldCheck, null, tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
                     Text(
                         text = tr("SECURITY PASSWORDS (BACKEND KV)", "MẬT KHẨU BẢO MẬT (BACKEND)"),
                         color = HefimerColors.White45,
@@ -408,15 +409,7 @@ fun AdminDashboardSheetContent(
                     value = newAdminPass,
                     onValueChange = { newAdminPass = it },
                     placeholder = tr("New Admin password...", "Mật khẩu Admin mới..."),
-                    leadingIcon = Icons.Rounded.Lock,
-                    isPassword = true,
-                    mono = true,
-                )
-                HefimerTextField(
-                    value = newSecretPass,
-                    onValueChange = { newSecretPass = it },
-                    placeholder = tr("New Secret R2 passcode...", "Mật mã Secret R2 mới..."),
-                    leadingIcon = Icons.Rounded.Lock,
+                    leadingIcon = PhosphorIcons.Regular.Lock,
                     isPassword = true,
                     mono = true,
                 )
@@ -454,7 +447,7 @@ fun AdminDashboardSheetContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.Rounded.CloudDone, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(16.dp))
+                    Icon(PhosphorIcons.Regular.CloudArrowUp, null, tint = HefimerColors.White85, modifier = Modifier.size(16.dp))
                     Text(
                         text = tr("CLOUDFLARE R2 CREDENTIALS", "CẤU HÌNH CLOUDFLARE R2 (4 KHÓA)"),
                         color = HefimerColors.White45,
@@ -471,7 +464,7 @@ fun AdminDashboardSheetContent(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(HefimerColors.Emerald400)
+                            .background(HefimerColors.White)
                             .padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                 }
@@ -506,7 +499,7 @@ fun AdminDashboardSheetContent(
                         .fillMaxWidth()
                         .height(44.dp)
                         .clip(CircleShape)
-                        .background(HefimerColors.Emerald400)
+                        .background(HefimerColors.White)
                         .applePressable(enabled = !busy, pressedScale = 0.96f) {
                             onUpdateR2Config(accountId, accessKeyId, secretAccessKey, bucketName)
                         },

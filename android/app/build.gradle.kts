@@ -13,8 +13,8 @@ android {
         applicationId = "com.hefimer.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "2.5.5"
+        versionCode = 19
+        versionName = "2.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -96,6 +96,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.adamglin:phosphor-icon:1.0.0")
 
     // Networking & Realtime SSE
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

@@ -19,12 +19,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Shield
+import com.adamglin.PhosphorIcons
+import com.adamglin.phosphoricons.Regular
+import com.adamglin.phosphoricons.regular.CaretDown
+import com.adamglin.phosphoricons.regular.FileText
+import com.adamglin.phosphoricons.regular.Question
+import com.adamglin.phosphoricons.regular.ShieldCheck
+import com.adamglin.phosphoricons.regular.X
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -203,9 +204,9 @@ fun HefimerInfoDocSheetContent(
     onClose: () -> Unit,
 ) {
     val icon: ImageVector = when (doc) {
-        HefimerInfoDoc.FAQ -> Icons.AutoMirrored.Rounded.HelpOutline
-        HefimerInfoDoc.PRIVACY -> Icons.Rounded.Shield
-        HefimerInfoDoc.TERMS -> Icons.Rounded.Description
+        HefimerInfoDoc.FAQ -> PhosphorIcons.Regular.Question
+        HefimerInfoDoc.PRIVACY -> PhosphorIcons.Regular.ShieldCheck
+        HefimerInfoDoc.TERMS -> PhosphorIcons.Regular.FileText
     }
     val kicker = when (doc) {
         HefimerInfoDoc.FAQ -> tr("HELP & GUIDE", "HỖ TRỢ & HƯỚNG DẪN")
@@ -283,7 +284,7 @@ fun HefimerInfoDocSheetContent(
                     )
                     .applePressable(pressedScale = 0.89f, onClick = onClose),
             ) {
-                Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                Icon(PhosphorIcons.Regular.X, tr("Close", "Đóng"), tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -338,7 +339,7 @@ fun HefimerInfoDocSheetContent(
                                 modifier = Modifier.weight(1f),
                             )
                             Icon(
-                                Icons.Rounded.ExpandMore,
+                                PhosphorIcons.Regular.CaretDown,
                                 null,
                                 tint = HefimerColors.White60,
                                 modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = rot },

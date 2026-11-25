@@ -10,6 +10,7 @@ import com.hefimer.app.data.local.HefimerStorage
 import com.hefimer.app.data.model.BoardPoint
 import com.hefimer.app.data.model.BoardStroke
 import com.hefimer.app.data.model.ChatMessage
+import com.hefimer.app.data.model.CustomS3Provider
 import com.hefimer.app.data.model.ConfirmDialogRequest
 import com.hefimer.app.data.model.DeviceSync
 import com.hefimer.app.data.model.DeviceTransfer
@@ -79,6 +80,7 @@ import kotlin.random.Random
 
 sealed interface AppOverlay {
     data object History : AppOverlay
+    data object Settings : AppOverlay
     data class QrScanner(val target: ScanTarget = ScanTarget.AUTO) : AppOverlay
     data class SpaceCanvas(val spaceId: String, val spaceName: String) : AppOverlay
     data class ChatRoom(val roomId: String, val roomName: String) : AppOverlay
@@ -105,8 +107,6 @@ data class DownloadProgressState(
 
 data class SendUiState(
     val subMode: SendSubMode = SendSubMode.FILE,
-    val isR2Mode: Boolean = false,
-    val showR2AuthDialog: Boolean = false,
     val showProviderPicker: Boolean = false,
     // File state
     val pickedFiles: List<LocalPickedFile> = emptyList(),
@@ -291,6 +291,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private val _storageToApiToken = MutableStateFlow(storage.getStorageToApiToken())
     val storageToApiToken: StateFlow<String> = _storageToApiToken.asStateFlow()
 
+    private val _customS3Providers = MutableStateFlow(storage.loadCustomS3Providers())
+    val customS3Providers: StateFlow<List<CustomS3Provider>> = _customS3Providers.asStateFlow()
+
     private val _showSettingsSheet = MutableStateFlow(false)
     val showSettingsSheet: StateFlow<Boolean> = _showSettingsSheet.asStateFlow()
 
@@ -433,13 +436,45 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         storage.setDefaultUploadProvider(providerId)
         _defaultProviderId.value = providerId
         selectUploadProvider(providerId)
+        val cfgName = UploadProviders.getConfig(providerId, _customS3Providers.value).name
         showToast(
-            tr(
-                "Default provider set to ${UploadProviders.getConfig(providerId).name}",
-                "Đã đặt máy chủ mặc định: ${UploadProviders.getConfig(providerId).name}",
-            ),
+            tr("Default provider set to $cfgName", "Đã đặt máy chủ mặc định: $cfgName"),
             ToastType.SUCCESS,
         )
+    }
+
+    fun saveCustomS3Provider(provider: CustomS3Provider) {
+        val clean = provider.copy(
+            id = provider.id.ifBlank { "custom_s3_${UUID.randomUUID().toString().take(8)}" },
+            name = provider.name.trim().ifBlank { provider.bucket.trim() },
+            endpoint = provider.endpoint.trim(),
+            region = provider.region.trim().ifBlank { "auto" },
+            bucket = provider.bucket.trim(),
+            accessKeyId = provider.accessKeyId.trim(),
+            secretAccessKey = provider.secretAccessKey.trim(),
+            publicBaseUrl = provider.publicBaseUrl.trim(),
+        )
+        val updated = _customS3Providers.value.filterNot { it.id == clean.id } + clean
+        storage.saveCustomS3Providers(updated)
+        _customS3Providers.value = updated
+        showToast(
+            tr("Saved custom bucket ${clean.name}", "Đã lưu máy chủ ${clean.name}"),
+            ToastType.SUCCESS,
+        )
+    }
+
+    fun deleteCustomS3Provider(id: String) {
+        val updated = _customS3Providers.value.filterNot { it.id == id }
+        storage.saveCustomS3Providers(updated)
+        _customS3Providers.value = updated
+        if (_defaultProviderId.value == id) {
+            storage.setDefaultUploadProvider("storageto")
+            _defaultProviderId.value = "storageto"
+        }
+        if (_sendState.value.selectedProviderId == id) {
+            selectUploadProvider(_defaultProviderId.value)
+        }
+        showToast(tr("Removed custom bucket", "Đã xóa máy chủ tùy chỉnh"), ToastType.INFO)
     }
 
     fun setStorageToApiToken(token: String) {
@@ -457,11 +492,15 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openSettings() {
-        _showSettingsSheet.value = true
+        _showSettingsSheet.value = false
+        _activeOverlay.value = AppOverlay.Settings
     }
 
     fun closeSettings() {
         _showSettingsSheet.value = false
+        if (_activeOverlay.value == AppOverlay.Settings) {
+            _activeOverlay.value = null
+        }
     }
 
     fun completeOnboarding() {
@@ -703,10 +742,6 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
         if (_sendState.value.showProviderPicker) {
             closeSendProviderPicker()
-            return true
-        }
-        if (_sendState.value.showR2AuthDialog) {
-            dismissR2AuthDialog()
             return true
         }
         if (_receiveState.value.passwordPromptOpen) {
@@ -1061,44 +1096,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     }
     // endregion
 
-    // region SEND TAB (File, Text, Secret R2)
+    // region SEND TAB (File & Text)
     fun setSendSubMode(mode: SendSubMode) {
-        if (mode == SendSubMode.FILE && _sendState.value.subMode == SendSubMode.FILE) {
-            fileTabTapCount++
-            if (fileTabTapCount >= 6) {
-                fileTabTapCount = 0
-                if (_sendState.value.isR2Mode) {
-                    _sendState.update { it.copy(isR2Mode = false) }
-                    showToast(tr("Secret R2 mode deactivated", "Đã tắt chế độ Secret R2"), ToastType.SUCCESS)
-                } else {
-                    _sendState.update { it.copy(showR2AuthDialog = true) }
-                }
-            }
-        } else {
-            fileTabTapCount = if (mode == SendSubMode.FILE) 1 else 0
-            _sendState.update { it.copy(subMode = mode) }
-        }
-    }
-
-    fun dismissR2AuthDialog() {
-        _sendState.update { it.copy(showR2AuthDialog = false) }
-    }
-
-    fun verifyR2Passcode(input: String) {
-        val trimmed = input.trim()
-        if (trimmed.isEmpty()) {
-            showToast(tr("Incorrect password", "Sai mật khẩu"), ToastType.ERROR)
-            return
-        }
-        viewModelScope.launch {
-            val ok = adminApi.verifySecretPasscode(trimmed)
-            if (ok) {
-                _sendState.update { it.copy(isR2Mode = true, showR2AuthDialog = false, fileExpire = "1h") }
-                showToast(tr("Private storage mode activated", "Đã bật chế độ lưu trữ riêng tư"), ToastType.SUCCESS)
-            } else {
-                showToast(tr("Incorrect password", "Sai mật khẩu"), ToastType.ERROR)
-            }
-        }
+        _sendState.update { it.copy(subMode = mode) }
     }
 
     // region ADMIN DASHBOARD
@@ -1307,16 +1307,6 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     }
     // endregion
 
-    fun exitR2Mode() {
-        _sendState.update {
-            it.copy(
-                isR2Mode = false,
-                fileExpire = UploadProviders.getConfig(it.selectedProviderId).defaultExpire,
-            )
-        }
-        showToast(tr("Exited Secret R2 mode", "Đã thoát chế độ Secret R2"), ToastType.INFO)
-    }
-
     fun setFolderMode(enabled: Boolean) {
         _sendState.update { it.copy(isFolderMode = enabled, pickedFiles = emptyList()) }
     }
@@ -1420,7 +1410,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         _sendState.update {
             it.copy(
                 selectedProviderId = providerId,
-                fileExpire = UploadProviders.normalizeExpire(providerId, it.fileExpire),
+                fileExpire = UploadProviders.normalizeExpire(providerId, it.fileExpire, _customS3Providers.value),
             )
         }
     }
@@ -1473,12 +1463,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             showToast(tr("No internet connection", "Không có kết nối mạng"), ToastType.ERROR)
             return
         }
-        if (st.isR2Mode) {
-            uploadFilesToR2()
-            return
-        }
-
-        val selectedCfg = UploadProviders.getConfig(st.selectedProviderId)
+        val customList = _customS3Providers.value
+        val selectedCfg = UploadProviders.getConfig(st.selectedProviderId, customList)
         val maxFileSize = st.pickedFiles.maxOf { it.size }
         val totalSize = st.pickedFiles.sumOf { it.size }
         val safeTotal = totalSize.coerceAtLeast(1L)
@@ -1487,7 +1473,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         // seamlessly auto-route to the first eligible large-file host (storage.to / Litterbox / Gofile / VikingFile).
         val effectiveProviderId = if (maxFileSize > selectedCfg.maxSizeBytes) {
             val autoHostId = UploadProviders.FALLBACK_PRIORITY.firstOrNull { id ->
-                maxFileSize <= UploadProviders.getConfig(id).maxSizeBytes
+                maxFileSize <= UploadProviders.getConfig(id, customList).maxSizeBytes
             }
             if (autoHostId == null) {
                 showToast(

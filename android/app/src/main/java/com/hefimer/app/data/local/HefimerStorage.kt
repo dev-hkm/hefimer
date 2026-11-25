@@ -2,6 +2,7 @@ package com.hefimer.app.data.local
 
 import android.content.Context
 import android.os.Build
+import com.hefimer.app.data.model.CustomS3Provider
 import com.hefimer.app.data.model.DownloadedFileRecord
 import com.hefimer.app.data.model.HistoryItem
 import com.hefimer.app.data.model.RecentSpaceEntry
@@ -180,6 +181,15 @@ class HefimerStorage(context: Context) {
             if (clean.isEmpty()) remove("hefimer_storageto_api_token")
             else putString("hefimer_storageto_api_token", clean)
         }.apply()
+    }
+
+    fun loadCustomS3Providers(): List<CustomS3Provider> {
+        val raw = prefs.getString("hefimer_custom_s3_providers_v1", null) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<CustomS3Provider>>(raw) }.getOrDefault(emptyList())
+    }
+
+    fun saveCustomS3Providers(list: List<CustomS3Provider>) {
+        prefs.edit().putString("hefimer_custom_s3_providers_v1", json.encodeToString(list)).apply()
     }
 
     fun getDeviceName(): String {

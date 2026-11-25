@@ -30,12 +30,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Devices
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Upload
+import com.adamglin.PhosphorIcons
+import com.adamglin.phosphoricons.Regular
+import com.adamglin.phosphoricons.regular.ChatsCircle
+import com.adamglin.phosphoricons.regular.Devices
+import com.adamglin.phosphoricons.regular.DownloadSimple
+import com.adamglin.phosphoricons.regular.GridFour
+import com.adamglin.phosphoricons.regular.UploadSimple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,11 +80,11 @@ import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.tr
 
 enum class MainTab(val label: String, val labelVi: String, val icon: ImageVector) {
-    SEND("Send", "Gửi", Icons.Rounded.Upload),
-    RECEIVE("Receive", "Nhận", Icons.Rounded.Download),
-    SPACE("Space", "Space", Icons.Rounded.GridView),
-    ROOMS("Rooms", "Phòng", Icons.Rounded.Forum),
-    LINK("Link", "Link", Icons.Rounded.Devices),
+    SEND("Send", "Gửi", PhosphorIcons.Regular.UploadSimple),
+    RECEIVE("Receive", "Nhận", PhosphorIcons.Regular.DownloadSimple),
+    SPACE("Space", "Space", PhosphorIcons.Regular.GridFour),
+    ROOMS("Rooms", "Phòng", PhosphorIcons.Regular.ChatsCircle),
+    LINK("Link", "Link", PhosphorIcons.Regular.Devices),
     ;
 
     fun localizedLabel(): String = tr(label, labelVi)
@@ -197,7 +198,7 @@ fun HefimerFloatingBottomDock(
     val reduceMotion = rememberReduceMotion()
     val tabs = MainTab.entries
     val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
-    val activeAccent = if (isR2Mode && selectedTab == MainTab.SEND) HefimerColors.Emerald400 else HefimerColors.White
+    val activeAccent = HefimerColors.White
 
     Box(
         modifier = modifier
@@ -293,7 +294,6 @@ fun HefimerFloatingBottomDock(
                     .appleGlassSurface(
                         shape = dockShape,
                         variant = AppleGlassVariant.Elevated,
-                        accentBorderTint = if (isR2Mode && selectedTab == MainTab.SEND) HefimerColors.Emerald400 else null,
                         elevation = 20.dp,
                     ),
             )
@@ -447,7 +447,7 @@ fun HefimerFloatingBottomDock(
                         ) {
                             Text(
                                 text = tab.localizedLabel(),
-                                color = if (isR2Mode && tab == MainTab.SEND) HefimerColors.Emerald400 else HefimerColors.White,
+                                color = HefimerColors.White,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
