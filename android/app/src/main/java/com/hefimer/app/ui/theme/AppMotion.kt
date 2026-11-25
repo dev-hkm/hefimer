@@ -363,23 +363,29 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
         }
     }
 
-    fun requestOverlayDismiss() {
+    fun requestOverlayDismiss(fromEdgeSwipe: Boolean = false) {
         if (isDismissing || displayedOverlay == null) return
         isDismissing = true
-        usedEdgeSwipe = false
-        startTouchY = 0f
-        currentTouchY = 0f
+        usedEdgeSwipe = fromEdgeSwipe
+        if (!fromEdgeSwipe) {
+            startTouchY = 0f
+            currentTouchY = 0f
+        }
         scope.launch {
-            val spec: AnimationSpec<Float> = when {
-                reduceMotion -> tween(140, easing = AppMotion.AppleEase)
-                displayedHeroRect != null -> AppMotion.navigationSpring()
-                else -> tween(AppMotion.ScreenPop, easing = AppMotion.AppleSheet)
+            try {
+                val spec: AnimationSpec<Float> = when {
+                    reduceMotion -> tween(140, easing = AppMotion.AppleEase)
+                    displayedHeroRect != null -> AppMotion.navigationSpring()
+                    else -> tween(AppMotion.ScreenPop, easing = AppMotion.AppleSheet)
+                }
+                dismissProgress.animateTo(1f, spec)
+            } finally {
+                onDismissOverlay()
+                displayedOverlay = null
+                displayedHeroRect = null
+                isPeeling = false
+                isDismissing = false
             }
-            dismissProgress.animateTo(1f, spec)
-            onDismissOverlay()
-            displayedOverlay = null
-            displayedHeroRect = null
-            isDismissing = false
         }
     }
 
@@ -407,10 +413,12 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
             if (committed) {
                 onRootBack()
             }
-            rootBackProgress.animateTo(
-                targetValue = 0f,
-                animationSpec = if (reduceMotion) tween(120, easing = AppMotion.AppleEase) else AppMotion.navigationSpring(),
-            )
+            scope.launch {
+                rootBackProgress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = if (reduceMotion) tween(120, easing = AppMotion.AppleEase) else AppMotion.navigationSpring(),
+                )
+            }
         }
     }
 
@@ -464,7 +472,13 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
         // LAYER 1: Full-screen detail/workspace overlay with Hero Morph + unified Back/Close motion
         val activeOverlay = displayedOverlay
         if (activeOverlay != null) {
-            PredictiveBackHandler(enabled = !isDismissing) { events ->
+            // IMPORTANT: Keep enabled = true while overlay is mounted so setting isDismissing = true
+            // never cancels this handler's coroutine mid-flight!
+            PredictiveBackHandler(enabled = true) { events ->
+                if (isDismissing) {
+                    events.collect {}
+                    return@PredictiveBackHandler
+                }
                 var committed = false
                 isPeeling = true
                 usedEdgeSwipe = true
@@ -490,19 +504,12 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
                 }
 
                 if (committed) {
-                    isDismissing = true
-                    val spec: AnimationSpec<Float> = when {
-                        reduceMotion -> tween(140, easing = AppMotion.AppleEase)
-                        displayedHeroRect != null -> AppMotion.navigationSpring()
-                        else -> tween(AppMotion.ScreenPop, easing = AppMotion.AppleSheet)
+                    // Launch completion on composition scope so it can never be cancelled by back handler disposal
+                    requestOverlayDismiss(fromEdgeSwipe = true)
+                } else if (!isDismissing) {
+                    scope.launch {
+                        dismissProgress.animateTo(0f, AppMotion.navigationSpring())
                     }
-                    dismissProgress.animateTo(1f, spec)
-                    onDismissOverlay()
-                    displayedOverlay = null
-                    displayedHeroRect = null
-                    isDismissing = false
-                } else {
-                    dismissProgress.animateTo(0f, AppMotion.navigationSpring())
                 }
             }
 
@@ -561,7 +568,7 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
                         }
                     },
             ) {
-                renderOverlay(activeOverlay, ::requestOverlayDismiss)
+                renderOverlay(activeOverlay) { requestOverlayDismiss(fromEdgeSwipe = false) }
             }
         }
     }
@@ -597,12 +604,15 @@ fun AppleSwipeableSheet(
             )
         } else if (isMounted && !isDismissing) {
             isDismissing = true
-            offsetY.animateTo(
-                targetValue = 1200f,
-                animationSpec = if (reduceMotion) tween(140, easing = AppMotion.AppleEase) else tween(AppMotion.Sheet, easing = AppMotion.AppleSheet),
-            )
-            isMounted = false
-            isDismissing = false
+            try {
+                offsetY.animateTo(
+                    targetValue = 1200f,
+                    animationSpec = if (reduceMotion) tween(140, easing = AppMotion.AppleEase) else tween(AppMotion.Sheet, easing = AppMotion.AppleSheet),
+                )
+            } finally {
+                isMounted = false
+                isDismissing = false
+            }
         }
     }
 
@@ -616,24 +626,27 @@ fun AppleSwipeableSheet(
             if (isDismissing) return
             isDismissing = true
             scope.launch {
-                val spec: AnimationSpec<Float> = when {
-                    reduceMotion -> tween(140, easing = AppMotion.AppleEase)
-                    initialVelocity > 250f -> spring(dampingRatio = 0.90f, stiffness = 200f)
-                    else -> tween(AppMotion.Sheet, easing = AppMotion.AppleSheet)
+                try {
+                    val spec: AnimationSpec<Float> = when {
+                        reduceMotion -> tween(140, easing = AppMotion.AppleEase)
+                        initialVelocity > 250f -> spring(dampingRatio = 0.90f, stiffness = 200f)
+                        else -> tween(AppMotion.Sheet, easing = AppMotion.AppleSheet)
+                    }
+                    offsetY.animateTo(
+                        targetValue = heightPx,
+                        initialVelocity = initialVelocity,
+                        animationSpec = spec,
+                    )
+                } finally {
+                    isMounted = false
+                    isDismissing = false
+                    onDismiss()
                 }
-                offsetY.animateTo(
-                    targetValue = heightPx,
-                    initialVelocity = initialVelocity,
-                    animationSpec = spec,
-                )
-                isMounted = false
-                isDismissing = false
-                onDismiss()
             }
         }
 
         // System Back gesture / button smoothly slides sheet down instead of snapping or exiting app
-        BackHandler(enabled = !isDismissing) {
+        BackHandler(enabled = true) {
             requestSheetDismiss()
         }
 

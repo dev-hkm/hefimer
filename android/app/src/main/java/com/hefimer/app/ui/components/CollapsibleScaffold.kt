@@ -59,7 +59,7 @@ fun HefimerCollapsibleScaffold(
     accentColor: Color = HefimerColors.White,
     onTitleClick: (() -> Unit)? = null,
     showOrbitMark: Boolean = false,
-    bottomDockClearance: Dp = 94.dp,
+    bottomDockClearance: Dp = 116.dp,
     headerActions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {

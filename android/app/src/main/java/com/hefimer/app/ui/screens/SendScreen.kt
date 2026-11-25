@@ -126,7 +126,6 @@ fun SendScreen(vm: HefimerViewModel) {
     val r2Stats by vm.r2Stats.collectAsState()
     val heroBounds = LocalHeroBounds.current
     val reduceMotion = rememberReduceMotion()
-    var showProviderPicker by remember { mutableStateOf(false) }
 
     val accent = if (state.isR2Mode && state.subMode == SendSubMode.FILE) {
         HefimerColors.Emerald400
@@ -178,26 +177,11 @@ fun SendScreen(vm: HefimerViewModel) {
                         vm = vm,
                         state = state,
                         todayBytes = if (state.isR2Mode) r2Stats.totalSize else stdStats.totalSize,
-                        onOpenProviderPicker = { showProviderPicker = true },
+                        onOpenProviderPicker = { vm.openSendProviderPicker() },
                     )
                     SendSubMode.TEXT -> SendTextSection(vm = vm, state = state)
                 }
             }
-        }
-
-        // Swipe-to-dismiss Provider Picker Sheet (all 12 providers)
-        AppleSwipeableSheet(
-            visible = showProviderPicker,
-            onDismiss = { showProviderPicker = false },
-        ) { dismiss ->
-            ProviderPickerSheetContent(
-                selectedId = state.selectedProviderId,
-                onSelect = {
-                    vm.selectUploadProvider(it)
-                    dismiss()
-                },
-                onClose = dismiss,
-            )
         }
 
         // Secret R2 Passcode Modal (triggered by 6 taps on Send File)
@@ -1275,7 +1259,7 @@ fun ProviderPickerSheetContent(
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(UploadProviders.ALL, key = { it.id }) { prov ->

@@ -220,6 +220,7 @@ private fun HistoryItemCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(end = 10.dp),
             ) {
                 Icon(
                     imageVector = typeIcon,
@@ -233,13 +234,14 @@ private fun HistoryItemCard(
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 if (item.fileSize != null && item.fileSize > 0L) {
-                    Text("•", color = HefimerColors.White20, fontSize = 10.sp)
-                    Text(formatBytes(item.fileSize), color = HefimerColors.White30, fontSize = 10.sp)
+                    Text("•", color = HefimerColors.White20, fontSize = 10.sp, maxLines = 1, softWrap = false)
+                    Text(formatBytes(item.fileSize), color = HefimerColors.White30, fontSize = 10.sp, maxLines = 1, softWrap = false)
                 }
-                Text("•", color = HefimerColors.White20, fontSize = 10.sp)
-                Text(timeLabel, color = HefimerColors.White30, fontSize = 10.sp)
+                Text("•", color = HefimerColors.White20, fontSize = 10.sp, maxLines = 1, softWrap = false)
+                Text(timeLabel, color = HefimerColors.White30, fontSize = 10.sp, maxLines = 1, softWrap = false)
             }
         }
 

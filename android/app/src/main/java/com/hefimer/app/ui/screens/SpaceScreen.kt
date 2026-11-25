@@ -3,6 +3,8 @@ package com.hefimer.app.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,6 +12,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,16 +23,19 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.CenterFocusStrong
@@ -39,6 +45,7 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Grid4x4
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Inventory2
@@ -48,36 +55,44 @@ import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.launch
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
@@ -382,6 +397,10 @@ fun SpaceScreen(vm: HefimerViewModel) {
 
 /**
  * Full-screen interactive collaborative infinite canvas overlay for Hefimer Space.
+ * - True infinite unclipped world space: cards and buttons work reliably at ANY coordinate & zoom level.
+ * - Focal-point pinch zoom (20%..300%) + smooth spring Zoom HUD (- | 100% | +) + smart Fit/Recenter.
+ * - Dual-scale architectural grid (minor dots + major intersections + subtle world origin crosshair).
+ * - 120Hz GPU-accelerated drag-and-drop with lift scale, z-index elevation, haptic tick, and spring grid snap.
  */
 @Composable
 fun SpaceCanvasOverlay(
@@ -390,12 +409,14 @@ fun SpaceCanvasOverlay(
 ) {
     val state by vm.spaceState.collectAsState()
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    var panX by remember { mutableFloatStateOf(0f) }
-    var panY by remember { mutableFloatStateOf(0f) }
-    var zoom by remember { mutableFloatStateOf(1f) }
+    val panX = remember { Animatable(0f) }
+    val panY = remember { Animatable(0f) }
+    val zoom = remember { Animatable(1f) }
     var snapGrid by remember { mutableStateOf(true) }
     var showQr by remember { mutableStateOf(false) }
     var showProviderSheet by remember { mutableStateOf(false) }
@@ -417,76 +438,207 @@ fun SpaceCanvasOverlay(
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) {
-            val targetX = ((-panX) / zoom + 80f).coerceIn(-2000f, 4000f)
-            val targetY = ((-panY) / zoom + 160f).coerceIn(-2000f, 4000f)
-            vm.spaceUploadFiles(uris, targetX, targetY)
-        }
-    }
-
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(HefimerColors.Black)
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, gestureZoom, _ ->
-                    zoom = (zoom * gestureZoom).coerceIn(0.35f, 2.2f)
-                    panX += pan.x
-                    panY += pan.y
-                }
-            },
+            .background(HefimerColors.Black),
     ) {
-        // Infinite dot-grid background synchronized with pan & zoom
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val step = (28.dp.toPx() * zoom).coerceAtLeast(14f)
-            val ox = ((panX % step) + step) % step
-            val oy = ((panY % step) + step) % step
-            val dotRadius = (1.1.dp.toPx() * zoom).coerceIn(0.8f, 2.5f)
-            var x = ox
-            while (x < size.width) {
-                var y = oy
-                while (y < size.height) {
-                    drawCircle(color = Color.White.copy(alpha = 0.10f), radius = dotRadius, center = Offset(x, y))
-                    y += step
-                }
-                x += step
+        val viewportW = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+        val viewportH = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+
+        fun viewportCenterWorld(offsetIndex: Int = 0): Pair<Float, Float> {
+            val z = zoom.value.coerceAtLeast(0.20f)
+            val cardW = with(density) { 248.dp.toPx() }
+            val wx = ((viewportW / 2f) - panX.value) / z - (cardW / 2f) + (offsetIndex * 28f)
+            val wy = ((viewportH / 2f) - panY.value) / z - 90f + (offsetIndex * 28f)
+            return wx to wy
+        }
+
+        fun animateCameraTo(targetPanX: Float, targetPanY: Float, targetZoom: Float) {
+            scope.launch { panX.animateTo(targetPanX, AppMotion.navigationSpring()) }
+            scope.launch { panY.animateTo(targetPanY, AppMotion.navigationSpring()) }
+            scope.launch { zoom.animateTo(targetZoom.coerceIn(0.20f, 3.0f), AppMotion.navigationSpring()) }
+        }
+
+        fun recenterCanvas() {
+            val items = state.items
+            if (items.isEmpty()) {
+                animateCameraTo(0f, 0f, 1f)
+                return
+            }
+            val cardW = with(density) { 248.dp.toPx() }
+            val cardH = with(density) { 180.dp.toPx() }
+            val minX = items.minOf { it.x }
+            val maxX = items.maxOf { it.x + cardW }
+            val minY = items.minOf { it.y }
+            val maxY = items.maxOf { it.y + cardH }
+            val contentW = (maxX - minX).coerceAtLeast(cardW)
+            val contentH = (maxY - minY).coerceAtLeast(cardH)
+            val fitZoom = minOf(
+                (viewportW * 0.82f) / contentW,
+                (viewportH * 0.62f) / contentH,
+            ).coerceIn(0.30f, 1.15f)
+            val centerX = (minX + maxX) / 2f
+            val centerY = (minY + maxY) / 2f
+            animateCameraTo(
+                targetPanX = viewportW / 2f - centerX * fitZoom,
+                targetPanY = viewportH / 2f - centerY * fitZoom,
+                targetZoom = fitZoom,
+            )
+        }
+
+        fun zoomByFactor(factor: Float) {
+            val curZoom = zoom.value
+            val targetZoom = (curZoom * factor).coerceIn(0.20f, 3.0f)
+            val ratio = targetZoom / curZoom
+            val cx = viewportW / 2f
+            val cy = viewportH / 2f
+            animateCameraTo(
+                targetPanX = cx - (cx - panX.value) * ratio,
+                targetPanY = cy - (cy - panY.value) * ratio,
+                targetZoom = targetZoom,
+            )
+        }
+
+        val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+            if (uris.isNotEmpty()) {
+                val (wx, wy) = viewportCenterWorld()
+                vm.spaceUploadFiles(uris, wx, wy)
             }
         }
 
-        // World items container transformed by pan & zoom
+        // Gesture layer for infinite pan + focal-point pinch zoom
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    translationX = panX
-                    translationY = panY
-                    scaleX = zoom
-                    scaleY = zoom
-                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                .pointerInput(Unit) {
+                    detectTransformGestures { centroid, pan, gestureZoom, _ ->
+                        val curZoom = zoom.value
+                        val newZoom = (curZoom * gestureZoom).coerceIn(0.20f, 3.0f)
+                        val ratio = newZoom / curZoom
+                        val nextPanX = centroid.x - (centroid.x - panX.value) * ratio + pan.x
+                        val nextPanY = centroid.y - (centroid.y - panY.value) * ratio + pan.y
+                        scope.launch {
+                            zoom.snapTo(newZoom)
+                            panX.snapTo(nextPanX)
+                            panY.snapTo(nextPanY)
+                        }
+                    }
                 },
         ) {
-            state.items.forEach { item ->
-                SpaceCanvasCard(
-                    item = item,
-                    zoom = zoom,
-                    snapGrid = snapGrid,
-                    onDragFinish = { nx, ny ->
-                        val nextZ = (state.items.maxOfOrNull { it.zIndex } ?: 1) + 1
-                        vm.spaceMoveItem(item, nx, ny, nextZ)
-                    },
-                    onTap = { previewItem = item },
-                    onDownload = {
-                        item.url?.let { url ->
-                            vm.downloadDropFile(DropFileEntry(fileName = item.name, fileUrl = url, fileSize = item.size ?: 0L))
-                        }
-                    },
-                    onOpenLink = { item.url?.let { DownloadHelper.openExternalUrl(context, it) } },
-                    onDelete = { vm.spaceDeleteItem(item) },
-                )
+            // Large adaptive dual-scale infinite grid (minor dots + major grid lines + origin crosshair)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val curZoom = zoom.value
+                val curPanX = panX.value
+                val curPanY = panY.value
+
+                // Auto-adapt base grid cell size so grid stays crisp & expansive from 20% to 300% zoom
+                var worldStep = 36.dp.toPx()
+                while (worldStep * curZoom < 22f) worldStep *= 2f
+                while (worldStep * curZoom > 96f) worldStep /= 2f
+
+                val minorStep = worldStep * curZoom
+                val majorStep = minorStep * 4f
+
+                // Major subtle grid lines
+                val majorStartX = ((curPanX % majorStep) + majorStep) % majorStep
+                val majorStartY = ((curPanY % majorStep) + majorStep) % majorStep
+                var mx = majorStartX
+                while (mx < size.width) {
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.055f),
+                        start = Offset(mx, 0f),
+                        end = Offset(mx, size.height),
+                        strokeWidth = 1f,
+                    )
+                    mx += majorStep
+                }
+                var my = majorStartY
+                while (my < size.height) {
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.055f),
+                        start = Offset(0f, my),
+                        end = Offset(size.width, my),
+                        strokeWidth = 1f,
+                    )
+                    my += majorStep
+                }
+
+                // Minor crisp dot grid
+                val ox = ((curPanX % minorStep) + minorStep) % minorStep
+                val oy = ((curPanY % minorStep) + minorStep) % minorStep
+                val dotRadius = (1.25.dp.toPx() * curZoom.coerceIn(0.65f, 1.6f)).coerceIn(1.0f, 2.6f)
+                var x = ox
+                while (x < size.width) {
+                    var y = oy
+                    while (y < size.height) {
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.13f),
+                            radius = dotRadius,
+                            center = Offset(x, y),
+                        )
+                        y += minorStep
+                    }
+                    x += minorStep
+                }
+
+                // Subtle world origin crosshair (0, 0)
+                if (curPanX in -40f..(size.width + 40f) && curPanY in -40f..(size.height + 40f)) {
+                    val arm = 14.dp.toPx()
+                    drawLine(
+                        color = HefimerColors.Emerald400.copy(alpha = 0.35f),
+                        start = Offset(curPanX - arm, curPanY),
+                        end = Offset(curPanX + arm, curPanY),
+                        strokeWidth = 1.5f,
+                    )
+                    drawLine(
+                        color = HefimerColors.Emerald400.copy(alpha = 0.35f),
+                        start = Offset(curPanX, curPanY - arm),
+                        end = Offset(curPanX, curPanY + arm),
+                        strokeWidth = 1.5f,
+                    )
+                }
             }
 
-            // Live remote cursors
+            // World items positioned directly in screen space (unclipped, infinite hit-testing!)
+            state.items.forEach { item ->
+                key(item.id) {
+                    SpaceCanvasCard(
+                        item = item,
+                        panX = panX.value,
+                        panY = panY.value,
+                        zoom = zoom.value,
+                        snapGrid = snapGrid,
+                        onDragFinish = { nx, ny ->
+                            val nextZ = (state.items.maxOfOrNull { it.zIndex } ?: 1) + 1
+                            vm.spaceMoveItem(item, nx, ny, nextZ)
+                        },
+                        onTap = { previewItem = item },
+                        onEdit = {
+                            if (item.kind != "file") {
+                                editingItem = item
+                                composerMode = item.kind
+                            } else {
+                                previewItem = item
+                            }
+                        },
+                        onCopy = {
+                            val copyTarget = item.content?.takeIf { it.isNotBlank() } ?: item.url ?: item.name
+                            copyToClipboard(context, item.name, copyTarget)
+                            vm.showToast("Copied ${item.name}", ToastType.SUCCESS)
+                        },
+                        onDownload = {
+                            item.url?.let { url ->
+                                vm.downloadDropFile(DropFileEntry(fileName = item.name, fileUrl = url, fileSize = item.size ?: 0L))
+                            }
+                        },
+                        onOpenLink = { item.url?.let { DownloadHelper.openExternalUrl(context, it) } },
+                        onDelete = { vm.spaceDeleteItem(item) },
+                    )
+                }
+            }
+
+            // Live remote cursors in screen space
             state.cursors.forEach { cursor ->
                 val col = runCatching { Color(android.graphics.Color.parseColor(cursor.color)) }
                     .getOrDefault(HefimerColors.Emerald400)
@@ -494,7 +646,10 @@ fun SpaceCanvasOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
-                        .offset { IntOffset(cursor.x.roundToInt(), cursor.y.roundToInt()) }
+                        .graphicsLayer {
+                            translationX = cursor.x * zoom.value + panX.value
+                            translationY = cursor.y * zoom.value + panY.value
+                        }
                         .clip(CircleShape)
                         .background(col)
                         .padding(horizontal = 8.dp, vertical = 3.dp),
@@ -507,12 +662,17 @@ fun SpaceCanvasOverlay(
         // Empty hint
         if (state.items.isEmpty()) {
             Column(
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("Empty Canvas", color = HefimerColors.White50, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("Use the dock below to drop files, sticky notes, links, or code.", color = HefimerColors.White30, fontSize = 12.sp)
+                Text("Infinite Canvas", color = HefimerColors.White50, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Pinch to zoom, drag to explore, or drop files, notes, links & code below.",
+                    color = HefimerColors.White30,
+                    fontSize = 12.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
             }
         }
 
@@ -523,7 +683,7 @@ fun SpaceCanvasOverlay(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .background(HefimerColors.Black.copy(alpha = 0.78f))
+                .background(HefimerColors.Black.copy(alpha = 0.82f))
                 .padding(top = statusTop + 8.dp, bottom = 10.dp, start = 14.dp, end = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
@@ -547,7 +707,7 @@ fun SpaceCanvasOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "#${state.activeSpaceId}",
                             color = HefimerColors.Emerald400,
@@ -564,10 +724,16 @@ fun SpaceCanvasOverlay(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SpaceMiniTool(Icons.Rounded.Grid4x4, active = snapGrid) { snapGrid = !snapGrid }
-                SpaceMiniTool(Icons.Rounded.AutoAwesome, active = false) { vm.spaceAutoArrange() }
+                SpaceMiniTool(Icons.Rounded.Grid4x4, active = snapGrid) {
+                    snapGrid = !snapGrid
+                    vm.showToast(if (snapGrid) "Snap to grid ON" else "Free positioning ON", ToastType.INFO)
+                }
+                SpaceMiniTool(Icons.Rounded.AutoAwesome, active = false) {
+                    vm.spaceAutoArrange()
+                    animateCameraTo(0f, 0f, 0.88f)
+                }
                 SpaceMiniTool(Icons.Rounded.CenterFocusStrong, active = false) {
-                    panX = 0f; panY = 0f; zoom = 1f
+                    recenterCanvas()
                 }
                 SpaceMiniTool(Icons.Rounded.QrCode2, active = false) { showQr = true }
             }
@@ -628,6 +794,52 @@ fun SpaceCanvasOverlay(
             }
         }
 
+        // Floating Zoom Controls Pill (above bottom creation dock)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = navBottom + 86.dp, end = 16.dp)
+                .clip(CircleShape)
+                .background(Color(0xE60D0D0D))
+                .border(1.dp, HefimerColors.White15, CircleShape)
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .applePressable(pressedScale = 0.88f) { zoomByFactor(0.78f) },
+            ) {
+                Icon(Icons.Rounded.Remove, "Zoom out", tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+            }
+            Text(
+                text = "${(zoom.value * 100f).roundToInt()}%",
+                color = HefimerColors.White80,
+                style = TextStyle(
+                    fontFamily = JetBrainsMonoFamily,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFeatureSettings = "tnum",
+                ),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .applePressable(pressedScale = 0.92f) { recenterCanvas() }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .applePressable(pressedScale = 0.88f) { zoomByFactor(1.28f) },
+            ) {
+                Icon(Icons.Rounded.Add, "Zoom in", tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+            }
+        }
+
         // Bottom floating canvas creation toolbar
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -683,9 +895,8 @@ fun SpaceCanvasOverlay(
                     if (existing != null) {
                         vm.spaceUpdateItem(existing, name, content, url, color)
                     } else {
-                        val x = ((-panX) / zoom + 70f).coerceIn(-2000f, 4000f)
-                        val y = ((-panY) / zoom + 160f).coerceIn(-2000f, 4000f)
-                        vm.spaceAddItem(composerMode!!, name, content, url, color, x, y)
+                        val (wx, wy) = viewportCenterWorld(state.items.size % 5)
+                        vm.spaceAddItem(composerMode!!, name, content, url, color, wx, wy)
                     }
                     composerMode = null
                     editingItem = null
@@ -727,18 +938,47 @@ fun SpaceCanvasOverlay(
 @Composable
 private fun SpaceCanvasCard(
     item: SpaceItem,
+    panX: Float,
+    panY: Float,
     zoom: Float,
     snapGrid: Boolean,
     onDragFinish: (Float, Float) -> Unit,
     onTap: () -> Unit,
+    onEdit: () -> Unit,
+    onCopy: () -> Unit,
     onDownload: () -> Unit,
     onOpenLink: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var localX by remember(item.id, item.x) { mutableFloatStateOf(item.x) }
-    var localY by remember(item.id, item.y) { mutableFloatStateOf(item.y) }
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val currentZoom by rememberUpdatedState(zoom)
+    val currentSnap by rememberUpdatedState(snapGrid)
+    val currentOnDragFinish by rememberUpdatedState(onDragFinish)
 
-    val (bg, border) = if (item.kind == "note") {
+    val worldX = remember(item.id) { Animatable(item.x) }
+    val worldY = remember(item.id) { Animatable(item.y) }
+    var isDragging by remember(item.id) { mutableStateOf(false) }
+
+    // Smoothly follow remote updates only when the user isn't actively dragging this card
+    LaunchedEffect(item.x, item.y, isDragging) {
+        if (!isDragging) {
+            if (kotlin.math.abs(worldX.value - item.x) > 0.5f) {
+                launch { worldX.animateTo(item.x, AppMotion.layoutSpring()) }
+            }
+            if (kotlin.math.abs(worldY.value - item.y) > 0.5f) {
+                launch { worldY.animateTo(item.y, AppMotion.layoutSpring()) }
+            }
+        }
+    }
+
+    val liftScale by animateFloatAsState(
+        targetValue = if (isDragging) 1.035f else 1f,
+        animationSpec = if (isDragging) AppMotion.pressDownSpring() else AppMotion.fluidSpring(),
+        label = "card_lift",
+    )
+
+    val (bg, baseBorder) = if (item.kind == "note") {
         when (item.noteColor) {
             "emerald" -> HefimerColors.NoteEmeraldBg to HefimerColors.NoteEmeraldBorder
             "amber" -> HefimerColors.NoteAmberBg to HefimerColors.NoteAmberBorder
@@ -750,6 +990,7 @@ private fun SpaceCanvasCard(
     } else {
         HefimerColors.SurfaceCard.copy(alpha = 0.96f) to HefimerColors.White15
     }
+    val borderColor = if (isDragging) HefimerColors.White50 else baseBorder
 
     val previewUrl = remember(item.url, item.mimeType) {
         if (item.kind == "file" && item.mimeType?.startsWith("image/") == true) {
@@ -759,28 +1000,51 @@ private fun SpaceCanvasCard(
 
     Column(
         modifier = Modifier
-            .offset { IntOffset(localX.roundToInt(), localY.roundToInt()) }
-            .width(240.dp)
+            .zIndex(if (isDragging) 1000f else item.zIndex.toFloat())
+            .graphicsLayer {
+                translationX = worldX.value * zoom + panX
+                translationY = worldY.value * zoom + panY
+                scaleX = zoom * liftScale
+                scaleY = zoom * liftScale
+                transformOrigin = TransformOrigin(0f, 0f)
+                shadowElevation = if (isDragging) 24f else 6f
+            }
+            .width(248.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(bg)
-            .border(1.dp, border, RoundedCornerShape(24.dp))
-            .pointerInput(item.id, zoom, snapGrid) {
+            .border(if (isDragging) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(24.dp))
+            .pointerInput(item.id) {
                 detectDragGestures(
+                    onDragStart = {
+                        isDragging = true
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    },
                     onDragEnd = {
-                        val finalX = if (snapGrid) (localX / 20f).roundToInt() * 20f else localX
-                        val finalY = if (snapGrid) (localY / 20f).roundToInt() * 20f else localY
-                        localX = finalX
-                        localY = finalY
-                        onDragFinish(finalX, finalY)
+                        val rawX = worldX.value
+                        val rawY = worldY.value
+                        val finalX = if (currentSnap) (rawX / 24f).roundToInt() * 24f else rawX
+                        val finalY = if (currentSnap) (rawY / 24f).roundToInt() * 24f else rawY
+                        isDragging = false
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        scope.launch { worldX.animateTo(finalX, AppMotion.layoutSpring()) }
+                        scope.launch { worldY.animateTo(finalY, AppMotion.layoutSpring()) }
+                        currentOnDragFinish(finalX, finalY)
+                    },
+                    onDragCancel = {
+                        isDragging = false
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        localX += dragAmount.x / zoom
-                        localY += dragAmount.y / zoom
+                        // pointerInput is after graphicsLayer(scale = zoom * liftScale),
+                        // so dragAmount is already in local world coordinates (exact 1:1 with finger).
+                        scope.launch {
+                            worldX.snapTo(worldX.value + dragAmount.x)
+                            worldY.snapTo(worldY.value + dragAmount.y)
+                        }
                     },
                 )
             }
-            .applePressable(pressedScale = 0.985f, onClick = onTap)
+            .applePressable(pressedScale = 0.985f, enableHaptic = false, onClick = onTap)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -831,7 +1095,7 @@ private fun SpaceCanvasCard(
             Text(
                 text = item.content,
                 color = HefimerColors.White70,
-                fontFamily = if (item.kind == "code") JetBrainsMonoFamily else com.hefimer.app.ui.theme.UbuntuFontFamily,
+                fontFamily = if (item.kind == "code") JetBrainsMonoFamily else UbuntuFontFamily,
                 fontSize = if (item.kind == "code") 11.sp else 12.sp,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
@@ -854,36 +1118,44 @@ private fun SpaceCanvasCard(
             )
         }
 
+        // Generous 32.dp circular action buttons so every action works reliably on touch
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (item.kind == "file" && !item.url.isNullOrBlank()) {
-                Icon(
-                    Icons.Rounded.Download,
-                    "Download",
-                    tint = HefimerColors.White70,
-                    modifier = Modifier.size(18.dp).applePressable(onClick = onDownload),
-                )
-                Spacer(Modifier.width(12.dp))
+                SpaceCardActionIcon(Icons.Rounded.Download, "Download", HefimerColors.White80, onDownload)
             }
             if (item.kind == "link" && !item.url.isNullOrBlank()) {
-                Icon(
-                    Icons.Rounded.OpenInNew,
-                    "Open",
-                    tint = HefimerColors.Sky400,
-                    modifier = Modifier.size(18.dp).applePressable(onClick = onOpenLink),
-                )
-                Spacer(Modifier.width(12.dp))
+                SpaceCardActionIcon(Icons.Rounded.OpenInNew, "Open", HefimerColors.Sky400, onOpenLink)
             }
-            Icon(
-                Icons.Rounded.DeleteOutline,
-                "Delete",
-                tint = HefimerColors.White30,
-                modifier = Modifier.size(18.dp).applePressable(onClick = onDelete),
-            )
+            if (item.kind != "file") {
+                SpaceCardActionIcon(Icons.Rounded.ContentCopy, "Copy", HefimerColors.White70, onCopy)
+                SpaceCardActionIcon(Icons.Rounded.Edit, "Edit", HefimerColors.White70, onEdit)
+            }
+            SpaceCardActionIcon(Icons.Rounded.DeleteOutline, "Delete", HefimerColors.Red400, onDelete)
         }
+    }
+}
+
+@Composable
+private fun SpaceCardActionIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(HefimerColors.White06)
+            .border(1.dp, HefimerColors.White10, CircleShape)
+            .applePressable(pressedScale = 0.88f, onClick = onClick),
+    ) {
+        Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(15.dp))
     }
 }
 
@@ -1079,6 +1351,8 @@ private fun SpaceItemPreviewDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(max = 280.dp)
+                            .verticalScroll(rememberScrollState())
                             .clip(RoundedCornerShape(18.dp))
                             .background(HefimerColors.Black)
                             .border(1.dp, HefimerColors.White10, RoundedCornerShape(18.dp))
@@ -1090,6 +1364,13 @@ private fun SpaceItemPreviewDialog(
                             Text(item.content, fontSize = 13.sp, color = HefimerColors.White80)
                         }
                     }
+                } else if (item.kind == "file") {
+                    Text(
+                        text = "${formatBytes(item.size ?: 0L)} • ${item.providerName ?: "Host"}",
+                        color = HefimerColors.White50,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 12.sp,
+                    )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1119,3 +1400,4 @@ private fun SpaceItemPreviewDialog(
         }
     }
 }
+

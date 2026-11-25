@@ -96,6 +96,7 @@ data class SendUiState(
     val subMode: SendSubMode = SendSubMode.FILE,
     val isR2Mode: Boolean = false,
     val showR2AuthDialog: Boolean = false,
+    val showProviderPicker: Boolean = false,
     // File state
     val pickedFiles: List<LocalPickedFile> = emptyList(),
     val isFolderMode: Boolean = false,
@@ -319,12 +320,24 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun openSendProviderPicker() {
+        _sendState.update { it.copy(showProviderPicker = true) }
+    }
+
+    fun closeSendProviderPicker() {
+        _sendState.update { it.copy(showProviderPicker = false) }
+    }
+
     /**
      * Handles back navigation on Layer 0 (when no overlay/sheet is mounted).
      * Returns true if consumed inside the app, or false only on intentional double-back at root.
      */
     fun handleBackNavigation(): Boolean {
         // 1. Dismiss in-app modals/prompts first
+        if (_sendState.value.showProviderPicker) {
+            closeSendProviderPicker()
+            return true
+        }
         if (_sendState.value.showR2AuthDialog) {
             dismissR2AuthDialog()
             return true

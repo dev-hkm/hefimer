@@ -40,7 +40,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +57,7 @@ import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.components.FloatingDownloadProgressBanner
 import com.hefimer.app.ui.components.HefimerFloatingBottomDock
+import com.hefimer.app.ui.components.HefimerLaunchIntro
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerToastHost
 import com.hefimer.app.ui.components.MainTab
@@ -63,6 +66,7 @@ import com.hefimer.app.ui.screens.ChatRoomOverlay
 import com.hefimer.app.ui.screens.FloatingIncomingOfferBanner
 import com.hefimer.app.ui.screens.HistoryOverlayScreen
 import com.hefimer.app.ui.screens.LinkScreen
+import com.hefimer.app.ui.screens.ProviderPickerSheetContent
 import com.hefimer.app.ui.screens.ReceiveScreen
 import com.hefimer.app.ui.screens.RoomsScreen
 import com.hefimer.app.ui.screens.SendScreen
@@ -70,6 +74,7 @@ import com.hefimer.app.ui.screens.SpaceCanvasOverlay
 import com.hefimer.app.ui.screens.SpaceScreen
 import com.hefimer.app.ui.screens.WhiteboardOverlay
 import com.hefimer.app.ui.theme.AppleLayeredNavigationHost
+import com.hefimer.app.ui.theme.AppleSwipeableSheet
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.HefimerTheme
 import com.hefimer.app.ui.theme.HeroBoundsRegistry
@@ -221,6 +226,21 @@ private fun HefimerRootScreen(
                     .padding(bottom = navBottom + if (activeOverlay == null) 78.dp else 20.dp),
             )
 
+            // Send Provider Picker Sheet (mounted above bottom nav so it is NEVER covered by the dock)
+            AppleSwipeableSheet(
+                visible = sendState.showProviderPicker,
+                onDismiss = { vm.closeSendProviderPicker() },
+            ) { dismiss ->
+                ProviderPickerSheetContent(
+                    selectedId = sendState.selectedProviderId,
+                    onSelect = {
+                        vm.selectUploadProvider(it)
+                        dismiss()
+                    },
+                    onClose = dismiss,
+                )
+            }
+
             // Global Notice Banner (from Firebase stats)
             AnimatedVisibility(
                 visible = isNoticeVisible,
@@ -332,8 +352,14 @@ private fun HefimerRootScreen(
                 }
             }
 
-            // Floating Toast Host (highest z-index)
+            // Floating Toast Host
             HefimerToastHost(toast = toast, modifier = Modifier.align(Alignment.TopCenter))
+
+            // Minimalist Apple-grade Circular Logo Launch Intro (runs once on cold start)
+            var showLaunchIntro by remember { mutableStateOf(true) }
+            if (showLaunchIntro) {
+                HefimerLaunchIntro(onFinished = { showLaunchIntro = false })
+            }
         }
     }
 }
