@@ -107,7 +107,7 @@ fun HefimerFloatingBottomDock(
                 .fillMaxWidth()
                 .height(pillHeight)
                 .clip(CircleShape)
-                .background(Color(0xEB0D0D0D))
+                .background(HefimerColors.DockBg)
                 .border(1.dp, HefimerColors.White15, CircleShape)
                 .padding(innerPadding),
         ) {

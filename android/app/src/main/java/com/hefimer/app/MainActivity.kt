@@ -38,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,7 @@ import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerToastHost
 import com.hefimer.app.ui.components.MainTab
 import com.hefimer.app.ui.components.QrScannerOverlay
+import com.hefimer.app.ui.components.SettingsSheetContent
 import com.hefimer.app.ui.screens.ChatRoomOverlay
 import com.hefimer.app.ui.screens.FloatingIncomingOfferBanner
 import com.hefimer.app.ui.screens.HistoryOverlayScreen
@@ -101,7 +103,21 @@ class MainActivity : ComponentActivity() {
         viewModel.handleIncomingIntent(intent)
 
         setContent {
-            HefimerTheme {
+            val isLightMode by viewModel.isLightMode.collectAsState()
+            LaunchedEffect(isLightMode) {
+                if (isLightMode) {
+                    enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+                        navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+                    )
+                } else {
+                    enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                        navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                    )
+                }
+            }
+            HefimerTheme(isLightMode = isLightMode) {
                 HefimerRootScreen(
                     vm = viewModel,
                     onExitApp = { finish() },
@@ -131,6 +147,10 @@ private fun HefimerRootScreen(
     val downloadState by vm.downloadState.collectAsState()
     val globalStats by vm.globalStats.collectAsState()
     val noticeDismissed by vm.noticeDismissed.collectAsState()
+    val isLightMode by vm.isLightMode.collectAsState()
+    val defaultProviderId by vm.defaultProviderId.collectAsState()
+    val showSettingsSheet by vm.showSettingsSheet.collectAsState()
+    val history by vm.history.collectAsState()
 
     val heroRegistry = remember { HeroBoundsRegistry() }
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -226,13 +246,34 @@ private fun HefimerRootScreen(
                     .padding(bottom = navBottom + if (activeOverlay == null) 78.dp else 20.dp),
             )
 
-            // Send Provider Picker Sheet (mounted above bottom nav so it is NEVER covered by the dock)
+            // Settings Sheet (Light/Dark mode, Default Provider, History) with full PredictiveBackHandler
+            AppleSwipeableSheet(
+                visible = showSettingsSheet,
+                onDismiss = { vm.closeSettings() },
+            ) { dismiss ->
+                SettingsSheetContent(
+                    isLightMode = isLightMode,
+                    defaultProviderId = defaultProviderId,
+                    historyCount = history.size,
+                    onSetLightMode = { vm.setLightMode(it) },
+                    onOpenProviderPicker = {
+                        dismiss()
+                        vm.openSendProviderPicker()
+                    },
+                    onClearHistory = { vm.clearHistory() },
+                    onClose = dismiss,
+                )
+            }
+
+            // Send Provider Picker Sheet (mounted above bottom nav & Settings so it is NEVER covered)
             AppleSwipeableSheet(
                 visible = sendState.showProviderPicker,
                 onDismiss = { vm.closeSendProviderPicker() },
             ) { dismiss ->
                 ProviderPickerSheetContent(
                     selectedId = sendState.selectedProviderId,
+                    defaultProviderId = defaultProviderId,
+                    onSetDefault = { vm.setDefaultUploadProvider(it) },
                     onSelect = {
                         vm.selectUploadProvider(it)
                         dismiss()

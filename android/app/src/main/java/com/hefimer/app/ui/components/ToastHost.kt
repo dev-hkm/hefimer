@@ -89,11 +89,11 @@ fun HefimerToastHost(
             val bg = when (current.type) {
                 ToastType.SUCCESS -> HefimerColors.White
                 ToastType.ERROR -> HefimerColors.Red500
-                ToastType.INFO -> Color(0xF0101010)
+                ToastType.INFO -> HefimerColors.BannerBg
             }
             val fg = when (current.type) {
                 ToastType.SUCCESS -> HefimerColors.Black
-                ToastType.ERROR -> HefimerColors.White
+                ToastType.ERROR -> Color.White
                 ToastType.INFO -> HefimerColors.White
             }
             val borderColor = if (isLight) bg else HefimerColors.White20
@@ -346,7 +346,7 @@ fun FloatingDownloadProgressBanner(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xF2101010))
+                .background(HefimerColors.BannerBg)
                 .border(1.dp, HefimerColors.White15, RoundedCornerShape(24.dp))
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {

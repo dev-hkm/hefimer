@@ -49,7 +49,10 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -152,6 +155,11 @@ fun SendScreen(vm: HefimerViewModel) {
                     contentDescription = "History",
                     modifier = Modifier.heroSource("btn_history_send", heroBounds),
                     onClick = { vm.openOverlay(AppOverlay.History, "btn_history_send") },
+                )
+                HefimerHeaderIconButton(
+                    icon = Icons.Rounded.Settings,
+                    contentDescription = "Settings",
+                    onClick = { vm.openSettings() },
                 )
             },
         ) {
@@ -1189,6 +1197,8 @@ private fun EditorMiniIcon(
 @Composable
 fun ProviderPickerSheetContent(
     selectedId: String,
+    defaultProviderId: String? = null,
+    onSetDefault: ((String) -> Unit)? = null,
     onSelect: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -1197,10 +1207,10 @@ fun ProviderPickerSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.84f)
-            .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp))
+            .fillMaxHeight(0.76f)
+            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
             .background(HefimerColors.SurfaceSheet)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp))
+            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
             .navigationBarsPadding(),
     ) {
         // Drag handle pill
@@ -1224,7 +1234,7 @@ fun ProviderPickerSheetContent(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "TRANSFER ROUTE",
-                    color = HefimerColors.Emerald300,
+                    color = HefimerColors.Emerald400,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.2.sp,
@@ -1237,7 +1247,7 @@ fun ProviderPickerSheetContent(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Auto-fallback switches seamlessly if a host is unavailable.",
+                    text = "Tap ★ to set default. Larger files auto-route seamlessly.",
                     color = HefimerColors.White40,
                     fontSize = 11.sp,
                 )
@@ -1245,7 +1255,7 @@ fun ProviderPickerSheetContent(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
                     .background(HefimerColors.White06)
                     .border(1.dp, HefimerColors.White10, CircleShape)
@@ -1259,15 +1269,17 @@ fun ProviderPickerSheetContent(
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 28.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(UploadProviders.ALL, key = { it.id }) { prov ->
                 ProviderRowCard(
                     prov = prov,
                     selected = prov.id == selectedId,
+                    isDefault = prov.id == defaultProviderId,
                     expanded = expandedId == prov.id,
                     onSelect = { onSelect(prov.id) },
+                    onSetDefault = onSetDefault?.let { cb -> { cb(prov.id) } },
                     onToggleExpand = { expandedId = if (expandedId == prov.id) null else prov.id },
                 )
             }
@@ -1279,8 +1291,10 @@ fun ProviderPickerSheetContent(
 private fun ProviderRowCard(
     prov: UploadProviderConfig,
     selected: Boolean,
+    isDefault: Boolean,
     expanded: Boolean,
     onSelect: () -> Unit,
+    onSetDefault: (() -> Unit)?,
     onToggleExpand: () -> Unit,
 ) {
     val bg by animateColorAsState(
@@ -1302,7 +1316,7 @@ private fun ProviderRowCard(
                 .fillMaxWidth()
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1316,7 +1330,7 @@ private fun ProviderRowCard(
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (selected) HefimerColors.Black.copy(alpha = 0.08f) else HefimerColors.Black.copy(alpha = 0.45f))
                         .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White10, RoundedCornerShape(12.dp)),
@@ -1334,7 +1348,19 @@ private fun ProviderRowCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text(prov.name, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        if (prov.isLargeFile) {
+                        if (isDefault) {
+                            Text(
+                                text = "DEFAULT",
+                                color = if (selected) HefimerColors.Black.copy(alpha = 0.7f) else HefimerColors.Emerald400,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.12f) else HefimerColors.EmeraldBg)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        } else if (prov.isLargeFile) {
                             Text(
                                 text = "LARGE",
                                 color = if (selected) HefimerColors.Black.copy(alpha = 0.6f) else HefimerColors.Emerald300,
@@ -1343,7 +1369,7 @@ private fun ProviderRowCard(
                                 letterSpacing = 1.sp,
                                 modifier = Modifier
                                     .clip(CircleShape)
-                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.1f) else HefimerColors.Emerald400.copy(alpha = 0.12f))
+                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.1f) else HefimerColors.EmeraldBg)
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             )
                         }
@@ -1359,12 +1385,30 @@ private fun ProviderRowCard(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(22.dp)
+                            .size(20.dp)
                             .clip(CircleShape)
                             .background(HefimerColors.Black),
                     ) {
-                        Icon(Icons.Rounded.Check, null, tint = HefimerColors.White, modifier = Modifier.size(13.dp))
+                        Icon(Icons.Rounded.Check, null, tint = HefimerColors.White, modifier = Modifier.size(12.dp))
                     }
+                }
+            }
+
+            if (onSetDefault != null) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White10, RoundedCornerShape(11.dp))
+                        .applePressable(pressedScale = 0.90f, onClick = onSetDefault),
+                ) {
+                    Icon(
+                        imageVector = if (isDefault) Icons.Rounded.Star else Icons.Rounded.StarOutline,
+                        contentDescription = "Set as default",
+                        tint = if (isDefault) HefimerColors.Amber400 else fg.copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp),
+                    )
                 }
             }
 
@@ -1372,9 +1416,9 @@ private fun ProviderRowCard(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White10, RoundedCornerShape(12.dp))
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White10, RoundedCornerShape(11.dp))
                     .applePressable(pressedScale = 0.92f, onClick = onToggleExpand),
             ) {
                 Icon(

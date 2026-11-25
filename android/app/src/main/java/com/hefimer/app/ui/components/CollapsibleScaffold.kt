@@ -41,6 +41,7 @@ import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.applePressable
+import kotlinx.coroutines.launch
 
 /**
  * Edge-to-edge collapsible scrolling header scaffold used across EVERY Hefimer screen.
@@ -112,27 +113,14 @@ fun HefimerCollapsibleScaffold(
                     }
                     .padding(bottom = 22.dp),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (showOrbitMark) {
-                        HefimerOrbitLogo(
-                            size = 14.dp,
-                            tint = accentColor.copy(alpha = 0.72f),
-                            spinning = true,
-                            spinDurationMs = 28_000,
-                        )
-                    }
-                    Text(
-                        text = kicker.uppercase(),
-                        fontFamily = UbuntuFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        letterSpacing = 2.4.sp,
-                        color = if (accentColor == HefimerColors.White) HefimerColors.White30 else accentColor.copy(alpha = 0.7f),
-                    )
-                }
+                Text(
+                    text = kicker.uppercase(),
+                    fontFamily = UbuntuFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    letterSpacing = 2.4.sp,
+                    color = if (accentColor == HefimerColors.White) HefimerColors.White30 else accentColor.copy(alpha = 0.7f),
+                )
 
                 Spacer(Modifier.height(8.dp))
 
@@ -173,6 +161,9 @@ fun HefimerCollapsibleScaffold(
         }
 
         // Translucent pinned top chrome extending seamlessly behind transparent status bar
+        val logoScope = androidx.compose.runtime.rememberCoroutineScope()
+        val tapSpin = remember { androidx.compose.animation.core.Animatable(0f) }
+
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -200,14 +191,24 @@ fun HefimerCollapsibleScaffold(
                     modifier = Modifier.weight(1f),
                 ) {
                     HefimerOrbitLogo(
-                        size = 22.dp,
+                        size = 24.dp,
                         tint = accentColor,
-                        spinning = false,
-                        modifier = if (onTitleClick != null) {
-                            Modifier.applePressable(pressedScale = 0.92f, onClick = onTitleClick)
-                        } else {
-                            Modifier
-                        },
+                        spinning = showOrbitMark,
+                        spinDurationMs = 26_000,
+                        modifier = Modifier
+                            .graphicsLayer {
+                                val p = (scrollState.value / collapseThresholdPx).coerceIn(0f, 1f)
+                                rotationZ = (scrollState.value * 0.14f) + tapSpin.value
+                                val s = 1f - 0.08f * p
+                                scaleX = s
+                                scaleY = s
+                            }
+                            .applePressable(pressedScale = 0.88f) {
+                                logoScope.launch {
+                                    tapSpin.animateTo(tapSpin.value + 120f, AppMotion.navigationSpring())
+                                }
+                                onTitleClick?.invoke()
+                            },
                     )
                     Text(
                         text = title,

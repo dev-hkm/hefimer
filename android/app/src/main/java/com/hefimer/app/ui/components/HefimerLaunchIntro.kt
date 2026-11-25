@@ -2,22 +2,14 @@ package com.hefimer.app.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.hefimer.app.ui.theme.AppMotion
@@ -27,11 +19,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Minimalist Apple-grade launch intro using exclusively the circular 3-blade Hefimer aperture mark.
- * Choreography:
- * 1. Aperture breathes in softly (scale 0.68 -> 1.0) while sweeping a decelerated orbital rotation (-110° -> 360°).
- * 2. Concentric subtle orbital halo traces around the circular logo and dissolves softly.
- * 3. Unhurried iris exit: logo expands gently (1.0 -> 1.16) as the OLED canvas fades into the live app.
+ * Pure Apple-grade launch intro featuring ONLY the large circular 3-blade Hefimer logo
+ * (zero outer rings, zero text):
+ * 1. Silky aperture emerge (scale 0.42 -> 1.0) paired with fluid decelerated orbital spin (-180° -> 360°).
+ * 2. Subtle elastic breath settle (1.0 -> 1.06 -> 1.0).
+ * 3. Unhurried iris dissolve (scale 1.0 -> 1.32, trailing glide to 420°) seamlessly revealing the app.
  */
 @Composable
 fun HefimerLaunchIntro(
@@ -40,65 +32,57 @@ fun HefimerLaunchIntro(
     val reduceMotion = rememberReduceMotion()
     val backdropAlpha = remember { Animatable(1f) }
     val logoAlpha = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(0.68f) }
-    val logoRotation = remember { Animatable(-110f) }
-    val ringSweep = remember { Animatable(0f) }
-    val ringAlpha = remember { Animatable(0f) }
+    val logoScale = remember { Animatable(0.42f) }
+    val logoRotation = remember { Animatable(-180f) }
 
     LaunchedEffect(Unit) {
         if (reduceMotion) {
             logoAlpha.snapTo(1f)
             logoScale.snapTo(1f)
             logoRotation.snapTo(0f)
-            delay(260L)
+            delay(220L)
             backdropAlpha.animateTo(0f, tween(200, easing = AppMotion.AppleEase))
             onFinished()
             return@LaunchedEffect
         }
 
-        // Phase 1: Silky entrance + decelerated orbital spin + orbital halo sweep
-        val enterAlphaJob = launch {
-            logoAlpha.animateTo(1f, tween(460, easing = AppMotion.AppleSilk))
+        // Phase 1: Pure logo emerges with fluid orbital momentum
+        val enterFade = launch {
+            logoAlpha.animateTo(1f, tween(420, easing = AppMotion.AppleSilk))
         }
-        val enterScaleJob = launch {
+        val enterScale = launch {
+            logoScale.animateTo(1.06f, tween(620, easing = AppMotion.AppleSheet))
             logoScale.animateTo(1f, AppMotion.navigationSpring())
         }
-        val spinJob = launch {
-            logoRotation.animateTo(360f, tween(1050, easing = AppMotion.AppleSheet))
-        }
-        val ringJob = launch {
-            delay(90L)
-            launch { ringAlpha.animateTo(1f, tween(280, easing = AppMotion.AppleSilk)) }
-            ringSweep.animateTo(360f, tween(760, easing = AppMotion.AppleSheet))
-            ringAlpha.animateTo(0f, tween(340, easing = AppMotion.AppleEase))
+        val enterSpin = launch {
+            logoRotation.animateTo(360f, tween(1020, easing = AppMotion.AppleSheet))
         }
 
-        enterAlphaJob.join()
-        enterScaleJob.join()
-        spinJob.join()
-        ringJob.join()
+        enterFade.join()
+        enterScale.join()
+        enterSpin.join()
 
-        delay(80L)
+        delay(70L)
 
-        // Phase 2: Unhurried Apple iris dissolve into main workspace
-        val exitScaleJob = launch {
-            logoScale.animateTo(1.16f, tween(480, easing = AppMotion.AppleSheet))
+        // Phase 2: Velvety iris zoom-out into the live workspace
+        val exitScale = launch {
+            logoScale.animateTo(1.32f, tween(480, easing = AppMotion.AppleSheet))
         }
-        val exitSpinJob = launch {
-            logoRotation.animateTo(405f, tween(480, easing = AppMotion.AppleSilk))
+        val exitSpin = launch {
+            logoRotation.animateTo(420f, tween(480, easing = AppMotion.AppleSilk))
         }
-        val exitLogoFadeJob = launch {
-            logoAlpha.animateTo(0f, tween(360, easing = AppMotion.AppleEase))
+        val exitLogoFade = launch {
+            logoAlpha.animateTo(0f, tween(340, easing = AppMotion.AppleEase))
         }
-        val exitBgFadeJob = launch {
-            delay(70L)
+        val exitBgFade = launch {
+            delay(60L)
             backdropAlpha.animateTo(0f, tween(440, easing = AppMotion.AppleSilk))
         }
 
-        exitScaleJob.join()
-        exitSpinJob.join()
-        exitLogoFadeJob.join()
-        exitBgFadeJob.join()
+        exitScale.join()
+        exitSpin.join()
+        exitLogoFade.join()
+        exitBgFade.join()
         onFinished()
     }
 
@@ -109,60 +93,16 @@ fun HefimerLaunchIntro(
             .graphicsLayer { alpha = backdropAlpha.value }
             .background(HefimerColors.Black),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(164.dp),
-        ) {
-            // Subtle concentric orbital halo ring tracing around the circular Hefimer logo
-            Canvas(
-                modifier = Modifier
-                    .size(144.dp)
-                    .graphicsLayer {
-                        alpha = ringAlpha.value
-                        scaleX = 0.92f + 0.08f * logoScale.value
-                        scaleY = 0.92f + 0.08f * logoScale.value
-                    },
-            ) {
-                val strokeW = 1.6.dp.toPx()
-                val inset = strokeW / 2f + 4.dp.toPx()
-                val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
-                val topLeft = Offset(inset, inset)
-
-                // Soft ambient radial glow behind logo
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color.White.copy(alpha = 0.11f), Color.Transparent),
-                        center = center,
-                        radius = size.minDimension * 0.5f,
-                    ),
-                )
-
-                // Sweeping orbital hairline
-                if (ringSweep.value > 0.5f) {
-                    drawArc(
-                        color = Color.White.copy(alpha = 0.42f),
-                        startAngle = -90f,
-                        sweepAngle = ringSweep.value,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = arcSize,
-                        style = Stroke(width = strokeW, cap = StrokeCap.Round),
-                    )
-                }
-            }
-
-            // Pure circular 3-blade Hefimer Orbit Mark
-            HefimerOrbitLogo(
-                size = 86.dp,
-                tint = HefimerColors.White,
-                spinning = false,
-                modifier = Modifier.graphicsLayer {
-                    alpha = logoAlpha.value
-                    scaleX = logoScale.value
-                    scaleY = logoScale.value
-                    rotationZ = logoRotation.value
-                },
-            )
-        }
+        HefimerOrbitLogo(
+            size = 136.dp,
+            tint = HefimerColors.White,
+            spinning = false,
+            modifier = Modifier.graphicsLayer {
+                alpha = logoAlpha.value
+                scaleX = logoScale.value
+                scaleY = logoScale.value
+                rotationZ = logoRotation.value
+            },
+        )
     }
 }

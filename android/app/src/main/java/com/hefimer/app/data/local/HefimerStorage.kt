@@ -83,6 +83,16 @@ class HefimerStorage(context: Context) {
         prefs.edit().putString("hefimer_space_provider", id).apply()
     }
 
+    fun getDefaultUploadProvider(): String = prefs.getString("hefimer_default_provider", "stocare") ?: "stocare"
+    fun setDefaultUploadProvider(id: String) {
+        prefs.edit().putString("hefimer_default_provider", id).apply()
+    }
+
+    fun isLightMode(): Boolean = prefs.getBoolean("hefimer_light_mode", false)
+    fun setLightMode(enabled: Boolean) {
+        prefs.edit().putBoolean("hefimer_light_mode", enabled).apply()
+    }
+
     fun getVisitorToken(): String {
         val existing = prefs.getString("hefimer_storageto_visitor_token", null)
         if (!existing.isNullOrBlank()) return existing

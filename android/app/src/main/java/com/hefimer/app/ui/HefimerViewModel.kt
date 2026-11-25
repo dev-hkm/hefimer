@@ -252,7 +252,24 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private val _noticeDismissed = MutableStateFlow(false)
     val noticeDismissed: StateFlow<Boolean> = _noticeDismissed.asStateFlow()
 
-    private val _sendState = MutableStateFlow(SendUiState())
+    private val _isLightMode = MutableStateFlow(storage.isLightMode())
+    val isLightMode: StateFlow<Boolean> = _isLightMode.asStateFlow()
+
+    private val _defaultProviderId = MutableStateFlow(storage.getDefaultUploadProvider())
+    val defaultProviderId: StateFlow<String> = _defaultProviderId.asStateFlow()
+
+    private val _showSettingsSheet = MutableStateFlow(false)
+    val showSettingsSheet: StateFlow<Boolean> = _showSettingsSheet.asStateFlow()
+
+    private val _sendState = MutableStateFlow(
+        run {
+            val defId = storage.getDefaultUploadProvider()
+            SendUiState(
+                selectedProviderId = defId,
+                fileExpire = UploadProviders.getConfig(defId).defaultExpire,
+            )
+        },
+    )
     val sendState: StateFlow<SendUiState> = _sendState.asStateFlow()
 
     private val _receiveState = MutableStateFlow(ReceiveUiState())
@@ -305,6 +322,26 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         checkChatCodeAvailability(_roomsState.value.chatCreateCode)
     }
 
+    fun setLightMode(enabled: Boolean) {
+        storage.setLightMode(enabled)
+        _isLightMode.value = enabled
+    }
+
+    fun setDefaultUploadProvider(providerId: String) {
+        storage.setDefaultUploadProvider(providerId)
+        _defaultProviderId.value = providerId
+        selectUploadProvider(providerId)
+        showToast("Default provider set to ${UploadProviders.getConfig(providerId).name}", ToastType.SUCCESS)
+    }
+
+    fun openSettings() {
+        _showSettingsSheet.value = true
+    }
+
+    fun closeSettings() {
+        _showSettingsSheet.value = false
+    }
+
     fun selectTab(tab: MainTab, recordBackStack: Boolean = true) {
         val current = _selectedTab.value
         if (recordBackStack && tab != current) {
@@ -334,6 +371,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
      */
     fun handleBackNavigation(): Boolean {
         // 1. Dismiss in-app modals/prompts first
+        if (_showSettingsSheet.value) {
+            closeSettings()
+            return true
+        }
         if (_sendState.value.showProviderPicker) {
             closeSendProviderPicker()
             return true
@@ -817,13 +858,29 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
-        val providerCfg = UploadProviders.getConfig(st.selectedProviderId)
+        val selectedCfg = UploadProviders.getConfig(st.selectedProviderId)
+        val maxFileSize = st.pickedFiles.maxOf { it.size }
         val totalSize = st.pickedFiles.sumOf { it.size }
         val safeTotal = totalSize.coerceAtLeast(1L)
-        if (st.pickedFiles.any { it.size > providerCfg.maxSizeBytes }) {
-            showToast("File exceeds limit of ${providerCfg.maxSizeLabel} for ${providerCfg.name}", ToastType.ERROR)
-            return
+
+        // If file exceeds the selected provider's limit (e.g. > 100 MB on sto.care),
+        // seamlessly auto-route to the first eligible large-file host (storage.to / Litterbox / Gofile / VikingFile).
+        val effectiveProviderId = if (maxFileSize > selectedCfg.maxSizeBytes) {
+            val autoHostId = UploadProviders.FALLBACK_PRIORITY.firstOrNull { id ->
+                maxFileSize <= UploadProviders.getConfig(id).maxSizeBytes
+            }
+            if (autoHostId == null) {
+                showToast("File exceeds limit of ${selectedCfg.maxSizeLabel} for ${selectedCfg.name}", ToastType.ERROR)
+                return
+            }
+            val autoCfg = UploadProviders.getConfig(autoHostId)
+            showToast("File > ${selectedCfg.maxSizeLabel} (${selectedCfg.name}), routing via ${autoCfg.name}...", ToastType.INFO)
+            autoHostId
+        } else {
+            st.selectedProviderId
         }
+        val effectiveCfg = UploadProviders.getConfig(effectiveProviderId)
+        val effectiveExpire = UploadProviders.normalizeExpire(effectiveProviderId, st.fileExpire)
 
         val token = UploadCancellationToken()
         fileCancelToken = token
@@ -841,15 +898,15 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val isMulti = st.pickedFiles.size > 1
-                var actualProviderName = providerCfg.name
+                var actualProviderName = effectiveCfg.name
                 val uploadedEntries = mutableListOf<JsonObject>()
                 val fileBytes = LongArray(st.pickedFiles.size)
 
                 st.pickedFiles.forEachIndexed { idx, picked ->
                     val res = uploader.uploadWithFallback(
-                        primaryProviderId = st.selectedProviderId,
+                        primaryProviderId = effectiveProviderId,
                         picked = picked,
-                        expire = st.fileExpire,
+                        expire = effectiveExpire,
                         cancelToken = token,
                         onProgress = { pct ->
                             if (picked.size <= 0L) {

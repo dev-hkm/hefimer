@@ -543,10 +543,11 @@ fun SpaceCanvasOverlay(
                 // Major subtle grid lines
                 val majorStartX = ((curPanX % majorStep) + majorStep) % majorStep
                 val majorStartY = ((curPanY % majorStep) + majorStep) % majorStep
+                val majorLineColor = HefimerColors.White.copy(alpha = 0.06f)
                 var mx = majorStartX
                 while (mx < size.width) {
                     drawLine(
-                        color = Color.White.copy(alpha = 0.055f),
+                        color = majorLineColor,
                         start = Offset(mx, 0f),
                         end = Offset(mx, size.height),
                         strokeWidth = 1f,
@@ -556,7 +557,7 @@ fun SpaceCanvasOverlay(
                 var my = majorStartY
                 while (my < size.height) {
                     drawLine(
-                        color = Color.White.copy(alpha = 0.055f),
+                        color = majorLineColor,
                         start = Offset(0f, my),
                         end = Offset(size.width, my),
                         strokeWidth = 1f,
@@ -568,12 +569,13 @@ fun SpaceCanvasOverlay(
                 val ox = ((curPanX % minorStep) + minorStep) % minorStep
                 val oy = ((curPanY % minorStep) + minorStep) % minorStep
                 val dotRadius = (1.25.dp.toPx() * curZoom.coerceIn(0.65f, 1.6f)).coerceIn(1.0f, 2.6f)
+                val dotColor = HefimerColors.White.copy(alpha = 0.14f)
                 var x = ox
                 while (x < size.width) {
                     var y = oy
                     while (y < size.height) {
                         drawCircle(
-                            color = Color.White.copy(alpha = 0.13f),
+                            color = dotColor,
                             radius = dotRadius,
                             center = Offset(x, y),
                         )
@@ -802,7 +804,7 @@ fun SpaceCanvasOverlay(
                 .align(Alignment.BottomEnd)
                 .padding(bottom = navBottom + 86.dp, end = 16.dp)
                 .clip(CircleShape)
-                .background(Color(0xE60D0D0D))
+                .background(HefimerColors.DockBg)
                 .border(1.dp, HefimerColors.White15, CircleShape)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
         ) {
@@ -848,7 +850,7 @@ fun SpaceCanvasOverlay(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = navBottom + 14.dp, start = 16.dp, end = 16.dp)
                 .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xEE0B0B0B))
+                .background(HefimerColors.DockBg)
                 .border(1.dp, HefimerColors.White15, RoundedCornerShape(28.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {

@@ -106,13 +106,25 @@ object UploadProviders {
 
     val ALL: List<UploadProviderConfig> = listOf(
         UploadProviderConfig(
+            id = "stocare",
+            name = "sto.care",
+            maxSizeBytes = 99L * MB,
+            maxSizeLabel = "100 MB",
+            expiry = "Deletes after 72 hours (fixed)",
+            speed = "Very fast direct stream upload & clean raw download",
+            features = "Default fast route up to 100 MB via trystocare.com. Files > 100 MB auto-route to storage.to / Gofile.",
+            isLargeFile = false,
+            defaultExpire = "72h",
+            expireOptions = listOf(ExpireOption("72 hours (Fixed)", "72h")),
+        ),
+        UploadProviderConfig(
             id = "storageto",
             name = "storage.to",
             maxSizeBytes = 25L * GB,
             maxSizeLabel = "25 GB",
             expiry = "Deletes after 3 days (1-7 days configurable)",
-            speed = "Fast, powered by Cloudflare R2",
-            features = "Direct R2 presigned upload up to 25 GB. Falls back automatically if blocked.",
+            speed = "Fast, powered by Cloudflare R2 multipart",
+            features = "Direct R2 presigned multipart upload up to 25 GB. Falls back automatically if blocked.",
             isLargeFile = true,
             defaultExpire = "72h",
             expireOptions = listOf(
@@ -122,18 +134,6 @@ object UploadProviders {
                 ExpireOption("5 days", "120h"),
                 ExpireOption("7 days", "168h"),
             ),
-        ),
-        UploadProviderConfig(
-            id = "stocare",
-            name = "sto.care",
-            maxSizeBytes = 25L * GB,
-            maxSizeLabel = "25 GB",
-            expiry = "Deletes after 7 days (fixed)",
-            speed = "Very fast direct CORS upload & CDN download",
-            features = "No-signup 25 GB direct stream upload with clean raw downloads via trystocare.com.",
-            isLargeFile = true,
-            defaultExpire = "168h",
-            expireOptions = listOf(ExpireOption("7 days (Fixed)", "168h")),
         ),
         UploadProviderConfig(
             id = "gofile",
@@ -525,15 +525,24 @@ class FileUploadEngine(
             var uploaded = 0L
             var lastEmitNs = 0L
             openStream(picked).use { input ->
+                val buf = ByteArray(64 * 1024)
                 if (rangeStart > 0L) {
                     var skipped = 0L
                     while (skipped < rangeStart) {
-                        val s = input.skip(rangeStart - skipped)
-                        if (s <= 0L) break
-                        skipped += s
+                        if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
+                        val remainingSkip = rangeStart - skipped
+                        val s = input.skip(remainingSkip)
+                        if (s > 0L) {
+                            skipped += s
+                        } else {
+                            // InputStream.skip() can return 0 on ContentResolver pipes before EOF;
+                            // read & discard explicitly until exact rangeStart is reached.
+                            val discarded = input.read(buf, 0, minOf(buf.size.toLong(), remainingSkip).toInt())
+                            if (discarded <= 0) break
+                            skipped += discarded
+                        }
                     }
                 }
-                val buf = ByteArray(64 * 1024)
                 var remaining = if (rangeLength > 0L) rangeLength else Long.MAX_VALUE
                 while (remaining > 0L) {
                     if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
@@ -592,9 +601,13 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
+        if (picked.size > 99L * 1024L * 1024L) {
+            throw IOException("sto.care API limit is 100 MB")
+        }
         onStatus("Uploading via sto.care...")
+        val safeWireName = asciiSafeWireName(picked.name)
         val req = Request.Builder()
-            .url("https://ul.sto.care/${encodePathSeg(picked.name)}")
+            .url("https://ul.sto.care/${encodePathSeg(safeWireName)}")
             .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val (_, text, _) = execute(req, cancelToken)
@@ -961,12 +974,17 @@ class FileUploadEngine(
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via tfLink...")
-        val body = MultipartBody.Builder()
+        val safeName = asciiSafeWireName(picked.name)
+        fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .addFormDataPart("file", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
-        val req = Request.Builder().url("$origin/api/proxy/tmpfilelink").post(body).build()
-        val (_, text, _) = execute(req, cancelToken)
+        val text = try {
+            execute(Request.Builder().url("https://tmpfile.link/api/upload").post(makeBody()).build(), cancelToken).second
+        } catch (e: Throwable) {
+            if (cancelToken.isCancelled() || e.message == "UPLOAD_CANCELED") throw e
+            execute(Request.Builder().url("$origin/api/proxy/tmpfilelink").post(makeBody()).build(), cancelToken).second
+        }
         val obj = json.parseToJsonElement(text).jsonObject
         return obj["downloadLink"]?.jsonPrimitive?.contentOrNull
             ?: obj["downloadLinkEncoded"]?.jsonPrimitive?.contentOrNull
@@ -984,9 +1002,10 @@ class FileUploadEngine(
         onStatus("Uploading via TempFile...")
         val hours = Regex("""\d+""").find(expire)?.value?.toIntOrNull() ?: 24
         val validHours = if (hours in listOf(1, 6, 24, 48)) hours else 24
+        val safeName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("files", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .addFormDataPart("files", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .addFormDataPart("expiryHours", validHours.toString())
             .build()
 
@@ -1015,11 +1034,21 @@ class FileUploadEngine(
         val bin = "hefimer-${UUID.randomUUID().toString().replace("-", "").take(20)}"
         val safeWireName = asciiSafeWireName(picked.name)
         val encodedName = encodePathSeg(safeWireName)
-        val req = Request.Builder()
-            .url("$origin/api/proxy/filebin/$bin/$encodedName")
-            .post(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
-            .build()
-        val (_, text, _) = execute(req, cancelToken)
+        val text = try {
+            val directReq = Request.Builder()
+                .url("https://filebin.net/$bin/$encodedName")
+                .header("Accept", "application/json")
+                .post(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+                .build()
+            execute(directReq, cancelToken).second
+        } catch (e: Throwable) {
+            if (cancelToken.isCancelled() || e.message == "UPLOAD_CANCELED") throw e
+            val proxyReq = Request.Builder()
+                .url("$origin/api/proxy/filebin/$bin/$encodedName")
+                .post(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+                .build()
+            execute(proxyReq, cancelToken).second
+        }
         val returnedName = runCatching {
             json.parseToJsonElement(text).jsonObject["file"]?.jsonObject?.get("filename")?.jsonPrimitive?.contentOrNull
         }.getOrNull() ?: safeWireName
@@ -1034,12 +1063,17 @@ class FileUploadEngine(
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via temp.sh...")
-        val body = MultipartBody.Builder()
+        val safeName = asciiSafeWireName(picked.name)
+        fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", asciiSafeWireName(picked.name), streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .addFormDataPart("file", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
-        val req = Request.Builder().url("$origin/api/proxy/tempsh").post(body).build()
-        val (_, text, _) = execute(req, cancelToken)
+        val text = try {
+            execute(Request.Builder().url("https://temp.sh/upload").post(makeBody()).build(), cancelToken).second
+        } catch (e: Throwable) {
+            if (cancelToken.isCancelled() || e.message == "UPLOAD_CANCELED") throw e
+            execute(Request.Builder().url("$origin/api/proxy/tempsh").post(makeBody()).build(), cancelToken).second
+        }
         val trimmed = text.trim()
         if (!trimmed.startsWith("https://temp.sh/")) throw IOException("temp.sh upload failed")
         return trimmed
@@ -1053,9 +1087,10 @@ class FileUploadEngine(
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via tmpfiles.org...")
+        val safeName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("file", picked.name, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .addFormDataPart("file", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
         val text = try {
             execute(Request.Builder().url("https://tmpfiles.org/api/v1/upload").post(makeBody()).build(), cancelToken).second
@@ -1077,12 +1112,17 @@ class FileUploadEngine(
         onStatus: (String) -> Unit,
     ): String {
         onStatus("Uploading via Uguu.se...")
-        val body = MultipartBody.Builder()
+        val safeName = asciiSafeWireName(picked.name)
+        fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("files[]", asciiSafeWireName(picked.name), streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .addFormDataPart("files[]", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
             .build()
-        val req = Request.Builder().url("$origin/api/proxy/uguu").post(body).build()
-        val (_, text, _) = execute(req, cancelToken)
+        val text = try {
+            execute(Request.Builder().url("https://uguu.se/upload").post(makeBody()).build(), cancelToken).second
+        } catch (e: Throwable) {
+            if (cancelToken.isCancelled() || e.message == "UPLOAD_CANCELED") throw e
+            execute(Request.Builder().url("$origin/api/proxy/uguu").post(makeBody()).build(), cancelToken).second
+        }
         val obj = json.parseToJsonElement(text).jsonObject
         val url = obj["files"]?.jsonArray?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
         if (obj["success"]?.jsonPrimitive?.content == "true" && !url.isNullOrBlank()) return url

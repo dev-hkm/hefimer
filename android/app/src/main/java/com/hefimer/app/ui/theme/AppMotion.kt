@@ -575,9 +575,9 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
 }
 
 /**
- * Swipe-to-dismiss sheet with 1:1 tracking, 0.55 rubber-banding, momentum projection,
- * release velocity handoff, AND unified silky exit animation for Close button, Back gesture,
- * and backdrop taps.
+ * Swipe-to-dismiss sheet with 1:1 vertical tracking, 0.55 elastic rubber-banding on upward pull,
+ * momentum projection, release velocity handoff, AND full PredictiveBackHandler real-time edge-peel
+ * tracking so even small bottom sheets respond fluidly to Android predictive back gestures.
  */
 @Composable
 fun AppleSwipeableSheet(
@@ -587,16 +587,19 @@ fun AppleSwipeableSheet(
     content: @Composable (dismiss: () -> Unit) -> Unit,
 ) {
     val reduceMotion = rememberReduceMotion()
+    val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     var isMounted by remember { mutableStateOf(false) }
     var isDismissing by remember { mutableStateOf(false) }
     val offsetY = remember { Animatable(1200f) }
+    val backPeel = remember { Animatable(0f) }
     val velocityTracker = remember { VelocityTracker() }
 
     LaunchedEffect(visible) {
         if (visible) {
             isMounted = true
             isDismissing = false
+            backPeel.snapTo(0f)
             offsetY.snapTo(1200f)
             offsetY.animateTo(
                 targetValue = 0f,
@@ -612,6 +615,7 @@ fun AppleSwipeableSheet(
             } finally {
                 isMounted = false
                 isDismissing = false
+                backPeel.snapTo(0f)
             }
         }
     }
@@ -620,7 +624,9 @@ fun AppleSwipeableSheet(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val heightPx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
-        val progress = (1f - (offsetY.value / (heightPx * 0.65f))).coerceIn(0f, 1f)
+        val dragDismissFrac = (offsetY.value / (heightPx * 0.65f)).coerceIn(0f, 1f)
+        val combinedDismiss = maxOf(dragDismissFrac, backPeel.value * 0.72f).coerceIn(0f, 1f)
+        val progress = (1f - combinedDismiss).coerceIn(0f, 1f)
 
         fun requestSheetDismiss(initialVelocity: Float = 0f) {
             if (isDismissing) return
@@ -640,21 +646,49 @@ fun AppleSwipeableSheet(
                 } finally {
                     isMounted = false
                     isDismissing = false
+                    backPeel.snapTo(0f)
                     onDismiss()
                 }
             }
         }
 
-        // System Back gesture / button smoothly slides sheet down instead of snapping or exiting app
-        BackHandler(enabled = true) {
-            requestSheetDismiss()
+        // Full Predictive Back Gesture tracking for EVERY bottom sheet (never deadlocks!)
+        PredictiveBackHandler(enabled = true) { events ->
+            if (isDismissing) {
+                events.collect {}
+                return@PredictiveBackHandler
+            }
+            var committed = false
+            var capturedStart = false
+            try {
+                events.collect { event ->
+                    val raw = event.progress.coerceIn(0f, 1f)
+                    val curved = raw * 0.68f + (1f - (1f - raw) * (1f - raw)) * 0.32f
+                    if (!capturedStart) {
+                        capturedStart = true
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                    backPeel.snapTo(curved)
+                    offsetY.snapTo(curved * heightPx * 0.28f)
+                }
+                committed = true
+            } catch (_: CancellationException) {
+                committed = false
+            }
+
+            if (committed) {
+                requestSheetDismiss()
+            } else if (!isDismissing) {
+                scope.launch { backPeel.animateTo(0f, AppMotion.navigationSpring()) }
+                scope.launch { offsetY.animateTo(0f, AppMotion.navigationSpring()) }
+            }
         }
 
         // Backdrop scrim derived from single progress scalar
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.72f * progress))
+                .background(Color.Black.copy(alpha = 0.68f * progress))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -668,7 +702,17 @@ fun AppleSwipeableSheet(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .graphicsLayer {
+                    val peel = backPeel.value
+                    val elasticStretch = if (offsetY.value < 0f && !reduceMotion) {
+                        1f + (-offsetY.value / (heightPx * 0.85f)).coerceIn(0f, 0.032f)
+                    } else {
+                        1f
+                    }
+                    val peelScale = if (reduceMotion) 1f else 1f - 0.055f * peel
                     translationY = offsetY.value
+                    scaleX = peelScale
+                    scaleY = peelScale * elasticStretch
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
                 }
                 .pointerInput(heightPx) {
                     detectVerticalDragGestures(
@@ -678,7 +722,7 @@ fun AppleSwipeableSheet(
                             change.consume()
                             val candidate = offsetY.value + dragAmount
                             val mapped = if (candidate < 0f) {
-                                -rubberBand(-candidate, heightPx * 0.4f, 0.55f)
+                                -rubberBand(-candidate, heightPx * 0.36f, 0.55f)
                             } else {
                                 candidate
                             }
@@ -687,7 +731,7 @@ fun AppleSwipeableSheet(
                         onDragEnd = {
                             val vy = velocityTracker.calculateVelocity().y
                             val projected = offsetY.value + projectOffset(vy, decelerationRate = 0.99f)
-                            val shouldDismiss = projected > heightPx * 0.25f || vy > 950f
+                            val shouldDismiss = projected > heightPx * 0.24f || vy > 900f
                             if (shouldDismiss) {
                                 requestSheetDismiss(initialVelocity = vy)
                             } else {
