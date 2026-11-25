@@ -93,6 +93,16 @@ class HefimerStorage(context: Context) {
         prefs.edit().putBoolean("hefimer_light_mode", enabled).apply()
     }
 
+    fun hasCompletedOnboarding(): Boolean = prefs.getBoolean("hefimer_onboarding_done_v1", false)
+    fun setOnboardingCompleted(completed: Boolean) {
+        prefs.edit().putBoolean("hefimer_onboarding_done_v1", completed).apply()
+    }
+
+    fun getAppLanguageCode(): String = prefs.getString("hefimer_app_language", "auto") ?: "auto"
+    fun setAppLanguageCode(code: String) {
+        prefs.edit().putString("hefimer_app_language", code).apply()
+    }
+
     fun getVisitorToken(): String {
         val existing = prefs.getString("hefimer_storageto_visitor_token", null)
         if (!existing.isNullOrBlank()) return existing

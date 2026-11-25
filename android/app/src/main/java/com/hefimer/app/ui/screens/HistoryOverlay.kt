@@ -54,6 +54,7 @@ import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
+import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -72,21 +73,24 @@ fun HistoryOverlayScreen(
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
     HefimerCollapsibleScaffold(
-        kicker = "Recent activity",
-        title = "History",
-        subtitle = "Tap any item to reopen it or copy its 5-digit code.",
+        kicker = tr("Recent activity", "Hoạt động gần đây"),
+        title = tr("History", "Lịch sử"),
+        subtitle = tr(
+            "Tap any item to reopen it or copy its 5-digit code.",
+            "Chạm vào mục bất kỳ để mở lại hoặc sao chép mã 5 số.",
+        ),
         bottomDockClearance = 36.dp,
         headerActions = {
             if (history.isNotEmpty()) {
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Clear history",
+                    contentDescription = tr("Clear history", "Xóa lịch sử"),
                     onClick = { vm.clearHistory() },
                 )
             }
             HefimerHeaderIconButton(
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Close",
+                contentDescription = tr("Close", "Đóng"),
                 onClick = onClose,
             )
         },
@@ -100,7 +104,12 @@ fun HistoryOverlayScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(Icons.Rounded.History, null, tint = HefimerColors.White20, modifier = Modifier.size(48.dp))
-                Text("No recent history", color = HefimerColors.White40, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    text = tr("No recent history", "Chưa có lịch sử gần đây"),
+                    color = HefimerColors.White40,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -140,7 +149,7 @@ fun HistoryOverlayScreen(
                         onCopy = {
                             copyToClipboard(context, "Hefimer Code", item.code)
                             copiedCode = item.code
-                            vm.showToast("Code ${item.code} copied", ToastType.SUCCESS)
+                            vm.showToast(tr("Code ${item.code} copied", "Đã sao chép mã ${item.code}"), ToastType.SUCCESS)
                             scope.launch {
                                 delay(1800L)
                                 if (copiedCode == item.code) copiedCode = null
@@ -162,13 +171,12 @@ private fun HistoryItemCard(
     onOpen: () -> Unit,
     onCopy: () -> Unit,
 ) {
-    val isCreated = item.action in setOf("sent", "created")
-    val badgeBg = if (isCreated) HefimerColors.Emerald400.copy(alpha = 0.16f) else HefimerColors.Blue400.copy(alpha = 0.16f)
-    val badgeFg = if (isCreated) HefimerColors.Emerald400 else HefimerColors.Blue400
+    val badgeBg = if (item.isR2) HefimerColors.EmeraldBg else HefimerColors.White10
+    val badgeFg = if (item.isR2) HefimerColors.Emerald400 else HefimerColors.White75
     val badgeLabel = when (item.action) {
-        "sent", "created" -> "CREATED"
-        "joined" -> "JOINED"
-        else -> "RECEIVED"
+        "sent", "created" -> tr("CREATED", "ĐÃ TẠO")
+        "joined" -> tr("JOINED", "ĐÃ THAM GIA")
+        else -> tr("RECEIVED", "ĐÃ NHẬN")
     }
     val typeIcon = when (item.type) {
         "r2_file" -> Icons.Rounded.Shield
@@ -185,9 +193,9 @@ private fun HistoryItemCard(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(28.dp))
             .background(HefimerColors.White04)
-            .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
+            .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
             .applePressable(pressedScale = 0.98f, onClick = onOpen)
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
@@ -250,12 +258,12 @@ private fun HistoryItemCard(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (copied) HefimerColors.Emerald400 else HefimerColors.White08)
+                .background(if (copied) HefimerColors.White else HefimerColors.White08)
                 .applePressable(pressedScale = 0.9f, onClick = onCopy),
         ) {
             Icon(
                 imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                contentDescription = "Copy",
+                contentDescription = tr("Copy", "Sao chép"),
                 tint = if (copied) HefimerColors.Black else HefimerColors.White70,
                 modifier = Modifier.size(16.dp),
             )

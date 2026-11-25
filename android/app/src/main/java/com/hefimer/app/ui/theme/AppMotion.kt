@@ -95,28 +95,28 @@ object AppMotion {
     val AppleEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
     // Unhurried, silky Apple-calibrated duration tokens (ms)
-    const val Screen = 640
-    const val ScreenPop = 580
-    const val Tab = 540
-    const val Sheet = 600
-    const val Content = 560
-    const val Fast = 360
-    const val Micro = 280
+    const val Screen = 680
+    const val ScreenPop = 620
+    const val Tab = 580
+    const val Sheet = 640
+    const val Content = 680
+    const val Fast = 420
+    const val Micro = 320
 
     // Perceptual springs tuned for calm, silky, unhurried Apple glide (zero wobble on taps)
-    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.94f, stiffness = 140f)
-    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 155f)
-    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 165f)
-    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.95f, stiffness = 115f)
-    fun <T> snappySpring() = spring<T>(dampingRatio = 0.88f, stiffness = 210f)
-    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 310f)
-    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.82f, stiffness = 180f)
-    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.86f, stiffness = 185f)
-    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.80f, stiffness = 190f)
+    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.95f, stiffness = 125f)
+    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.93f, stiffness = 140f)
+    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.93f, stiffness = 150f)
+    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.96f, stiffness = 105f)
+    fun <T> snappySpring() = spring<T>(dampingRatio = 0.90f, stiffness = 195f)
+    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 300f)
+    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.84f, stiffness = 170f)
+    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 165f)
+    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.82f, stiffness = 175f)
 
-    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.92f, stiffness = 165f)
-    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.92f, stiffness = 155f)
-    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.92f, stiffness = 165f)
+    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.93f, stiffness = 150f)
+    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.93f, stiffness = 140f)
+    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.93f, stiffness = 150f)
 
     // Peer tab switch: unhurried silk cross-dissolve + subtle vertical breath
     fun tabTransform(reduceMotion: Boolean = false): ContentTransform {
@@ -134,16 +134,16 @@ object AppMotion {
         if (reduceMotion) {
             return fadeIn(tween(140, easing = AppleEase)) togetherWith fadeOut(tween(120, easing = AppleEase))
         }
-        val enter = fadeIn(tween(Content, easing = AppleSilk)) +
-            slideInVertically(tween(Content, easing = AppleSheet)) { (it * 0.028f).toInt() } +
+        val enter = fadeIn(tween(720, easing = AppleSilk)) +
+            slideInVertically(tween(720, easing = AppleSheet)) { (it * 0.036f).toInt() } +
             scaleIn(
-                animationSpec = tween(Content, easing = AppleSheet),
-                initialScale = 0.955f,
+                animationSpec = tween(720, easing = AppleSheet),
+                initialScale = 0.945f,
             )
         val exit = fadeOut(tween(Fast, easing = AppleEase)) +
             scaleOut(
                 animationSpec = tween(Fast, easing = AppleSilk),
-                targetScale = 0.975f,
+                targetScale = 0.97f,
             )
         return enter togetherWith exit
     }

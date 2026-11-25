@@ -261,6 +261,16 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private val _showSettingsSheet = MutableStateFlow(false)
     val showSettingsSheet: StateFlow<Boolean> = _showSettingsSheet.asStateFlow()
 
+    private val _showOnboarding = MutableStateFlow(!storage.hasCompletedOnboarding())
+    val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
+
+    private val _appLanguage = MutableStateFlow(
+        com.hefimer.app.ui.theme.AppLanguage.fromCode(storage.getAppLanguageCode()).also {
+            com.hefimer.app.ui.theme.HefimerLang.update(it)
+        },
+    )
+    val appLanguage: StateFlow<com.hefimer.app.ui.theme.AppLanguage> = _appLanguage.asStateFlow()
+
     private val _sendState = MutableStateFlow(
         run {
             val defId = storage.getDefaultUploadProvider()
@@ -340,6 +350,22 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun closeSettings() {
         _showSettingsSheet.value = false
+    }
+
+    fun completeOnboarding() {
+        storage.setOnboardingCompleted(true)
+        _showOnboarding.value = false
+    }
+
+    fun replayOnboarding() {
+        _showSettingsSheet.value = false
+        _showOnboarding.value = true
+    }
+
+    fun setAppLanguage(language: com.hefimer.app.ui.theme.AppLanguage) {
+        storage.setAppLanguageCode(language.code)
+        _appLanguage.value = language
+        com.hefimer.app.ui.theme.HefimerLang.update(language)
     }
 
     fun selectTab(tab: MainTab, recordBackStack: Boolean = true) {

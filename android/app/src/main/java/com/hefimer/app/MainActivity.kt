@@ -54,11 +54,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.components.FloatingDownloadProgressBanner
 import com.hefimer.app.ui.components.HefimerFloatingBottomDock
 import com.hefimer.app.ui.components.HefimerLaunchIntro
+import com.hefimer.app.ui.components.HefimerOnboardingOverlay
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerToastHost
 import com.hefimer.app.ui.components.MainTab
@@ -152,8 +154,10 @@ private fun HefimerRootScreen(
     val globalStats by vm.globalStats.collectAsState()
     val noticeDismissed by vm.noticeDismissed.collectAsState()
     val isLightMode by vm.isLightMode.collectAsState()
+    val appLanguage by vm.appLanguage.collectAsState()
     val defaultProviderId by vm.defaultProviderId.collectAsState()
     val showSettingsSheet by vm.showSettingsSheet.collectAsState()
+    val showOnboarding by vm.showOnboarding.collectAsState()
     val history by vm.history.collectAsState()
 
     val heroRegistry = remember { HeroBoundsRegistry() }
@@ -257,12 +261,18 @@ private fun HefimerRootScreen(
             ) { dismiss ->
                 SettingsSheetContent(
                     isLightMode = isLightMode,
+                    appLanguage = appLanguage,
                     defaultProviderId = defaultProviderId,
                     historyCount = history.size,
                     onSetLightMode = { vm.setLightMode(it) },
+                    onSetAppLanguage = { vm.setAppLanguage(it) },
                     onOpenProviderPicker = {
                         dismiss()
                         vm.openSendProviderPicker()
+                    },
+                    onReplayOnboarding = {
+                        dismiss()
+                        vm.replayOnboarding()
                     },
                     onClearHistory = { vm.clearHistory() },
                     onClose = dismiss,
@@ -305,7 +315,7 @@ private fun HefimerRootScreen(
                         .border(1.dp, HefimerColors.White15, RoundedCornerShape(18.dp))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                 ) {
-                    Icon(Icons.Rounded.Notifications, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Notifications, null, tint = HefimerColors.White80, modifier = Modifier.size(16.dp))
                     Text(
                         text = globalStats.notice,
                         color = HefimerColors.White90,
@@ -358,7 +368,10 @@ private fun HefimerRootScreen(
                                 textAlign = TextAlign.Center,
                             )
                         }
-                        HefimerPrimaryButton(text = "Got it", onClick = { vm.dismissBroadcast() })
+                        HefimerPrimaryButton(
+                            text = com.hefimer.app.ui.theme.tr("Got it", "Đã hiểu"),
+                            onClick = { vm.dismissBroadcast() },
+                        )
                     }
                 }
             }
@@ -386,9 +399,18 @@ private fun HefimerRootScreen(
                         ) {
                             Icon(Icons.Rounded.AcUnit, null, tint = HefimerColors.Red400, modifier = Modifier.size(34.dp))
                         }
-                        Text("SYSTEM FROZEN", color = HefimerColors.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                         Text(
-                            text = "The administrator has temporarily suspended operations for maintenance. Please check back later.",
+                            text = com.hefimer.app.ui.theme.tr("SYSTEM FROZEN", "HỆ THỐNG TẠM ĐÓNG BĂNG"),
+                            color = HefimerColors.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                        )
+                        Text(
+                            text = com.hefimer.app.ui.theme.tr(
+                                "The administrator has temporarily suspended operations for maintenance. Please check back later.",
+                                "Quản trị viên đã tạm ngừng hệ thống để bảo trì. Vui lòng quay lại sau.",
+                            ),
                             color = HefimerColors.White40,
                             fontSize = 13.sp,
                             textAlign = TextAlign.Center,
@@ -399,6 +421,18 @@ private fun HefimerRootScreen(
 
             // Floating Toast Host
             HefimerToastHost(toast = toast, modifier = Modifier.align(Alignment.TopCenter))
+
+            // 4-Screen First-Launch Apple Onboarding (emerges directly beneath the logo intro)
+            if (showOnboarding) {
+                HefimerOnboardingOverlay(
+                    isLightMode = isLightMode,
+                    appLanguage = appLanguage,
+                    defaultProviderName = UploadProviders.getConfig(defaultProviderId).name,
+                    onSetLightMode = { vm.setLightMode(it) },
+                    onSetAppLanguage = { vm.setAppLanguage(it) },
+                    onComplete = { vm.completeOnboarding() },
+                )
+            }
 
             // Minimalist Apple-grade Circular Logo Launch Intro (runs once on cold start)
             var showLaunchIntro by remember { mutableStateOf(true) }

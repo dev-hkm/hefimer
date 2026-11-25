@@ -118,6 +118,7 @@ import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
+import com.hefimer.app.ui.theme.tr
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -139,27 +140,34 @@ fun SendScreen(vm: HefimerViewModel) {
 
     Box {
         HefimerCollapsibleScaffold(
-            kicker = if (state.isR2Mode && state.subMode == SendSubMode.FILE) "Secret R2 Mode" else "Create a drop",
-            title = "Send",
-            subtitle = "Share a file or text that disappears when its moment is over.",
+            kicker = if (state.isR2Mode && state.subMode == SendSubMode.FILE) {
+                tr("Secret R2 Mode", "Chế độ Secret R2")
+            } else {
+                tr("Create a drop", "Tạo phiên chia sẻ")
+            },
+            title = tr("Send", "Gửi"),
+            subtitle = tr(
+                "Share a file or text that disappears when its moment is over.",
+                "Chia sẻ tệp hoặc văn bản và tự hủy ngay khi hết hạn.",
+            ),
             accentColor = accent,
             showOrbitMark = true,
             headerActions = {
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.QrCodeScanner,
-                    contentDescription = "Scan QR",
+                    contentDescription = tr("Scan QR", "Quét QR"),
                     modifier = Modifier.heroSource("btn_qr_send", heroBounds),
                     onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.AUTO), "btn_qr_send") },
                 )
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.History,
-                    contentDescription = "History",
+                    contentDescription = tr("History", "Lịch sử"),
                     modifier = Modifier.heroSource("btn_history_send", heroBounds),
                     onClick = { vm.openOverlay(AppOverlay.History, "btn_history_send") },
                 )
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = tr("Settings", "Cài đặt"),
                     onClick = { vm.openSettings() },
                 )
             },
@@ -168,7 +176,7 @@ fun SendScreen(vm: HefimerViewModel) {
             AppleSegmentedControl(
                 options = listOf(SendSubMode.FILE, SendSubMode.TEXT),
                 selected = state.subMode,
-                label = { if (it == SendSubMode.FILE) "Send File" else "Send Text" },
+                label = { if (it == SendSubMode.FILE) tr("Send File", "Gửi tệp") else tr("Send Text", "Gửi chữ") },
                 accentColor = accent,
                 onSelect = { vm.setSendSubMode(it) },
                 modifier = Modifier.appleEntrance(0),
@@ -570,7 +578,7 @@ private fun SendFileSection(
                             }
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                text = if (state.isFolderMode) "Tap to select a folder" else "Tap to select file(s)",
+                                text = if (state.isFolderMode) tr("Tap to select a folder", "Chạm để chọn thư mục") else tr("Tap to select file(s)", "Chạm để chọn tệp"),
                                 color = HefimerColors.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -585,27 +593,27 @@ private fun SendFileSection(
                                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                                     modifier = Modifier
                                         .clip(CircleShape)
-                                        .background(HefimerColors.Emerald400.copy(alpha = 0.12f))
-                                        .border(1.dp, HefimerColors.Emerald400.copy(alpha = 0.25f), CircleShape)
+                                        .background(if (isR2) HefimerColors.EmeraldBg else HefimerColors.White08)
+                                        .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White15, CircleShape)
                                         .padding(horizontal = 8.dp, vertical = 3.dp),
                                 ) {
-                                    Box(Modifier.size(5.dp).clip(CircleShape).background(HefimerColors.Emerald300))
+                                    Box(Modifier.size(5.dp).clip(CircleShape).background(if (isR2) HefimerColors.Emerald400 else HefimerColors.White80))
                                     Text(
                                         text = if (isR2) "Cloudflare R2" else providerCfg.name,
-                                        color = HefimerColors.Emerald300,
+                                        color = if (isR2) HefimerColors.Emerald400 else HefimerColors.White85,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                     )
                                 }
                                 Text(
-                                    text = "Max ${if (isR2) "5 GB" else providerCfg.maxSizeLabel}",
+                                    text = "${tr("Max", "Tối đa")} ${if (isR2) "5 GB" else providerCfg.maxSizeLabel}",
                                     color = HefimerColors.White40,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 10.sp,
                                 )
                                 Text("•", color = HefimerColors.White20, fontSize = 10.sp)
                                 Text(
-                                    text = "Today ${formatBytes(todayBytes)}",
+                                    text = "${tr("Today", "Hôm nay")} ${formatBytes(todayBytes)}",
                                     color = HefimerColors.White40,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 10.sp,
@@ -624,9 +632,9 @@ private fun SendFileSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(26.dp))
                     .background(HefimerColors.White025)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(22.dp))
+                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(26.dp))
                     .applePressable(onClick = onOpenProviderPicker)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
@@ -634,15 +642,15 @@ private fun SendFileSection(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(15.dp))
                         .background(HefimerColors.Black)
-                        .border(1.dp, HefimerColors.White10, RoundedCornerShape(14.dp)),
+                        .border(1.dp, HefimerColors.White10, RoundedCornerShape(15.dp)),
                 ) {
                     Icon(Icons.Rounded.Inventory2, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "UPLOAD PROVIDER",
+                        text = tr("UPLOAD PROVIDER", "MÁY CHỦ TẢI LÊN"),
                         color = HefimerColors.White40,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -661,14 +669,14 @@ private fun SendFileSection(
                         )
                         Text(
                             text = providerCfg.maxSizeLabel,
-                            color = HefimerColors.Emerald300,
+                            color = HefimerColors.White70,
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
                                 .clip(CircleShape)
-                                .background(HefimerColors.Emerald400.copy(alpha = 0.12f))
-                                .border(1.dp, HefimerColors.Emerald400.copy(alpha = 0.2f), CircleShape)
+                                .background(HefimerColors.White08)
+                                .border(1.dp, HefimerColors.White15, CircleShape)
                                 .padding(horizontal = 7.dp, vertical = 2.dp),
                         )
                     }
@@ -688,12 +696,12 @@ private fun SendFileSection(
             HefimerTextField(
                 value = state.r2CustomName,
                 onValueChange = { vm.setR2CustomName(it) },
-                placeholder = "Custom file name (optional)",
+                placeholder = tr("Custom file name (optional)", "Tên tệp tùy chỉnh (không bắt buộc)"),
             )
             HefimerTextField(
                 value = state.r2Description,
                 onValueChange = { vm.setR2Description(it) },
-                placeholder = "Secret note / description (optional)",
+                placeholder = tr("Secret note / description (optional)", "Ghi chú bí mật / mô tả (không bắt buộc)"),
             )
         }
 
@@ -723,7 +731,7 @@ private fun SendFileSection(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        text = "Advanced Options",
+                        text = tr("Advanced Options", "Tùy chọn nâng cao"),
                         color = HefimerColors.White60,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -741,13 +749,13 @@ private fun SendFileSection(
                 // Inline File / Folder mode pill
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(HefimerColors.Black.copy(alpha = 0.55f))
-                        .border(1.dp, HefimerColors.White08, RoundedCornerShape(12.dp))
+                        .border(1.dp, HefimerColors.White08, RoundedCornerShape(14.dp))
                         .padding(3.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    listOf(false to "FILE", true to "FOLDER").forEach { (folder, lbl) ->
+                    listOf(false to tr("FILE", "TỆP"), true to tr("FOLDER", "THƯ MỤC")).forEach { (folder, lbl) ->
                         val active = state.isFolderMode == folder
                         Text(
                             text = lbl,
@@ -756,7 +764,7 @@ private fun SendFileSection(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(9.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(if (active) HefimerColors.White15 else Color.Transparent)
                                 .applePressable(pressedScale = 0.95f) { vm.setFolderMode(folder) }
                                 .padding(horizontal = 10.dp, vertical = 5.dp),
@@ -780,7 +788,7 @@ private fun SendFileSection(
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "SELF-DESTRUCT TIMER",
+                            text = tr("SELF-DESTRUCT TIMER", "THỜI GIAN TỰ HỦY"),
                             color = HefimerColors.White30,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
@@ -809,7 +817,7 @@ private fun SendFileSection(
 
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = "PASSWORD (OPTIONAL)",
+                            text = tr("PASSWORD (OPTIONAL)", "MẬT KHẨU (KHÔNG BẮT BUỘC)"),
                             color = HefimerColors.White30,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
@@ -818,14 +826,14 @@ private fun SendFileSection(
                         HefimerTextField(
                             value = state.filePassword,
                             onValueChange = { vm.setFilePassword(it) },
-                            placeholder = "Set a password...",
+                            placeholder = tr("Set a password...", "Đặt mật khẩu..."),
                             leadingIcon = Icons.Rounded.Lock,
                         )
                     }
 
                     HefimerToggleRow(
-                        title = "Self-Destruct",
-                        subtitle = "Delete after one successful read",
+                        title = tr("Self-Destruct", "Tự hủy sau 1 lần xem"),
+                        subtitle = tr("Delete after one successful read", "Xóa ngay sau khi người nhận mở 1 lần"),
                         checked = state.fileOneTime,
                         onToggle = { vm.toggleFileOneTime() },
                         icon = Icons.Rounded.DeleteOutline,
@@ -837,7 +845,13 @@ private fun SendFileSection(
 
         // Primary CTA
         HefimerPrimaryButton(
-            text = if (state.fileUploading) "Uploading..." else if (isR2) "Upload to Secret R2" else "Upload & Generate Code",
+            text = if (state.fileUploading) {
+                tr("Uploading...", "Đang tải lên...")
+            } else if (isR2) {
+                tr("Upload to Secret R2", "Tải lên Secret R2")
+            } else {
+                tr("Upload & Generate Code", "Tải lên & Tạo mã")
+            },
             loading = state.fileUploading,
             enabled = state.pickedFiles.isNotEmpty() && !state.fileUploading,
             accentColor = accent,
@@ -1067,7 +1081,7 @@ private fun SendTextSection(
                     decorationBox = { inner ->
                         if (state.textContent.isEmpty()) {
                             Text(
-                                text = "Paste code, links, or text here...",
+                                text = tr("Paste code, links, or text here...", "Dán code, liên kết hoặc văn bản vào đây..."),
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 13.sp,
                                 color = HefimerColors.White30,
@@ -1087,8 +1101,18 @@ private fun SendTextSection(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text("$lines ${if (lines == 1) "Line" else "Lines"}", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text("${state.textContent.length} Chars", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "$lines ${tr(if (lines == 1) "Line" else "Lines", "Dòng")}",
+                    color = HefimerColors.White30,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "${state.textContent.length} ${tr("Chars", "Ký tự")}",
+                    color = HefimerColors.White30,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
                 Text(formatBytes(state.textContent.toByteArray().size.toLong()), color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -1119,9 +1143,9 @@ private fun SendTextSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(26.dp))
                 .background(HefimerColors.White025)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp)),
+                .border(1.dp, HefimerColors.White10, RoundedCornerShape(26.dp)),
         ) {
             val chevronRot by animateFloatAsState(
                 targetValue = if (showAdvanced) 180f else 0f,
@@ -1136,7 +1160,7 @@ private fun SendTextSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Advanced Options", color = HefimerColors.White60, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Advanced Options", "Tùy chọn nâng cao"), color = HefimerColors.White60, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Icon(
                     Icons.Rounded.ExpandMore,
                     null,
@@ -1152,12 +1176,12 @@ private fun SendTextSection(
                     HefimerTextField(
                         value = state.textPassword,
                         onValueChange = { vm.setTextPassword(it) },
-                        placeholder = "Password (optional)",
+                        placeholder = tr("Password (optional)", "Mật khẩu (không bắt buộc)"),
                         leadingIcon = Icons.Rounded.Lock,
                     )
                     HefimerToggleRow(
-                        title = "Self-Destruct",
-                        subtitle = "Delete after one successful read",
+                        title = tr("Self-Destruct", "Tự hủy sau 1 lần xem"),
+                        subtitle = tr("Delete after one successful read", "Xóa ngay sau khi người nhận mở 1 lần"),
                         checked = state.textOneTime,
                         onToggle = { vm.toggleTextOneTime() },
                         icon = Icons.Rounded.DeleteOutline,
@@ -1168,7 +1192,7 @@ private fun SendTextSection(
         }
 
         HefimerPrimaryButton(
-            text = if (state.textLoading) "Generating..." else "Generate Code",
+            text = if (state.textLoading) tr("Generating...", "Đang tạo mã...") else tr("Generate Code", "Tạo mã chia sẻ"),
             loading = state.textLoading,
             enabled = state.textContent.isNotBlank() && !state.textLoading,
             onClick = { vm.generateTextDrop() },
@@ -1215,9 +1239,9 @@ fun ProviderPickerSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.76f)
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .clip(RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
             .background(HefimerColors.SurfaceSheet)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
             .navigationBarsPadding(),
     ) {
         // Drag handle pill
@@ -1240,21 +1264,24 @@ fun ProviderPickerSheetContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "TRANSFER ROUTE",
-                    color = HefimerColors.Emerald400,
+                    text = tr("TRANSFER ROUTE", "TUYẾN LƯU TRỮ"),
+                    color = HefimerColors.White45,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.2.sp,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Choose an upload provider",
+                    text = tr("Choose an upload provider", "Chọn máy chủ tải lên"),
                     color = HefimerColors.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Tap ★ to set default. Larger files auto-route seamlessly.",
+                    text = tr(
+                        "Tap ★ to set default. Larger files auto-route seamlessly.",
+                        "Chạm ★ để đặt mặc định. Tệp lớn tự chuyển tuyến mượt mà.",
+                    ),
                     color = HefimerColors.White40,
                     fontSize = 11.sp,
                 )
@@ -1268,7 +1295,7 @@ fun ProviderPickerSheetContent(
                     .border(1.dp, HefimerColors.White10, CircleShape)
                     .applePressable(onClick = onClose),
             ) {
-                Icon(Icons.Rounded.Close, "Close", tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -1314,9 +1341,9 @@ private fun ProviderRowCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(bg)
-            .border(1.dp, if (selected) HefimerColors.White else HefimerColors.White10, RoundedCornerShape(20.dp)),
+            .border(1.dp, if (selected) HefimerColors.White else HefimerColors.White10, RoundedCornerShape(24.dp)),
     ) {
         Row(
             modifier = Modifier
@@ -1330,7 +1357,7 @@ private fun ProviderRowCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .applePressable(pressedScale = 0.98f, onClick = onSelect)
                     .padding(6.dp),
             ) {
@@ -1338,9 +1365,9 @@ private fun ProviderRowCard(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(if (selected) HefimerColors.Black.copy(alpha = 0.08f) else HefimerColors.Black.copy(alpha = 0.45f))
-                        .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White10, RoundedCornerShape(12.dp)),
+                        .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White10, RoundedCornerShape(14.dp)),
                 ) {
                     Icon(
                         imageVector = if (prov.isLargeFile) Icons.Rounded.Inventory2 else Icons.Rounded.UploadFile,
@@ -1357,26 +1384,26 @@ private fun ProviderRowCard(
                         Text(prov.name, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         if (isDefault) {
                             Text(
-                                text = "DEFAULT",
-                                color = if (selected) HefimerColors.Black.copy(alpha = 0.7f) else HefimerColors.Emerald400,
+                                text = tr("DEFAULT", "MẶC ĐỊNH"),
+                                color = if (selected) HefimerColors.Black.copy(alpha = 0.7f) else HefimerColors.White85,
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp,
                                 modifier = Modifier
                                     .clip(CircleShape)
-                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.12f) else HefimerColors.EmeraldBg)
+                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.12f) else HefimerColors.White12)
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             )
                         } else if (prov.isLargeFile) {
                             Text(
-                                text = "LARGE",
-                                color = if (selected) HefimerColors.Black.copy(alpha = 0.6f) else HefimerColors.Emerald300,
+                                text = tr("LARGE", "TỆP LỚN"),
+                                color = if (selected) HefimerColors.Black.copy(alpha = 0.6f) else HefimerColors.White60,
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp,
                                 modifier = Modifier
                                     .clip(CircleShape)
-                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.1f) else HefimerColors.EmeraldBg)
+                                    .background(if (selected) HefimerColors.Black.copy(alpha = 0.1f) else HefimerColors.White08)
                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                             )
                         }

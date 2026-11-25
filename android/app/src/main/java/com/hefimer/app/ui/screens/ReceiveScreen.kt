@@ -106,6 +106,7 @@ import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
+import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -117,20 +118,23 @@ fun ReceiveScreen(vm: HefimerViewModel) {
     val reduceMotion = rememberReduceMotion()
 
     HefimerCollapsibleScaffold(
-        kicker = "Retrieve a drop",
-        title = "Receive",
-        subtitle = "Enter a 5-digit code or scan a Hefimer QR to unlock files and snippets.",
+        kicker = tr("Retrieve a drop", "Nhận tệp & văn bản"),
+        title = tr("Receive", "Nhận"),
+        subtitle = tr(
+            "Enter a 5-digit code or scan a Hefimer QR to unlock files and snippets.",
+            "Nhập mã 5 chữ số hoặc quét mã QR Hefimer để mở tệp và đoạn mã.",
+        ),
         showOrbitMark = true,
         headerActions = {
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.QrCodeScanner,
-                contentDescription = "Scan QR",
+                contentDescription = tr("Scan QR", "Quét QR"),
                 modifier = Modifier.heroSource("btn_qr_receive", heroBounds),
                 onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.RECEIVE), "btn_qr_receive") },
             )
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.History,
-                contentDescription = "History",
+                contentDescription = tr("History", "Lịch sử"),
                 modifier = Modifier.heroSource("btn_history_receive", heroBounds),
                 onClick = { vm.openOverlay(AppOverlay.History, "btn_history_receive") },
             )
@@ -154,13 +158,13 @@ fun ReceiveScreen(vm: HefimerViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .appleEntrance(0)
-                        .clip(RoundedCornerShape(34.dp))
+                        .clip(RoundedCornerShape(38.dp))
                         .background(HefimerColors.SurfaceElevated)
-                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(34.dp))
+                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(38.dp))
                         .padding(horizontal = 22.dp, vertical = 30.dp),
                 ) {
                     Text(
-                        text = "ENTER 5-DIGIT CODE",
+                        text = tr("ENTER 5-DIGIT CODE", "NHẬP MÃ 5 CHỮ SỐ"),
                         color = HefimerColors.White30,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -177,7 +181,7 @@ fun ReceiveScreen(vm: HefimerViewModel) {
                     )
 
                     HefimerPrimaryButton(
-                        text = if (state.loading) "Retrieving..." else "Retrieve",
+                        text = if (state.loading) tr("Retrieving...", "Đang tải...") else tr("Retrieve", "Nhận ngay"),
                         icon = Icons.Rounded.Download,
                         loading = state.loading,
                         enabled = state.code.length == 5 && !state.loading,
@@ -189,7 +193,7 @@ fun ReceiveScreen(vm: HefimerViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         HefimerSecondaryButton(
-                            text = "Paste Code",
+                            text = tr("Paste Code", "Dán mã"),
                             icon = Icons.Rounded.ContentPaste,
                             modifier = Modifier.weight(1f),
                             onClick = {
@@ -200,12 +204,12 @@ fun ReceiveScreen(vm: HefimerViewModel) {
                                     vm.setReceiveCode(digits)
                                     vm.retrieveDrop(digits)
                                 } else {
-                                    vm.showToast("No 5-digit code in clipboard", ToastType.ERROR)
+                                    vm.showToast(tr("No 5-digit code in clipboard", "Không thấy mã 5 số trong bộ nhớ tạm"), ToastType.ERROR)
                                 }
                             },
                         )
                         HefimerSecondaryButton(
-                            text = "Scan QR",
+                            text = tr("Scan QR", "Quét QR"),
                             icon = Icons.Rounded.QrCodeScanner,
                             modifier = Modifier.weight(1f),
                             onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.RECEIVE)) },
@@ -677,11 +681,11 @@ private fun ReceivedDropView(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(if (copiedText) HefimerColors.Emerald400 else HefimerColors.White06)
+                                .background(if (copiedText) HefimerColors.White else HefimerColors.White06)
                                 .applePressable {
                                     copyToClipboard(context, "Hefimer Text", textBody)
                                     copiedText = true
-                                    vm.showToast("Text copied", ToastType.SUCCESS)
+                                    vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
                                     scope.launch { delay(2000L); copiedText = false }
                                 },
                         ) {
@@ -733,8 +737,8 @@ private fun ReceivedDropView(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Text("$lineCount Lines", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("${textBody.length} Chars", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("$lineCount ${tr("Lines", "Dòng")}", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("${textBody.length} ${tr("Chars", "Ký tự")}", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Text(formatBytes(textBody.toByteArray().size.toLong()), color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -748,25 +752,25 @@ private fun ReceivedDropView(
                         onClick = { DownloadHelper.openExternalUrl(context, smartAction.url) },
                     )
                     HefimerSecondaryButton(
-                        text = if (copiedText) "Copied!" else "Copy",
+                        text = if (copiedText) tr("Copied!", "Đã chép!") else tr("Copy", "Sao chép"),
                         icon = if (copiedText) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                         modifier = Modifier.weight(1f),
                         height = 54.dp,
                         onClick = {
                             copyToClipboard(context, "Hefimer Text", textBody)
                             copiedText = true
-                            vm.showToast("Text copied", ToastType.SUCCESS)
+                            vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
                             scope.launch { delay(2000L); copiedText = false }
                         },
                     )
                 } else {
                     HefimerPrimaryButton(
-                        text = if (copiedText) "Copied!" else "Copy Text",
+                        text = if (copiedText) tr("Copied!", "Đã chép!") else tr("Copy Text", "Sao chép văn bản"),
                         icon = if (copiedText) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                         onClick = {
                             copyToClipboard(context, "Hefimer Text", textBody)
                             copiedText = true
-                            vm.showToast("Text copied", ToastType.SUCCESS)
+                            vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
                             scope.launch { delay(2000L); copiedText = false }
                         },
                     )
@@ -783,9 +787,9 @@ private fun ReceivedDropView(
                             runCatching {
                                 DownloadHelper.saveTextToDownloads(context, name, textBody)
                             }.onSuccess {
-                                vm.showToast("Saved $it to Downloads", ToastType.SUCCESS)
+                                vm.showToast(tr("Saved $it to Downloads", "Đã lưu $it vào Tải xuống"), ToastType.SUCCESS)
                             }.onFailure {
-                                vm.showToast(it.message ?: "Failed to save file", ToastType.ERROR)
+                                vm.showToast(it.message ?: tr("Failed to save file", "Không thể lưu tệp"), ToastType.ERROR)
                             }
                         }
                     },
@@ -798,11 +802,11 @@ private fun ReceivedDropView(
 private fun fileIconForName(fileName: String, isR2: Boolean): Pair<ImageVector, Color> {
     val ext = fileName.substringAfterLast('.', "").lowercase()
     return when (ext) {
-        "jpg", "jpeg", "png", "gif", "webp", "svg", "heic" -> Icons.Rounded.Image to HefimerColors.Blue400
-        "mp4", "mkv", "avi", "mov", "webm" -> Icons.Rounded.VideoFile to HefimerColors.Purple400
-        "mp3", "wav", "ogg", "m4a", "flac" -> Icons.Rounded.AudioFile to HefimerColors.Pink400
-        "zip", "rar", "7z", "tar", "gz" -> Icons.Rounded.Archive to HefimerColors.Amber400
-        "pdf" -> Icons.Rounded.Description to HefimerColors.Red400
+        "jpg", "jpeg", "png", "gif", "webp", "svg", "heic" -> Icons.Rounded.Image to HefimerColors.White80
+        "mp4", "mkv", "avi", "mov", "webm" -> Icons.Rounded.VideoFile to HefimerColors.White80
+        "mp3", "wav", "ogg", "m4a", "flac" -> Icons.Rounded.AudioFile to HefimerColors.White80
+        "zip", "rar", "7z", "tar", "gz" -> Icons.Rounded.Archive to HefimerColors.White80
+        "pdf" -> Icons.Rounded.Description to HefimerColors.White80
         else -> Icons.Rounded.InsertDriveFile to if (isR2) HefimerColors.Emerald400 else HefimerColors.White70
     }
 }
@@ -820,9 +824,9 @@ private fun UnlockPasswordDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
+                    .clip(RoundedCornerShape(36.dp))
                     .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(34.dp))
+                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(36.dp))
                     .padding(24.dp),
             ) {
                 Box(
@@ -836,19 +840,19 @@ private fun UnlockPasswordDialog(
                     Icon(Icons.Rounded.Lock, null, tint = HefimerColors.White, modifier = Modifier.size(24.dp))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("PROTECTED DROP", color = HefimerColors.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(tr("PROTECTED DROP", "NỘI DUNG CÓ MẬT KHẨU"), color = HefimerColors.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     Spacer(Modifier.height(4.dp))
-                    Text("Enter password to unlock", color = HefimerColors.White40, fontSize = 11.sp)
+                    Text(tr("Enter password to unlock", "Nhập mật khẩu để mở khóa"), color = HefimerColors.White40, fontSize = 11.sp)
                 }
                 HefimerTextField(
                     value = pw,
                     onValueChange = { pw = it },
-                    placeholder = "Password...",
+                    placeholder = tr("Password...", "Mật khẩu..."),
                     isPassword = true,
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HefimerSecondaryButton("Cancel", onClick = onDismiss, modifier = Modifier.weight(1f))
-                    HefimerPrimaryButton("Unlock", height = 48.dp, onClick = { onUnlock(pw) }, modifier = Modifier.weight(1f))
+                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
+                    HefimerPrimaryButton(tr("Unlock", "Mở khóa"), height = 48.dp, onClick = { onUnlock(pw) }, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -868,21 +872,21 @@ private fun SaveTextRenameDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(RoundedCornerShape(32.dp))
                     .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(28.dp))
+                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(32.dp))
                     .padding(22.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Edit, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(16.dp))
-                    Text("SAVE AS FILE", color = HefimerColors.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Icon(Icons.Rounded.Edit, null, tint = HefimerColors.White, modifier = Modifier.size(16.dp))
+                    Text(tr("SAVE AS FILE", "LƯU THÀNH TỆP"), color = HefimerColors.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 }
                 HefimerTextField(value = input, onValueChange = { input = it }, placeholder = "filename.txt", mono = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HefimerSecondaryButton("Cancel", onClick = onDismiss, modifier = Modifier.weight(1f))
+                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
                     HefimerPrimaryButton(
-                        text = "Save",
-                        accentColor = HefimerColors.Emerald400,
+                        text = tr("Save", "Lưu"),
+                        accentColor = HefimerColors.White,
                         height = 48.dp,
                         modifier = Modifier.weight(1f),
                         onClick = { if (input.isNotBlank()) onSave(input.trim()) },

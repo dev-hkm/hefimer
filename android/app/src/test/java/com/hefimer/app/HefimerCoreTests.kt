@@ -122,4 +122,17 @@ class HefimerCoreTests {
         assertEquals(unit, transformed.text.text)
         assertTrue(transformed.text.spanStyles.isNotEmpty())
     }
+
+    @Test
+    fun hefimerLangAutoDetectsRegionAndLocale() {
+        val viLocale = java.util.Locale("vi", "VN")
+        val enVnLocale = java.util.Locale("en", "VN")
+        val enUsLocale = java.util.Locale("en", "US")
+
+        assertTrue(com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.AUTO, viLocale))
+        assertTrue(com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.AUTO, enVnLocale))
+        assertEquals(false, com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.AUTO, enUsLocale))
+        assertTrue(com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.VI, enUsLocale))
+        assertEquals(false, com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.EN, viLocale))
+    }
 }

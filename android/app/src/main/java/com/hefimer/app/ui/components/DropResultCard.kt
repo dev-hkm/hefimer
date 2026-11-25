@@ -70,6 +70,7 @@ import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.rememberReduceMotion
+import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -78,7 +79,7 @@ fun copyToClipboard(context: Context, label: String, value: String) {
     cm.setPrimaryClip(ClipData.newPlainText(label, value))
 }
 
-fun shareTextSheet(context: Context, text: String, title: String = "Share via Hefimer") {
+fun shareTextSheet(context: Context, text: String, title: String = tr("Share via Hefimer", "Chia sẻ qua Hefimer")) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, text)
@@ -92,12 +93,12 @@ fun shareTextSheet(context: Context, text: String, title: String = "Share via He
 @Composable
 fun DropResultCard(
     code: String,
-    heading: String = "Your Drop Code",
+    heading: String = tr("Your Drop Code", "Mã Drop của bạn"),
     subtitle: String? = null,
     expiresAt: Long? = null,
     shareUrl: String = "${HefimerApiConfig.SITE_ORIGIN}/?code=$code",
     isR2: Boolean = false,
-    resetLabel: String = "New Drop",
+    resetLabel: String = tr("New Drop", "Drop mới"),
     primaryCtaLabel: String? = null,
     onPrimaryCta: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
@@ -128,9 +129,9 @@ fun DropResultCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(34.dp))
+            .clip(RoundedCornerShape(38.dp))
             .background(HefimerColors.SurfaceElevated)
-            .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White12, RoundedCornerShape(34.dp))
+            .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White12, RoundedCornerShape(38.dp))
             .padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -153,12 +154,12 @@ fun DropResultCard(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = tr("Back", "Quay lại"),
                         tint = accent.copy(alpha = 0.7f),
                         modifier = Modifier.size(13.dp),
                     )
                     Text(
-                        text = "BACK",
+                        text = tr("BACK", "QUAY LẠI"),
                         color = accent.copy(alpha = 0.7f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -253,7 +254,7 @@ fun DropResultCard(
                     modifier = Modifier.size(13.dp),
                 )
                 Text(
-                    text = "Expires in $timeLeft",
+                    text = if (timeLeft == "Expired") tr("Expired", "Đã hết hạn") else tr("Expires in $timeLeft", "Hết hạn sau $timeLeft"),
                     color = accent.copy(alpha = 0.65f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -283,7 +284,7 @@ fun DropResultCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             AnimatedCopyPill(
-                label = if (copiedLink) "Copied!" else "Copy Link",
+                label = if (copiedLink) tr("Copied!", "Đã chép!") else tr("Copy Link", "Chép link"),
                 copied = copiedLink,
                 icon = Icons.Rounded.Link,
                 isR2 = isR2,
@@ -291,7 +292,7 @@ fun DropResultCard(
                 onClick = {
                     copyToClipboard(context, "Hefimer Link", shareUrl)
                     copiedLink = true
-                    onToast("Link copied", false)
+                    onToast(tr("Link copied", "Đã sao chép liên kết"), false)
                     scope.launch {
                         delay(2000L)
                         copiedLink = false
@@ -299,7 +300,7 @@ fun DropResultCard(
                 },
             )
             AnimatedCopyPill(
-                label = if (copiedCode) "Copied!" else "Copy Code",
+                label = if (copiedCode) tr("Copied!", "Đã chép!") else tr("Copy Code", "Chép mã"),
                 copied = copiedCode,
                 icon = Icons.Rounded.ContentCopy,
                 isR2 = isR2,
@@ -307,7 +308,7 @@ fun DropResultCard(
                 onClick = {
                     copyToClipboard(context, "Hefimer Code", code)
                     copiedCode = true
-                    onToast("Code copied", false)
+                    onToast(tr("Code copied", "Đã sao chép mã"), false)
                     scope.launch {
                         delay(2000L)
                         copiedCode = false
@@ -342,7 +343,7 @@ fun DropResultCard(
                 )
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    text = "QR Code",
+                    text = tr("QR Code", "Mã QR"),
                     color = accent.copy(alpha = 0.85f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -370,7 +371,7 @@ fun DropResultCard(
                 )
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    text = "Share",
+                    text = tr("Share", "Chia sẻ"),
                     color = accent.copy(alpha = 0.85f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -391,7 +392,7 @@ fun DropResultCard(
 
     if (showQr) {
         QrShareModal(
-            title = if (isR2) "Share Secret R2 Drop" else "Share via QR Code",
+            title = if (isR2) tr("Share Secret R2 Drop", "Chia sẻ Secret R2") else tr("Share via QR Code", "Chia sẻ qua mã QR"),
             url = shareUrl,
             code = code,
             emeraldTheme = isR2,
@@ -413,10 +414,10 @@ private fun AnimatedDigitTile(
     val progress = remember(digit, index) { Animatable(if (reduceMotion) 1f else 0f) }
     LaunchedEffect(digit, index) {
         if (!reduceMotion) {
-            delay(index * 72L + 60L)
+            delay(index * 105L + 90L)
             progress.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 540, easing = AppMotion.AppleSheet),
+                animationSpec = tween(durationMillis = 760, easing = AppMotion.AppleSheet),
             )
         }
     }
@@ -428,18 +429,18 @@ private fun AnimatedDigitTile(
             .graphicsLayer {
                 val p = progress.value
                 alpha = (p * 1.15f).coerceIn(0f, 1f)
-                val s = 0.88f + 0.12f * p
+                val s = 0.85f + 0.15f * p
                 scaleX = s
                 scaleY = s
-                translationY = (1f - p) * 32f
+                translationY = (1f - p) * 38f
             }
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(26.dp))
             .background(
                 Brush.verticalGradient(
                     listOf(accent.copy(alpha = 0.08f), bg),
                 ),
             )
-            .border(1.dp, border, RoundedCornerShape(22.dp)),
+            .border(1.dp, border, RoundedCornerShape(26.dp)),
     ) {
         Text(
             text = digit.toString(),

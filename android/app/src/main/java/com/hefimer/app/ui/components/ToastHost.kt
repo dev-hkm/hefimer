@@ -245,7 +245,7 @@ fun HefimerHeaderIconButton(
                     .padding(7.dp)
                     .size(7.dp)
                     .clip(CircleShape)
-                    .background(HefimerColors.Emerald400),
+                    .background(HefimerColors.White),
             )
         }
     }
@@ -345,9 +345,9 @@ fun FloatingDownloadProgressBanner(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(HefimerColors.BannerBg)
-                .border(1.dp, HefimerColors.White15, RoundedCornerShape(24.dp))
+                .border(1.dp, HefimerColors.White15, RoundedCornerShape(28.dp))
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Row(
@@ -360,13 +360,13 @@ fun FloatingDownloadProgressBanner(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(HefimerColors.EmeraldBg)
-                        .border(1.dp, HefimerColors.EmeraldBorder, CircleShape),
+                        .background(HefimerColors.White08)
+                        .border(1.dp, HefimerColors.White15, CircleShape),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Download,
                         contentDescription = null,
-                        tint = HefimerColors.Emerald400,
+                        tint = HefimerColors.White,
                         modifier = Modifier.size(17.dp),
                     )
                 }
@@ -384,9 +384,12 @@ fun FloatingDownloadProgressBanner(
                     val subtitle = if (current.totalBytes > 0L) {
                         "${formatBytes(current.loadedBytes)} / ${formatBytes(current.totalBytes)}"
                     } else if (current.loadedBytes > 0L) {
-                        "Downloaded ${formatBytes(current.loadedBytes)}"
+                        com.hefimer.app.ui.theme.tr(
+                            "Downloaded ${formatBytes(current.loadedBytes)}",
+                            "Đã tải ${formatBytes(current.loadedBytes)}",
+                        )
                     } else {
-                        "Connecting to host..."
+                        com.hefimer.app.ui.theme.tr("Connecting to host...", "Đang kết nối máy chủ...")
                     }
                     Text(
                         text = subtitle,
@@ -403,7 +406,7 @@ fun FloatingDownloadProgressBanner(
 
                 AppleRollingPercentage(
                     percent = current.percent,
-                    color = HefimerColors.Emerald400,
+                    color = HefimerColors.White,
                     style = TextStyle(
                         fontFamily = UbuntuFontFamily,
                         fontWeight = FontWeight.Bold,
@@ -422,7 +425,7 @@ fun FloatingDownloadProgressBanner(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "Cancel download",
+                        contentDescription = com.hefimer.app.ui.theme.tr("Cancel download", "Hủy tải xuống"),
                         tint = HefimerColors.White70,
                         modifier = Modifier.size(15.dp),
                     )
@@ -431,7 +434,7 @@ fun FloatingDownloadProgressBanner(
 
             AppleFluidProgressTrack(
                 progress = current.fraction,
-                accentColor = HefimerColors.Emerald400,
+                accentColor = HefimerColors.White,
                 trackColor = HefimerColors.White10,
                 height = 5.dp,
             )

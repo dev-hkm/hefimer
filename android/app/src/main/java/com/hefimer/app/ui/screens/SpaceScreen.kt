@@ -128,6 +128,7 @@ import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
+import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -139,19 +140,22 @@ fun SpaceScreen(vm: HefimerViewModel) {
     val reduceMotion = rememberReduceMotion()
 
     HefimerCollapsibleScaffold(
-        kicker = "Live collaborative canvas",
+        kicker = tr("Live collaborative canvas", "Bảng cộng tác trực tiếp"),
         title = "Space",
-        subtitle = "Drop files, sticky notes, links, and code onto an infinite shared board.",
+        subtitle = tr(
+            "Drop files, sticky notes, links, and code onto an infinite shared board.",
+            "Ghim tệp, ghi chú, liên kết và code lên không gian bảng vô hạn.",
+        ),
         showOrbitMark = true,
         headerActions = {
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.QrCodeScanner,
-                contentDescription = "Scan Space QR",
+                contentDescription = tr("Scan Space QR", "Quét QR Space"),
                 onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.AUTO)) },
             )
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.History,
-                contentDescription = "History",
+                contentDescription = tr("History", "Lịch sử"),
                 modifier = Modifier.heroSource("btn_history_space", heroBounds),
                 onClick = { vm.openOverlay(AppOverlay.History, "btn_history_space") },
             )
@@ -160,12 +164,12 @@ fun SpaceScreen(vm: HefimerViewModel) {
         if (state.createdCode.isNotBlank()) {
             DropResultCard(
                 code = state.createdCode,
-                heading = "Your Space Code",
+                heading = tr("Your Space Code", "Mã Space của bạn"),
                 subtitle = state.createdName,
                 expiresAt = state.createdExpiresAt,
                 shareUrl = "${HefimerApiConfig.SITE_ORIGIN}/space?code=${state.createdCode}",
-                resetLabel = "New Space",
-                primaryCtaLabel = "Enter Space",
+                resetLabel = tr("New Space", "Space mới"),
+                primaryCtaLabel = tr("Enter Space", "Vào Space"),
                 onPrimaryCta = { vm.enterCreatedSpace() },
                 onBack = { vm.clearSpaceCreatedCard() },
                 onReset = { vm.clearSpaceCreatedCard() },
@@ -181,13 +185,13 @@ fun SpaceScreen(vm: HefimerViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .appleEntrance(0)
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(RoundedCornerShape(32.dp))
                     .background(HefimerColors.SurfaceElevated)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(32.dp))
                     .padding(18.dp),
             ) {
                 Text(
-                    text = "YOUR DISPLAY NAME",
+                    text = tr("YOUR DISPLAY NAME", "TÊN HIỂN THỊ CỦA BẠN"),
                     color = HefimerColors.White30,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
@@ -196,7 +200,7 @@ fun SpaceScreen(vm: HefimerViewModel) {
                 HefimerTextField(
                     value = state.userName,
                     onValueChange = { vm.setSpaceUserName(it) },
-                    placeholder = "Enter your name...",
+                    placeholder = tr("Enter your name...", "Nhập tên của bạn..."),
                     leadingIcon = Icons.Rounded.Person,
                 )
             }
@@ -205,7 +209,7 @@ fun SpaceScreen(vm: HefimerViewModel) {
             AppleSegmentedControl(
                 options = listOf("join", "create"),
                 selected = state.lobbyMode,
-                label = { if (it == "join") "Join Space" else "Create Space" },
+                label = { if (it == "join") tr("Join Space", "Tham gia Space") else tr("Create Space", "Tạo Space") },
                 onSelect = { vm.setSpaceLobbyMode(it) },
                 modifier = Modifier.appleEntrance(1),
             )
@@ -220,13 +224,13 @@ fun SpaceScreen(vm: HefimerViewModel) {
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(30.dp))
+                            .clip(RoundedCornerShape(34.dp))
                             .background(HefimerColors.SurfaceElevated)
-                            .border(1.dp, HefimerColors.White12, RoundedCornerShape(30.dp))
+                            .border(1.dp, HefimerColors.White12, RoundedCornerShape(34.dp))
                             .padding(20.dp),
                     ) {
                         Text(
-                            text = "5-DIGIT SPACE CODE",
+                            text = tr("5-DIGIT SPACE CODE", "MÃ SPACE 5 CHỮ SỐ"),
                             color = HefimerColors.White30,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
@@ -241,13 +245,13 @@ fun SpaceScreen(vm: HefimerViewModel) {
                             HefimerTextField(
                                 value = state.joinPassword,
                                 onValueChange = { vm.setSpaceJoinPassword(it) },
-                                placeholder = "Enter space passcode...",
+                                placeholder = tr("Enter space passcode...", "Nhập mật khẩu Space..."),
                                 leadingIcon = Icons.Rounded.Lock,
                                 isPassword = true,
                             )
                         }
                         HefimerPrimaryButton(
-                            text = if (state.loading) "Joining..." else "Join Space",
+                            text = if (state.loading) tr("Joining...", "Đang vào...") else tr("Join Space", "Vào Space"),
                             loading = state.loading,
                             enabled = state.joinCode.length == 5 && !state.loading,
                             onClick = { vm.joinSpace() },
@@ -281,7 +285,7 @@ fun SpaceScreen(vm: HefimerViewModel) {
                                 Text("CUSTOM 5-DIGIT CODE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                                 val (statusText, statusColor) = when (state.createCodeStatus) {
                                     "checking" -> "Checking..." to HefimerColors.White40
-                                    "available" -> "Available" to HefimerColors.Emerald400
+                                    "available" -> tr("Available", "Khả dụng") to HefimerColors.White80
                                     "taken" -> "Already in use" to HefimerColors.Red400
                                     else -> "" to HefimerColors.White30
                                 }
@@ -588,13 +592,13 @@ fun SpaceCanvasOverlay(
                 if (curPanX in -40f..(size.width + 40f) && curPanY in -40f..(size.height + 40f)) {
                     val arm = 14.dp.toPx()
                     drawLine(
-                        color = HefimerColors.Emerald400.copy(alpha = 0.35f),
+                        color = HefimerColors.White.copy(alpha = 0.22f),
                         start = Offset(curPanX - arm, curPanY),
                         end = Offset(curPanX + arm, curPanY),
                         strokeWidth = 1.5f,
                     )
                     drawLine(
-                        color = HefimerColors.Emerald400.copy(alpha = 0.35f),
+                        color = HefimerColors.White.copy(alpha = 0.22f),
                         start = Offset(curPanX, curPanY - arm),
                         end = Offset(curPanX, curPanY + arm),
                         strokeWidth = 1.5f,
@@ -712,12 +716,12 @@ fun SpaceCanvasOverlay(
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "#${state.activeSpaceId}",
-                            color = HefimerColors.Emerald400,
+                            color = HefimerColors.White80,
                             fontFamily = JetBrainsMonoFamily,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                         )
-                        Text("• ${state.members.size.coerceAtLeast(1)} online", color = HefimerColors.White50, fontSize = 10.sp)
+                        Text("• ${state.members.size.coerceAtLeast(1)} ${tr("online", "trực tuyến")}", color = HefimerColors.White50, fontSize = 10.sp)
                         if (countdown.isNotBlank()) {
                             Text("• $countdown", color = HefimerColors.White40, fontSize = 10.sp)
                         }
@@ -728,7 +732,7 @@ fun SpaceCanvasOverlay(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SpaceMiniTool(Icons.Rounded.Grid4x4, active = snapGrid) {
                     snapGrid = !snapGrid
-                    vm.showToast(if (snapGrid) "Snap to grid ON" else "Free positioning ON", ToastType.INFO)
+                    vm.showToast(if (snapGrid) tr("Snap to grid ON", "Bật bám lưới") else tr("Free positioning ON", "Bật đặt tự do"), ToastType.INFO)
                 }
                 SpaceMiniTool(Icons.Rounded.AutoAwesome, active = false) {
                     vm.spaceAutoArrange()
@@ -749,9 +753,9 @@ fun SpaceCanvasOverlay(
                     .align(Alignment.TopCenter)
                     .padding(top = statusTop + 72.dp, start = 20.dp, end = 20.dp)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(26.dp))
                     .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(22.dp))
+                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(26.dp))
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -770,7 +774,7 @@ fun SpaceCanvasOverlay(
                     ) {
                         AppleRollingPercentage(
                             percent = task.progress,
-                            color = HefimerColors.Emerald400,
+                            color = HefimerColors.White,
                             style = TextStyle(
                                 fontFamily = UbuntuFontFamily,
                                 fontWeight = FontWeight.Bold,
@@ -779,7 +783,7 @@ fun SpaceCanvasOverlay(
                         )
                         Icon(
                             Icons.Rounded.Close,
-                            "Cancel",
+                            tr("Cancel", "Hủy"),
                             tint = HefimerColors.Red400,
                             modifier = Modifier
                                 .size(20.dp)
@@ -789,7 +793,7 @@ fun SpaceCanvasOverlay(
                 }
                 AppleFluidProgressTrack(
                     progress = (task.progress / 100f).coerceIn(0f, 1f),
-                    accentColor = HefimerColors.Emerald400,
+                    accentColor = HefimerColors.White,
                     trackColor = HefimerColors.White10,
                     height = 5.dp,
                 )

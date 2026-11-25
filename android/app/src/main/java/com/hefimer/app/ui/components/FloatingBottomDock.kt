@@ -54,13 +54,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.tr
 
-enum class MainTab(val label: String, val icon: ImageVector) {
-    SEND("Send", Icons.Rounded.Upload),
-    RECEIVE("Receive", Icons.Rounded.Download),
-    SPACE("Space", Icons.Rounded.GridView),
-    ROOMS("Rooms", Icons.Rounded.Forum),
-    LINK("Link", Icons.Rounded.Devices),
+enum class MainTab(val label: String, val labelVi: String, val icon: ImageVector) {
+    SEND("Send", "Gửi", Icons.Rounded.Upload),
+    RECEIVE("Receive", "Nhận", Icons.Rounded.Download),
+    SPACE("Space", "Space", Icons.Rounded.GridView),
+    ROOMS("Rooms", "Phòng", Icons.Rounded.Forum),
+    LINK("Link", "Link", Icons.Rounded.Devices),
+    ;
+
+    fun localizedLabel(): String = tr(label, labelVi)
 }
 
 /**
@@ -174,7 +178,7 @@ fun HefimerFloatingBottomDock(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = tab.icon,
-                                contentDescription = tab.label,
+                                contentDescription = tab.localizedLabel(),
                                 tint = iconTint,
                                 modifier = Modifier.size(21.dp),
                             )
@@ -186,7 +190,7 @@ fun HefimerFloatingBottomDock(
                                             .offset(x = 4.dp, y = (-3).dp)
                                             .size(6.dp)
                                             .clip(CircleShape)
-                                            .background(if (isSelected) HefimerColors.Black else HefimerColors.Emerald400),
+                                            .background(if (isSelected) HefimerColors.Black else HefimerColors.White),
                                     )
                                 }
                                 androidx.compose.animation.AnimatedVisibility(
@@ -204,7 +208,7 @@ fun HefimerFloatingBottomDock(
                                         modifier = Modifier
                                             .size(16.dp)
                                             .clip(CircleShape)
-                                            .background(if (isSelected) HefimerColors.Black else HefimerColors.Emerald400),
+                                            .background(if (isSelected) HefimerColors.Black else HefimerColors.White),
                                     ) {
                                         Text(
                                             text = if (linkBadgeCount > 9) "9+" else linkBadgeCount.toString(),

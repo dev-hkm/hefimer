@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -31,18 +32,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.BuildConfig
 import com.hefimer.app.data.network.UploadProviders
+import com.hefimer.app.ui.theme.AppLanguage
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.applePressable
+import com.hefimer.app.ui.theme.tr
 
 @Composable
 fun SettingsSheetContent(
     isLightMode: Boolean,
+    appLanguage: AppLanguage,
     defaultProviderId: String,
     historyCount: Int,
     onSetLightMode: (Boolean) -> Unit,
+    onSetAppLanguage: (AppLanguage) -> Unit,
     onOpenProviderPicker: () -> Unit,
+    onReplayOnboarding: () -> Unit,
     onClearHistory: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -51,12 +57,12 @@ fun SettingsSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .clip(RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
             .background(HefimerColors.SurfaceSheet)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         // Grabber pill
         Box(
@@ -76,15 +82,15 @@ fun SettingsSheetContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "PREFERENCES",
-                    color = HefimerColors.Emerald400,
+                    text = tr("PREFERENCES", "TÙY CHỈNH"),
+                    color = HefimerColors.White45,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.2.sp,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Settings",
+                    text = tr("Settings", "Cài đặt"),
                     color = HefimerColors.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -99,14 +105,14 @@ fun SettingsSheetContent(
                     .border(1.dp, HefimerColors.White10, CircleShape)
                     .applePressable(onClick = onClose),
             ) {
-                Icon(Icons.Rounded.Close, "Close", tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
             }
         }
 
         // Appearance Mode (OLED Dark / Apple Light)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "APPEARANCE",
+                text = tr("APPEARANCE", "GIAO DIỆN"),
                 color = HefimerColors.White40,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
@@ -115,15 +121,38 @@ fun SettingsSheetContent(
             AppleSegmentedControl(
                 options = listOf(false, true),
                 selected = isLightMode,
-                label = { if (it) "Light" else "Dark" },
+                label = { if (it) tr("Light", "Sáng") else tr("Dark", "Tối") },
                 onSelect = onSetLightMode,
+            )
+        }
+
+        // Language selector (Auto / Tiếng Việt / English)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = tr("LANGUAGE", "NGÔN NGỮ"),
+                color = HefimerColors.White40,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            AppleSegmentedControl(
+                options = listOf(AppLanguage.AUTO, AppLanguage.VI, AppLanguage.EN),
+                selected = appLanguage,
+                label = {
+                    when (it) {
+                        AppLanguage.AUTO -> tr("Auto", "Tự động")
+                        AppLanguage.VI -> "Tiếng Việt"
+                        AppLanguage.EN -> "English"
+                    }
+                },
+                onSelect = onSetAppLanguage,
             )
         }
 
         // Default Upload Provider
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "DEFAULT UPLOAD PROVIDER",
+                text = tr("DEFAULT UPLOAD PROVIDER", "MÁY CHỦ TẢI LÊN MẶC ĐỊNH"),
                 color = HefimerColors.White40,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
@@ -134,9 +163,9 @@ fun SettingsSheetContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(HefimerColors.White04)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(20.dp))
+                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
                     .applePressable(pressedScale = 0.98f, onClick = onOpenProviderPicker)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
@@ -144,11 +173,11 @@ fun SettingsSheetContent(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(HefimerColors.EmeraldBg)
-                        .border(1.dp, HefimerColors.EmeraldBorder, RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(HefimerColors.White08)
+                        .border(1.dp, HefimerColors.White15, RoundedCornerShape(14.dp)),
                 ) {
-                    Icon(Icons.Rounded.Inventory2, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.Inventory2, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -158,7 +187,7 @@ fun SettingsSheetContent(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${defaultCfg.maxSizeLabel} • Auto-routes larger files",
+                        text = "${defaultCfg.maxSizeLabel} • ${tr("Auto-routes larger files", "Tự chuyển tuyến tệp lớn")}",
                         color = HefimerColors.White40,
                         fontSize = 11.sp,
                     )
@@ -167,15 +196,53 @@ fun SettingsSheetContent(
             }
         }
 
+        // Replay Welcome Guide (Onboarding)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(HefimerColors.White04)
+                .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
+                .applePressable(pressedScale = 0.98f, onClick = onReplayOnboarding)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(HefimerColors.White06)
+                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(14.dp)),
+            ) {
+                Icon(Icons.Rounded.AutoAwesome, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = tr("Welcome Guide", "Hướng dẫn mở đầu"),
+                    color = HefimerColors.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = tr("Replay the 4-step intro tour", "Xem lại 4 màn giới thiệu ứng dụng"),
+                    color = HefimerColors.White40,
+                    fontSize = 11.sp,
+                )
+            }
+            Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White40, modifier = Modifier.size(18.dp))
+        }
+
         // Clear local history
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(HefimerColors.White04)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(20.dp))
+                .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
                 .applePressable(enabled = historyCount > 0, pressedScale = 0.98f, onClick = onClearHistory)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
@@ -183,21 +250,25 @@ fun SettingsSheetContent(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(36.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(HefimerColors.RedBg)
-                    .border(1.dp, HefimerColors.RedBorder, RoundedCornerShape(12.dp)),
+                    .border(1.dp, HefimerColors.RedBorder, RoundedCornerShape(14.dp)),
             ) {
                 Icon(Icons.Rounded.DeleteOutline, null, tint = HefimerColors.Red400, modifier = Modifier.size(18.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Clear Recent History",
+                    text = tr("Clear Recent History", "Xóa lịch sử gần đây"),
                     color = if (historyCount > 0) HefimerColors.White else HefimerColors.White40,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = if (historyCount > 0) "$historyCount saved item${if (historyCount == 1) "" else "s"}" else "History is empty",
+                    text = if (historyCount > 0) {
+                        tr("$historyCount saved item${if (historyCount == 1) "" else "s"}", "$historyCount mục đã lưu")
+                    } else {
+                        tr("History is empty", "Lịch sử đang trống")
+                    },
                     color = HefimerColors.White40,
                     fontSize = 11.sp,
                 )

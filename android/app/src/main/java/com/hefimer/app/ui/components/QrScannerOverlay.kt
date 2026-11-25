@@ -70,12 +70,16 @@ import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.applePressable
+import com.hefimer.app.ui.theme.tr
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun QrScannerOverlay(
-    hint: String = "Point camera at a Hefimer Drop, Space, Room, or Link QR code",
+    hint: String = tr(
+        "Point camera at a Hefimer Drop, Space, Room, or Link QR code",
+        "Đưa camera vào mã QR Drop, Space, Phòng hoặc Link của Hefimer",
+    ),
     onResult: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -216,21 +220,24 @@ fun QrScannerOverlay(
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "Camera permission required",
+                    text = tr("Camera permission required", "Cần quyền truy cập máy ảnh"),
                     color = HefimerColors.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Allow camera access to scan Hefimer QR codes instantly.",
+                    text = tr(
+                        "Allow camera access to scan Hefimer QR codes instantly.",
+                        "Cho phép truy cập camera để quét mã QR Hefimer tức thì.",
+                    ),
                     color = HefimerColors.White40,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(20.dp))
                 HefimerPrimaryButton(
-                    text = "Grant Permission",
+                    text = tr("Grant Permission", "Cấp quyền"),
                     onClick = { permLauncher.launch(Manifest.permission.CAMERA) },
                 )
             }
@@ -254,11 +261,11 @@ fun QrScannerOverlay(
                     .border(1.dp, HefimerColors.White15, CircleShape)
                     .applePressable(onClick = onClose),
             ) {
-                Icon(Icons.Rounded.Close, "Close scanner", tint = HefimerColors.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Close, tr("Close scanner", "Đóng máy quét"), tint = HefimerColors.White, modifier = Modifier.size(20.dp))
             }
 
             Text(
-                text = "SCAN QR CODE",
+                text = tr("SCAN QR CODE", "QUÉT MÃ QR"),
                 color = HefimerColors.White,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,

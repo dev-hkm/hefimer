@@ -111,6 +111,7 @@ import com.hefimer.app.ui.theme.appleEntrance
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
+import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -145,19 +146,22 @@ fun RoomsScreen(vm: HefimerViewModel) {
     val reduceMotion = rememberReduceMotion()
 
     HefimerCollapsibleScaffold(
-        kicker = "Live expiring sessions",
-        title = "Rooms",
-        subtitle = "Start a disposable live chat room or a real-time collaborative whiteboard.",
+        kicker = tr("Live expiring sessions", "Phiên trực tiếp tạm thời"),
+        title = tr("Rooms", "Phòng"),
+        subtitle = tr(
+            "Start a disposable live chat room or a real-time collaborative whiteboard.",
+            "Tạo phòng trò chuyện tạm thời hoặc bảng vẽ cộng tác theo thời gian thực.",
+        ),
         showOrbitMark = true,
         headerActions = {
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.QrCodeScanner,
-                contentDescription = "Scan Room QR",
+                contentDescription = tr("Scan Room QR", "Quét QR phòng"),
                 onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.AUTO)) },
             )
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.History,
-                contentDescription = "History",
+                contentDescription = tr("History", "Lịch sử"),
                 modifier = Modifier.heroSource("btn_history_rooms", heroBounds),
                 onClick = { vm.openOverlay(AppOverlay.History, "btn_history_rooms") },
             )
@@ -167,7 +171,7 @@ fun RoomsScreen(vm: HefimerViewModel) {
             AppleSegmentedControl(
                 options = listOf("chat", "board"),
                 selected = state.section,
-                label = { if (it == "chat") "Chat Room" else "Whiteboard" },
+                label = { if (it == "chat") tr("Chat Room", "Phòng chat") else tr("Whiteboard", "Bảng vẽ") },
                 onSelect = { vm.setRoomsSection(it) },
                 modifier = Modifier.appleEntrance(0),
             )
@@ -178,16 +182,16 @@ fun RoomsScreen(vm: HefimerViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .appleEntrance(1)
-                    .clip(RoundedCornerShape(26.dp))
+                    .clip(RoundedCornerShape(30.dp))
                     .background(HefimerColors.SurfaceElevated)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(26.dp))
+                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
                     .padding(16.dp),
             ) {
-                Text("YOUR NAME", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text(tr("YOUR NAME", "TÊN CỦA BẠN"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 HefimerTextField(
                     value = state.userName,
                     onValueChange = { vm.setSpaceUserName(it) },
-                    placeholder = "Enter display name...",
+                    placeholder = tr("Enter display name...", "Nhập tên hiển thị..."),
                     leadingIcon = Icons.Rounded.Person,
                 )
             }
@@ -213,12 +217,12 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
     if (state.chatCreatedCode.isNotBlank()) {
         DropResultCard(
             code = state.chatCreatedCode,
-            heading = "Your Room Code",
+            heading = tr("Your Room Code", "Mã phòng của bạn"),
             subtitle = state.chatCreatedName,
             expiresAt = state.chatCreatedExpiresAt,
             shareUrl = "${HefimerApiConfig.SITE_ORIGIN}/chat-room?code=${state.chatCreatedCode}",
-            resetLabel = "New Room",
-            primaryCtaLabel = "Enter Room",
+            resetLabel = tr("New Room", "Phòng mới"),
+            primaryCtaLabel = tr("Enter Room", "Vào phòng"),
             onPrimaryCta = { vm.enterCreatedChatRoom() },
             onBack = { vm.clearChatCreatedCard() },
             onReset = { vm.clearChatCreatedCard() },
@@ -274,7 +278,7 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                         Text("ROOM CODE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                         val (stTxt, stCol) = when (state.chatCreateCodeStatus) {
                             "checking" -> "Checking..." to HefimerColors.White40
-                            "available" -> "Available" to HefimerColors.Emerald400
+                            "available" -> tr("Available", "Khả dụng") to HefimerColors.White80
                             "taken" -> "Taken" to HefimerColors.Red400
                             else -> "" to HefimerColors.White30
                         }
@@ -517,10 +521,10 @@ fun ChatRoomOverlay(
                         ) {
                             Text("#${state.activeChatId}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 11.sp)
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Icon(Icons.Rounded.People, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(12.dp))
+                                Icon(Icons.Rounded.People, null, tint = HefimerColors.White75, modifier = Modifier.size(12.dp))
                                 AppleOdometerNumber(
                                     value = state.chatMemberCount,
-                                    color = HefimerColors.Emerald400,
+                                    color = HefimerColors.White75,
                                     style = TextStyle(fontFamily = UbuntuFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold),
                                 )
                             }
@@ -673,7 +677,7 @@ private fun ChatBubbleItem(
         ) {
             Text(
                 text = if (msg.isAdmin) "${msg.sender} • ADMIN" else msg.sender,
-                color = if (msg.isAdmin) HefimerColors.Emerald400 else HefimerColors.White40,
+                color = if (msg.isAdmin) HefimerColors.White else HefimerColors.White40,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -961,7 +965,7 @@ fun WhiteboardOverlay(
                                     .size(28.dp)
                                     .clip(CircleShape)
                                     .background(col)
-                                    .border(if (sel) 2.5.dp else 1.dp, if (sel) HefimerColors.Emerald400 else HefimerColors.White20, CircleShape)
+                                    .border(if (sel) 2.5.dp else 1.dp, if (sel) HefimerColors.White else HefimerColors.White20, CircleShape)
                                     .applePressable {
                                         currentColorHex = hex
                                         isEraser = false
