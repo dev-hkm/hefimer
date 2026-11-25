@@ -37,6 +37,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Casino
@@ -53,13 +55,11 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -919,7 +919,7 @@ fun SpaceCanvasOverlay(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             SpaceDockAction(Icons.Rounded.UploadFile, tr("File", "Tệp"), primary = true) { filePicker.launch(arrayOf("*/*")) }
-            SpaceDockAction(Icons.Rounded.StickyNote2, tr("Note", "Ghi chú")) { editingItem = null; composerMode = "note" }
+            SpaceDockAction(Icons.AutoMirrored.Rounded.StickyNote2, tr("Note", "Ghi chú")) { editingItem = null; composerMode = "note" }
             SpaceDockAction(Icons.Rounded.Link, tr("Link", "Liên kết")) { editingItem = null; composerMode = "link" }
             SpaceDockAction(Icons.Rounded.Code, tr("Code", "Mã")) { editingItem = null; composerMode = "code" }
             SpaceDockAction(Icons.Rounded.Inventory2, UploadProviders.getConfig(state.selectedProviderId).name.take(7)) {
@@ -1002,8 +1002,12 @@ fun SpaceCanvasOverlay(
                     }
                 },
                 onCopy = { txt ->
-                    copyToClipboard(context, item.name, txt)
-                    vm.showToast(tr("Copied", "Đã sao chép"), ToastType.SUCCESS)
+                    val ok = copyToClipboard(context, item.name, txt)
+                    if (ok) {
+                        vm.showToast(tr("Copied", "Đã sao chép"), ToastType.SUCCESS)
+                    } else {
+                        vm.showToast(tr("Content too large for clipboard", "Nội dung quá lớn cho bộ nhớ tạm"), ToastType.ERROR)
+                    }
                 },
                 onOpenLink = { u -> DownloadHelper.openExternalUrl(context, u) },
             )
@@ -1203,7 +1207,7 @@ private fun SpaceCanvasCard(
                 SpaceCardActionIcon(Icons.Rounded.Download, tr("Download", "Tải xuống"), HefimerColors.White85, onDownload)
             }
             if (item.kind == "link" && !item.url.isNullOrBlank()) {
-                SpaceCardActionIcon(Icons.Rounded.OpenInNew, tr("Open", "Mở"), HefimerColors.Sky400, onOpenLink)
+                SpaceCardActionIcon(Icons.AutoMirrored.Rounded.OpenInNew, tr("Open", "Mở"), HefimerColors.Sky400, onOpenLink)
             }
             if (item.kind != "file") {
                 SpaceCardActionIcon(Icons.Rounded.ContentCopy, tr("Copy", "Sao chép"), HefimerColors.White75, onCopy)
@@ -1502,7 +1506,7 @@ private fun SpaceItemPreviewDialog(
                     if (item.kind == "file") {
                         HefimerPrimaryButton(tr("Download", "Tải xuống"), icon = Icons.Rounded.Download, height = 46.dp, modifier = Modifier.weight(1f), onClick = onDownload)
                     } else if (item.kind == "link" && !item.url.isNullOrBlank()) {
-                        HefimerPrimaryButton(tr("Open Link", "Mở liên kết"), icon = Icons.Rounded.OpenInNew, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onOpenLink(item.url) })
+                        HefimerPrimaryButton(tr("Open Link", "Mở liên kết"), icon = Icons.AutoMirrored.Rounded.OpenInNew, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onOpenLink(item.url) })
                     } else if (!item.content.isNullOrBlank()) {
                         HefimerPrimaryButton(tr("Copy", "Sao chép"), icon = Icons.Rounded.ContentCopy, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onCopy(item.content) })
                     }

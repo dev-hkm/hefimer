@@ -77,17 +77,41 @@ import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-fun copyToClipboard(context: Context, label: String, value: String) {
-    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    cm.setPrimaryClip(ClipData.newPlainText(label, value))
+private const val MAX_CLIPBOARD_CHARS = 250_000
+private const val MAX_INTENT_TEXT_CHARS = 180_000
+
+fun copyToClipboard(context: Context, label: String, value: String): Boolean {
+    if (value.length > MAX_CLIPBOARD_CHARS) return false
+    return runCatching {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText(label, value))
+        true
+    }.getOrDefault(false)
 }
 
 fun shareTextSheet(context: Context, text: String, title: String = tr("Share via Hefimer", "Chia sẻ qua Hefimer")) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, text)
+    runCatching {
+        val intent = if (text.length > MAX_INTENT_TEXT_CHARS) {
+            val out = java.io.File(context.cacheDir, "hef_share_${System.currentTimeMillis()}.txt")
+            out.writeText(text)
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                out,
+            )
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } else {
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+        }
+        context.startActivity(Intent.createChooser(intent, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
-    context.startActivity(Intent.createChooser(intent, title))
 }
 
 /**

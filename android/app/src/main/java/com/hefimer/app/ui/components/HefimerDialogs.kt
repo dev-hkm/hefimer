@@ -16,12 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -217,7 +217,7 @@ fun RedownloadConfirmDialog(
                 if (hasExistingReadableFile) {
                     HefimerSecondaryButton(
                         text = tr("Open Saved File Instead", "Mở tệp đã lưu trước đó"),
-                        icon = Icons.Rounded.OpenInNew,
+                        icon = Icons.AutoMirrored.Rounded.OpenInNew,
                         height = 46.dp,
                         onClick = onOpenExisting,
                     )
@@ -335,7 +335,7 @@ fun PostSaveBottomSheetContent(
 
         HefimerPrimaryButton(
             text = tr("Open With App", "Mở bằng ứng dụng..."),
-            icon = Icons.Rounded.OpenInNew,
+            icon = Icons.AutoMirrored.Rounded.OpenInNew,
             onClick = onOpenWithApp,
         )
 

@@ -40,6 +40,7 @@ import com.hefimer.app.data.network.FileUploadEngine
 import com.hefimer.app.data.network.FirebaseRtdbClient
 import com.hefimer.app.data.network.HefimerApiConfig
 import com.hefimer.app.data.network.LocalPickedFile
+import com.hefimer.app.data.network.NetworkMonitor
 import com.hefimer.app.data.network.R2Service
 import com.hefimer.app.data.network.UploadCancellationToken
 import com.hefimer.app.data.network.UploadProviders
@@ -239,6 +240,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     val uploader = FileUploadEngine(application, storage)
     val r2Service = R2Service(application)
     val deviceApi = DeviceApiClient(storage)
+    private val networkMonitor = NetworkMonitor(application)
+    val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
     private val clientId = storage.getOrCreateClientId()
     private val json = HefimerApiConfig.json
@@ -379,6 +382,20 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     init {
         startGlobalObservers()
         startLinkPolling()
+        viewModelScope.launch {
+            var wasOnline = networkMonitor.isConnectedNow()
+            networkMonitor.isOnline.collect { nowOnline ->
+                if (!wasOnline && nowOnline) {
+                    if (storage.isDeviceLinkEnabled() || _selectedTab.value == MainTab.LINK) {
+                        refreshLink(silent = true)
+                    }
+                    checkSpaceCodeAvailability(_spaceState.value.createCode)
+                    checkChatCodeAvailability(_roomsState.value.chatCreateCode)
+                    showToast(tr("Connection restored", "Đã kết nối lại mạng"), ToastType.SUCCESS)
+                }
+                wasOnline = nowOnline
+            }
+        }
         if (_defaultStartTab.value == MainTab.LINK) {
             storage.setDeviceLinkEnabled(true)
             refreshLink(silent = false)
@@ -1178,6 +1195,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             showToast(tr("Please select a file first", "Vui lòng chọn tệp trước"), ToastType.ERROR)
             return
         }
+        if (!networkMonitor.isConnectedNow()) {
+            showToast(tr("No internet connection", "Không có kết nối mạng"), ToastType.ERROR)
+            return
+        }
         if (st.isR2Mode) {
             uploadFilesToR2()
             return
@@ -1546,6 +1567,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             showToast(tr("Please enter some text or code", "Vui lòng nhập văn bản hoặc mã nguồn"), ToastType.ERROR)
             return
         }
+        if (!networkMonitor.isConnectedNow()) {
+            showToast(tr("No internet connection", "Không có kết nối mạng"), ToastType.ERROR)
+            return
+        }
         _sendState.update { it.copy(textLoading = true) }
         viewModelScope.launch {
             try {
@@ -1631,6 +1656,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val targetCode = (codeOverride ?: _receiveState.value.code).filter { it.isDigit() }.take(5)
         if (targetCode.length != 5) {
             showToast(tr("Please enter exactly 5 digits", "Vui lòng nhập đủ 5 chữ số"), ToastType.ERROR)
+            return
+        }
+        if (!networkMonitor.isConnectedNow()) {
+            showToast(tr("No internet connection", "Không có kết nối mạng"), ToastType.ERROR)
             return
         }
         _receiveState.update { it.copy(code = targetCode, loading = true) }
@@ -3110,6 +3139,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     // endregion
 
     override fun onCleared() {
+        networkMonitor.close()
         _sendState.value.pickedFiles.forEach { file ->
             file.tempFile?.let { temp -> runCatching { temp.delete() } }
         }

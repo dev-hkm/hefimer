@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -188,7 +189,7 @@ fun HefimerOnboardingOverlay(
     }
 
     // Subtle single-tick haptic on page settlement
-    var lastSettledPage by remember { mutableStateOf(0) }
+    var lastSettledPage by remember { mutableIntStateOf(0) }
     LaunchedEffect(pagerState.settledPage) {
         if (pagerState.settledPage != lastSettledPage) {
             lastSettledPage = pagerState.settledPage

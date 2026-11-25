@@ -46,6 +46,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Casino
@@ -61,7 +62,6 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -71,6 +71,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -909,7 +910,7 @@ fun WhiteboardOverlay(
     var zoom by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     var hasInitializedFit by remember { mutableStateOf(false) }
-    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val activePoints = remember { mutableStateListOf<BoardPoint>() }
 
     LaunchedEffect(state.activeBoardId, state.activeBoardExpiresAt) {
@@ -1368,7 +1369,7 @@ fun WhiteboardOverlay(
                 BoardToolBtn(Icons.Rounded.Palette, active = showPalette) { showPalette = !showPalette }
                 BoardToolBtn(Icons.Rounded.Grid4x4, active = showGrid) { showGrid = !showGrid }
                 BoardToolBtn(
-                    icon = Icons.Rounded.Undo,
+                    icon = Icons.AutoMirrored.Rounded.Undo,
                     active = false,
                     enabled = state.canUndoBoardStroke || state.boardStrokes.isNotEmpty(),
                 ) {

@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
@@ -37,12 +39,10 @@ import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Laptop
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.VerifiedUser
@@ -681,7 +681,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                     // Leave / Delete Group (with confirmation modal)
                     HefimerSecondaryButton(
                         text = if (isOwner) tr("Delete Group For Everyone", "Xóa nhóm cho tất cả") else tr("Leave This Group", "Rời khỏi nhóm này"),
-                        icon = Icons.Rounded.Logout,
+                        icon = Icons.AutoMirrored.Rounded.Logout,
                         onClick = {
                             vm.requestConfirm(
                                 title = if (isOwner) tr("Delete Device Group?", "Xóa nhóm thiết bị?") else tr("Leave This Group?", "Rời khỏi nhóm ghép nối?"),
@@ -761,7 +761,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                 Text(tr("OUTGOING", "ĐI"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
                                 Text(tr("Sent from here", "Đã gửi từ đây"), color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             }
-                            Icon(Icons.Rounded.Send, null, tint = HefimerColors.White40, modifier = Modifier.size(19.dp))
+                            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = HefimerColors.White40, modifier = Modifier.size(19.dp))
                         }
                         if (state.sync.outgoing.isEmpty()) {
                             Text(

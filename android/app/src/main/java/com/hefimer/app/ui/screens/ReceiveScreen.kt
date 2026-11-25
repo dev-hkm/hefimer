@@ -11,12 +11,15 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -32,9 +35,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Description
@@ -43,7 +48,6 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -58,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,12 +71,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -306,6 +317,7 @@ fun FiveDigitPinSlots(
         }
 
         // Invisible overlay numeric input
+        val pinAccessibilityLabel = tr("Enter 5-digit Drop code", "Nhập mã Drop 5 chữ số")
         BasicTextField(
             value = code,
             onValueChange = { onCodeChange(it.filter { c -> c.isDigit() }.take(5)) },
@@ -319,6 +331,7 @@ fun FiveDigitPinSlots(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(78.dp)
+                .semantics { contentDescription = pinAccessibilityLabel }
                 .onFocusChanged { focused = it.isFocused },
         )
     }
@@ -643,6 +656,8 @@ private fun ReceivedDropView(
             }
 
             if (showFullImage && previewUrl != null) {
+                var zoom by remember(previewUrl) { mutableFloatStateOf(1f) }
+                var pan by remember(previewUrl) { mutableStateOf(Offset.Zero) }
                 Dialog(
                     onDismissRequest = { showFullImage = false },
                     properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -657,18 +672,92 @@ private fun ReceivedDropView(
                                 elevation = 24.dp,
                             )
                             .padding(12.dp),
-                        contentAlignment = Alignment.Center,
                     ) {
-                        AsyncImage(
-                            model = previewUrl,
-                            contentDescription = item.fileName,
-                            contentScale = ContentScale.Fit,
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 520.dp)
+                                .heightIn(min = 240.dp, max = 520.dp)
                                 .clip(RoundedCornerShape(20.dp))
-                                .applePressable(pressedScale = 0.99f) { showFullImage = false },
-                        )
+                                .clipToBounds()
+                                .background(HefimerColors.Black)
+                                .pointerInput(previewUrl) {
+                                    detectTapGestures(
+                                        onDoubleTap = {
+                                            if (zoom > 1.2f) {
+                                                zoom = 1f
+                                                pan = Offset.Zero
+                                            } else {
+                                                zoom = 2.4f
+                                            }
+                                        },
+                                        onTap = {
+                                            if (zoom <= 1.05f) showFullImage = false
+                                        },
+                                    )
+                                }
+                                .pointerInput(previewUrl) {
+                                    detectTransformGestures { _, panChange, zoomChange, _ ->
+                                        val nextZoom = (zoom * zoomChange).coerceIn(1f, 4f)
+                                        zoom = nextZoom
+                                        pan = if (nextZoom <= 1.02f) {
+                                            Offset.Zero
+                                        } else {
+                                            Offset(
+                                                x = (pan.x + panChange.x).coerceIn(-600f, 600f),
+                                                y = (pan.y + panChange.y).coerceIn(-600f, 600f),
+                                            )
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            AsyncImage(
+                                model = previewUrl,
+                                contentDescription = item.fileName,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        scaleX = zoom
+                                        scaleY = zoom
+                                        translationX = pan.x
+                                        translationY = pan.y
+                                    },
+                            )
+                        }
+
+                        // Floating zoom hint & Close button
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (zoom > 1.05f) {
+                                    "${String.format(java.util.Locale.US, "%.1f", zoom)}x"
+                                } else {
+                                    tr("Pinch or double-tap to zoom", "Chạm 2 lần hoặc kéo để phóng to")
+                                },
+                                color = HefimerColors.White75,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                    .applePressable(pressedScale = 0.88f) { showFullImage = false },
+                            ) {
+                                Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White, modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
                 }
             }
@@ -802,10 +891,13 @@ private fun ReceivedDropView(
                                     },
                                 )
                                 .applePressable(pressedScale = 0.89f) {
-                                    copyToClipboard(context, "Hefimer Text", textBody)
-                                    copiedText = true
-                                    vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
-                                    scope.launch { delay(2000L); copiedText = false }
+                                    if (copyToClipboard(context, "Hefimer Text", textBody)) {
+                                        copiedText = true
+                                        vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
+                                        scope.launch { delay(2000L); copiedText = false }
+                                    } else {
+                                        vm.showToast(tr("Text too large for clipboard — save as file instead", "Văn bản quá lớn cho bộ nhớ tạm — hãy lưu thành tệp"), ToastType.ERROR)
+                                    }
                                 },
                         ) {
                             Icon(
@@ -874,10 +966,13 @@ private fun ReceivedDropView(
                         modifier = Modifier.weight(1f),
                         height = 54.dp,
                         onClick = {
-                            copyToClipboard(context, "Hefimer Text", textBody)
-                            copiedText = true
-                            vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
-                            scope.launch { delay(2000L); copiedText = false }
+                            if (copyToClipboard(context, "Hefimer Text", textBody)) {
+                                copiedText = true
+                                vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
+                                scope.launch { delay(2000L); copiedText = false }
+                            } else {
+                                vm.showToast(tr("Text too large for clipboard — save as file instead", "Văn bản quá lớn cho bộ nhớ tạm — hãy lưu thành tệp"), ToastType.ERROR)
+                            }
                         },
                     )
                 } else {
@@ -885,10 +980,13 @@ private fun ReceivedDropView(
                         text = if (copiedText) tr("Copied!", "Đã chép!") else tr("Copy Text", "Sao chép văn bản"),
                         icon = if (copiedText) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                         onClick = {
-                            copyToClipboard(context, "Hefimer Text", textBody)
-                            copiedText = true
-                            vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
-                            scope.launch { delay(2000L); copiedText = false }
+                            if (copyToClipboard(context, "Hefimer Text", textBody)) {
+                                copiedText = true
+                                vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
+                                scope.launch { delay(2000L); copiedText = false }
+                            } else {
+                                vm.showToast(tr("Text too large for clipboard — save as file instead", "Văn bản quá lớn cho bộ nhớ tạm — hãy lưu thành tệp"), ToastType.ERROR)
+                            }
                         },
                     )
                 }
@@ -925,7 +1023,7 @@ private fun fileIconForName(fileName: String, isR2: Boolean): Pair<ImageVector, 
         "mp3", "wav", "ogg", "m4a", "flac" -> Icons.Rounded.AudioFile to HefimerColors.White80
         "zip", "rar", "7z", "tar", "gz" -> Icons.Rounded.Archive to HefimerColors.White80
         "pdf" -> Icons.Rounded.Description to HefimerColors.White80
-        else -> Icons.Rounded.InsertDriveFile to if (isR2) HefimerColors.Emerald400 else HefimerColors.White70
+        else -> Icons.AutoMirrored.Rounded.InsertDriveFile to if (isR2) HefimerColors.Emerald400 else HefimerColors.White70
     }
 }
 

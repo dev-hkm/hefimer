@@ -1203,8 +1203,12 @@ private fun SendTextSection(
                         active = false,
                         onClick = {
                             if (state.textContent.isNotBlank()) {
-                                copyToClipboard(context, "Hefimer Text", state.textContent)
-                                vm.showToast(tr("Copied to clipboard", "Đã sao chép"), ToastType.SUCCESS)
+                                val ok = copyToClipboard(context, "Hefimer Text", state.textContent)
+                                if (ok) {
+                                    vm.showToast(tr("Copied to clipboard", "Đã sao chép"), ToastType.SUCCESS)
+                                } else {
+                                    vm.showToast(tr("Text too large for clipboard", "Văn bản quá lớn cho bộ nhớ tạm"), ToastType.ERROR)
+                                }
                             }
                         },
                     )

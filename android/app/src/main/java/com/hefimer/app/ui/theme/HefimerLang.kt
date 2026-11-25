@@ -50,4 +50,4 @@ object HefimerLang {
  * Concise bilingual helper: returns Vietnamese when active, English otherwise.
  * Reading [HefimerLang.isVi] inside any @Composable automatically subscribes it to live language switches.
  */
-inline fun tr(en: String, vi: String): String = if (HefimerLang.isVi) vi else en
+fun tr(en: String, vi: String): String = if (HefimerLang.isVi) vi else en

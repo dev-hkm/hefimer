@@ -122,6 +122,28 @@ class ProviderE2EInstrumentedTest {
             mp4File.delete()
         }
 
+        // Verify AndroidKeyStore private-key wrapping & seamless plaintext migration
+        val freshIdentity = DeviceCrypto.getOrCreateIdentity(storage)
+        val wrappedPriv = storage.getStoredString("hefimer_dev_priv").orEmpty()
+        assertTrue("Expected Keystore AES-GCM wrapped private key, got $wrappedPriv", wrappedPriv.startsWith("aks1:"))
+        val sigAfterWrap = DeviceCrypto.signP1363Base64Url(freshIdentity.privateKey, "hefimer-keystore-check")
+        assertTrue(sigAfterWrap.isNotBlank())
+
+        // Simulate legacy plaintext key and ensure reload upgrades transparently preserving identity
+        val kpg = java.security.KeyPairGenerator.getInstance("EC")
+        kpg.initialize(java.security.spec.ECGenParameterSpec("secp256r1"))
+        val kp = kpg.generateKeyPair()
+        val legacyPub = DeviceCrypto.toBase64Url(kp.public.encoded)
+        val legacyPriv = DeviceCrypto.toBase64Url(kp.private.encoded)
+        storage.putStoredString("hefimer_dev_id", "legacy-dev-id-test")
+        storage.putStoredString("hefimer_dev_pub", legacyPub)
+        storage.putStoredString("hefimer_dev_priv", legacyPriv)
+
+        val migrated = DeviceCrypto.getOrCreateIdentity(storage)
+        assertEquals("legacy-dev-id-test", migrated.id)
+        assertEquals(legacyPub, migrated.publicKeySpkiBase64Url)
+        assertTrue(storage.getStoredString("hefimer_dev_priv").orEmpty().startsWith("aks1:"))
+
         assertTrue(
             "Provider E2E failures (${failures.size}):\n${failures.joinToString("\n")}",
             failures.isEmpty(),

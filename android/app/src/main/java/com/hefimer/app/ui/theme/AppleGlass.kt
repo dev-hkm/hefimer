@@ -300,8 +300,8 @@ fun AppleGlassSurface(
  */
 @Composable
 fun AppleMonochromeBackdrop(
-    isR2Mode: Boolean = false,
     modifier: Modifier = Modifier,
+    isR2Mode: Boolean = false,
 ) {
     val isLight = HefimerColors.isLightMode
     val baseColor = if (isLight) Color(0xFFE7E9EF) else Color(0xFF030305)

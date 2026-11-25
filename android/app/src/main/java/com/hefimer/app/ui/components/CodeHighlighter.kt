@@ -1,10 +1,10 @@
 package com.hefimer.app.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.LocationOn
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.ui.graphics.Color
@@ -172,7 +172,7 @@ object CodeHighlighter {
                 Regex("""^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+\.[a-zA-Z]{2,}(/\S*)?$""").matches(t))
         ) {
             val url = if (t.startsWith("http://", true) || t.startsWith("https://", true)) t else "https://$t"
-            return SmartAction("link", com.hefimer.app.ui.theme.tr("Open Link", "Mở liên kết"), Icons.Rounded.OpenInNew, url)
+            return SmartAction("link", com.hefimer.app.ui.theme.tr("Open Link", "Mở liên kết"), Icons.AutoMirrored.Rounded.OpenInNew, url)
         }
         return null
     }

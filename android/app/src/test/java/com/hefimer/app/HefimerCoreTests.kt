@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -231,5 +232,27 @@ class HefimerCoreTests {
         assertEquals("demo.pdf", outcome.fileName)
         assertEquals(2048L, outcome.sizeBytes)
         assertEquals("application/pdf", outcome.mimeType)
+    }
+
+    @Test
+    fun deviceCryptoAesGcmWrappingRoundTripAndTamperRejection() {
+        val keyGen = javax.crypto.KeyGenerator.getInstance("AES")
+        keyGen.init(256)
+        val secretKey = keyGen.generateKey()
+        val kpg = KeyPairGenerator.getInstance("EC")
+        kpg.initialize(java.security.spec.ECGenParameterSpec("secp256r1"))
+        val pkcs8 = kpg.generateKeyPair().private.encoded
+
+        val wrapped = DeviceCrypto.wrapWithAesGcmKey(pkcs8, secretKey)
+        assertTrue(wrapped.startsWith("aks1:"))
+        val unwrapped = DeviceCrypto.unwrapWithAesGcmKey(wrapped, secretKey)
+        assertNotNull(unwrapped)
+        assertArrayEquals(pkcs8, unwrapped)
+
+        // Tampered payload or wrong key must fail cleanly without leaking
+        val tampered = wrapped.dropLast(2) + "AA"
+        val badUnwrap = runCatching { DeviceCrypto.unwrapWithAesGcmKey(tampered, secretKey) }.getOrNull()
+        assertNull(badUnwrap)
+        assertNull(DeviceCrypto.unwrapWithAesGcmKey("not-wrapped", secretKey))
     }
 }

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.data.model.ToastMessage
@@ -414,7 +415,7 @@ fun HefimerToggleRow(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .offset(x = thumbOffset)
+                    .offset { IntOffset(thumbOffset.roundToPx(), 0) }
                     .size(20.dp)
                     .clip(CircleShape)
                     .background(if (checked && activeColor == HefimerColors.White) HefimerColors.Black else HefimerColors.White),

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -170,6 +171,7 @@ private fun HefimerRootScreen(
     val context = LocalContext.current
     val selectedTab by vm.selectedTab.collectAsState()
     val defaultStartTab by vm.defaultStartTab.collectAsState()
+    val isOnline by vm.isOnline.collectAsState()
     val activeOverlay by vm.activeOverlay.collectAsState()
     val activeHeroKey by vm.activeHeroKey.collectAsState()
     val toast by vm.toast.collectAsState()
@@ -476,6 +478,42 @@ private fun HefimerRootScreen(
                 )
             }
 
+            // Offline Network Status Pill
+            AnimatedVisibility(
+                visible = !isOnline && activeOverlay == null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = statusTop + 54.dp, start = 20.dp, end = 20.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Elevated,
+                            accentBorderTint = HefimerColors.RedBorder,
+                            elevation = 14.dp,
+                        )
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.Rounded.WifiOff, null, tint = HefimerColors.Red400, modifier = Modifier.size(15.dp))
+                    Text(
+                        text = com.hefimer.app.ui.theme.tr(
+                            "Offline • Waiting for connection",
+                            "Mất kết nối mạng • Đang chờ tín hiệu",
+                        ),
+                        color = HefimerColors.White90,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
             // Global Notice Banner (from Firebase stats)
             AnimatedVisibility(
                 visible = isNoticeVisible,
@@ -483,7 +521,7 @@ private fun HefimerRootScreen(
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = statusTop + 54.dp, start = 16.dp, end = 16.dp),
+                    .padding(top = statusTop + if (!isOnline) 98.dp else 54.dp, start = 16.dp, end = 16.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

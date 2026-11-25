@@ -18,13 +18,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Inventory2
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
@@ -254,7 +254,7 @@ fun SettingsSheetContent(
                 subtitle = tr("Show app chooser sheet right after a download finishes", "Hiện bảng chọn ứng dụng mở ngay sau khi lưu tệp"),
                 checked = promptOpenAfterDownload,
                 onToggle = onTogglePromptOpenAfterDownload,
-                icon = Icons.Rounded.OpenInNew,
+                icon = Icons.AutoMirrored.Rounded.OpenInNew,
                 activeColor = HefimerColors.White,
             )
             HefimerToggleRow(

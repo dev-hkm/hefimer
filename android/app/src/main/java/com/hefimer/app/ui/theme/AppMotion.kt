@@ -857,7 +857,7 @@ fun <T> AppleSegmentedControl(
 
         Box(
             modifier = Modifier
-                .offset(x = pillOffsetX)
+                .offset { IntOffset(pillOffsetX.roundToPx(), 0) }
                 .width(pillWidth)
                 .height(height - padding * 2)
                 .graphicsLayer {
