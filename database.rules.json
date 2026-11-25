@@ -1,9 +1,85 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true,
     "drops": {
-      ".indexOn": ["expiresAt"]
+      ".indexOn": ["expiresAt"],
+      "$code": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $code.matches(/^[A-Za-z0-9_-]{4,32}$/)"
+      }
+    },
+    "spaces": {
+      "$spaceId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $spaceId.matches(/^[A-Za-z0-9_-]{4,32}$/)"
+      }
+    },
+    "chats": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $roomId.matches(/^[A-Za-z0-9_-]{4,64}$/)"
+      }
+    },
+    "boards": {
+      "$boardId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $boardId.matches(/^[A-Za-z0-9_-]{4,64}$/)"
+      }
+    },
+    "board_paths": {
+      "$boardId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $boardId.matches(/^[A-Za-z0-9_-]{4,64}$/)"
+      }
+    },
+    "link_codes": {
+      "$code": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $code.matches(/^[0-9]{4,12}$/)"
+      }
+    },
+    "presence": {
+      "$sessionId": {
+        ".read": false,
+        ".write": true,
+        ".validate": "newData.hasChildren() && $sessionId.matches(/^[A-Za-z0-9_-]{4,64}$/)"
+      }
+    },
+    "stats": {
+      "passwords": {
+        ".read": false,
+        ".write": false
+      },
+      "likes": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      },
+      "broadcast": {
+        ".read": true,
+        ".write": false
+      },
+      "notice": {
+        ".read": true,
+        ".write": false
+      },
+      "noticeExpiresAt": {
+        ".read": true,
+        ".write": false
+      },
+      "isFrozen": {
+        ".read": true,
+        ".write": false
+      },
+      "developer": {
+        ".read": true,
+        ".write": false
+      }
     }
   }
 }

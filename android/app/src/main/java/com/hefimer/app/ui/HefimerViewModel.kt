@@ -284,6 +284,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private val _defaultProviderId = MutableStateFlow(storage.getDefaultUploadProvider())
     val defaultProviderId: StateFlow<String> = _defaultProviderId.asStateFlow()
 
+    private val _storageToApiToken = MutableStateFlow(storage.getStorageToApiToken())
+    val storageToApiToken: StateFlow<String> = _storageToApiToken.asStateFlow()
+
     private val _showSettingsSheet = MutableStateFlow(false)
     val showSettingsSheet: StateFlow<Boolean> = _showSettingsSheet.asStateFlow()
 
@@ -418,6 +421,20 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 "Default provider set to ${UploadProviders.getConfig(providerId).name}",
                 "Đã đặt máy chủ mặc định: ${UploadProviders.getConfig(providerId).name}",
             ),
+            ToastType.SUCCESS,
+        )
+    }
+
+    fun setStorageToApiToken(token: String) {
+        val clean = token.trim()
+        storage.setStorageToApiToken(clean)
+        _storageToApiToken.value = clean
+        showToast(
+            if (clean.isNotEmpty()) {
+                tr("Saved storage.to API token", "Đã lưu API token storage.to")
+            } else {
+                tr("Cleared storage.to API token", "Đã xóa API token storage.to")
+            },
             ToastType.SUCCESS,
         )
     }
@@ -901,7 +918,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(Intent.EXTRA_STREAM)
-                }
+                } ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
+
+                closeSendProviderPicker()
+                _showSettingsSheet.value = false
+                _activeOverlay.value = null
+                _showOnboarding.value = false
                 if (streamUri != null) {
                     onFilesPicked(listOf(streamUri))
                     _selectedTab.value = MainTab.SEND
@@ -917,8 +939,16 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     @Suppress("DEPRECATION")
                     intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
-                }
+                }?.takeIf { it.isNotEmpty() }
+                    ?: intent.clipData?.let { cd ->
+                        (0 until cd.itemCount).mapNotNull { cd.getItemAt(it).uri }
+                    }?.takeIf { it.isNotEmpty() }
+
                 if (!uris.isNullOrEmpty()) {
+                    closeSendProviderPicker()
+                    _showSettingsSheet.value = false
+                    _activeOverlay.value = null
+                    _showOnboarding.value = false
                     onFilesPicked(uris)
                     _selectedTab.value = MainTab.SEND
                     _sendState.update { it.copy(subMode = SendSubMode.FILE) }

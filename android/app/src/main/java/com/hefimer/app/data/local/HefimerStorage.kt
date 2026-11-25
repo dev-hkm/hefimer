@@ -173,6 +173,15 @@ class HefimerStorage(context: Context) {
         return created
     }
 
+    fun getStorageToApiToken(): String = prefs.getString("hefimer_storageto_api_token", "")?.trim().orEmpty()
+    fun setStorageToApiToken(token: String) {
+        val clean = token.trim()
+        prefs.edit().apply {
+            if (clean.isEmpty()) remove("hefimer_storageto_api_token")
+            else putString("hefimer_storageto_api_token", clean)
+        }.apply()
+    }
+
     fun getDeviceName(): String {
         val saved = prefs.getString("hefimer_device_name", null)
         if (!saved.isNullOrBlank()) return saved

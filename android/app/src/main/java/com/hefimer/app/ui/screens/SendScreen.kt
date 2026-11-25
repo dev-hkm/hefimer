@@ -1740,13 +1740,26 @@ private fun ProviderRowCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(fg.copy(alpha = 0.1f)))
                 Spacer(Modifier.height(4.dp))
+                PolicyLine(tr("LIMITS", "GIỚI HẠN"), prov.localizedLimitDetail(), fg)
                 PolicyLine(tr("EXPIRY", "HẾT HẠN"), prov.localizedExpiry(), fg)
                 PolicyLine(tr("DELIVERY", "TỐC ĐỘ"), prov.localizedSpeed(), fg)
+                if (prov.localizedDownloadFlow().isNotBlank()) {
+                    PolicyLine(tr("DOWNLOAD", "KIỂU TẢI"), prov.localizedDownloadFlow(), fg)
+                }
+                if (prov.localizedPrivacyDetail().isNotBlank()) {
+                    PolicyLine(tr("PRIVACY", "BẢO MẬT"), prov.localizedPrivacyDetail(), fg)
+                }
+                if (prov.localizedBestFor().isNotBlank()) {
+                    PolicyLine(tr("BEST FOR", "PHÙ HỢP"), prov.localizedBestFor(), fg)
+                }
+                if (prov.localizedLimitations().isNotBlank()) {
+                    PolicyLine(tr("CAVEATS", "HẠN CHẾ"), prov.localizedLimitations(), fg)
+                }
                 PolicyLine(tr("NOTES", "GHI CHÚ"), prov.localizedFeatures(), fg)
             }
         }

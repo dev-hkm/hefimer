@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -25,15 +26,23 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.BuildConfig
@@ -53,6 +62,7 @@ fun SettingsSheetContent(
     appLanguage: AppLanguage,
     defaultStartTab: MainTab,
     defaultProviderId: String,
+    storageToApiToken: String,
     promptOpenAfterDownload: Boolean,
     confirmRedownload: Boolean,
     smartClipboardBanner: Boolean,
@@ -61,6 +71,7 @@ fun SettingsSheetContent(
     onSetLightMode: (Boolean) -> Unit,
     onSetAppLanguage: (AppLanguage) -> Unit,
     onSetDefaultStartTab: (MainTab) -> Unit,
+    onSetStorageToApiToken: (String) -> Unit,
     onTogglePromptOpenAfterDownload: () -> Unit,
     onToggleConfirmRedownload: () -> Unit,
     onToggleSmartClipboardBanner: () -> Unit,
@@ -237,6 +248,109 @@ fun SettingsSheetContent(
                     )
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White45, modifier = Modifier.size(18.dp))
+            }
+
+            // Optional Free storage.to API Token card
+            var tokenDraft by remember(storageToApiToken) { mutableStateOf(storageToApiToken) }
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(24.dp),
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    )
+                    .padding(14.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Rounded.Key, null, tint = HefimerColors.White85, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = tr("storage.to API Token (Optional)", "API Token storage.to (Tuỳ chọn)"),
+                        color = HefimerColors.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (storageToApiToken.isNotBlank()) {
+                        Text(
+                            text = tr("ACTIVE", "ĐANG BẬT"),
+                            color = HefimerColors.Black,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(HefimerColors.White)
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                Text(
+                    text = tr(
+                        "Free account token from storage.to/account/api-tokens unlocks unlimited daily files & bandwidth.",
+                        "Tài khoản miễn phí tại storage.to/account/api-tokens giúp mở khóa không giới hạn số tệp & băng thông/ngày.",
+                    ),
+                    color = HefimerColors.White45,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(HefimerColors.White08)
+                            .border(1.dp, HefimerColors.White12, RoundedCornerShape(14.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        if (tokenDraft.isEmpty()) {
+                            Text(
+                                text = tr("Paste Bearer token...", "Dán Bearer token..."),
+                                color = HefimerColors.White30,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 11.sp,
+                            )
+                        }
+                        BasicTextField(
+                            value = tokenDraft,
+                            onValueChange = { tokenDraft = it },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            textStyle = TextStyle(
+                                color = HefimerColors.White,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 11.sp,
+                            ),
+                            cursorBrush = SolidColor(HefimerColors.White),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (tokenDraft.trim() != storageToApiToken) HefimerColors.White else HefimerColors.White12)
+                            .applePressable(pressedScale = 0.94f) {
+                                onSetStorageToApiToken(tokenDraft)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            text = if (tokenDraft.isBlank() && storageToApiToken.isNotBlank()) tr("Clear", "Xóa") else tr("Save", "Lưu"),
+                            color = if (tokenDraft.trim() != storageToApiToken) HefimerColors.Black else HefimerColors.White70,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
         }
 

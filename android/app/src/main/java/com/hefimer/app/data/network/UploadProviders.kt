@@ -49,10 +49,20 @@ data class UploadProviderConfig(
     val maxSizeBytes: Long,
     val maxSizeLabel: String,
     val maxSizeLabelVi: String = maxSizeLabel,
+    val limitDetail: String = maxSizeLabel,
+    val limitDetailVi: String = maxSizeLabelVi,
     val expiry: String,
     val expiryVi: String,
     val speed: String,
     val speedVi: String,
+    val downloadFlow: String = "",
+    val downloadFlowVi: String = "",
+    val privacyDetail: String = "",
+    val privacyDetailVi: String = "",
+    val bestFor: String = "",
+    val bestForVi: String = "",
+    val limitations: String = "",
+    val limitationsVi: String = "",
     val features: String,
     val featuresVi: String,
     val isLargeFile: Boolean,
@@ -60,8 +70,13 @@ data class UploadProviderConfig(
     val expireOptions: List<ExpireOption>,
 ) {
     fun localizedMaxSize(): String = com.hefimer.app.ui.theme.tr(maxSizeLabel, maxSizeLabelVi)
+    fun localizedLimitDetail(): String = com.hefimer.app.ui.theme.tr(limitDetail, limitDetailVi)
     fun localizedExpiry(): String = com.hefimer.app.ui.theme.tr(expiry, expiryVi)
     fun localizedSpeed(): String = com.hefimer.app.ui.theme.tr(speed, speedVi)
+    fun localizedDownloadFlow(): String = com.hefimer.app.ui.theme.tr(downloadFlow, downloadFlowVi)
+    fun localizedPrivacyDetail(): String = com.hefimer.app.ui.theme.tr(privacyDetail, privacyDetailVi)
+    fun localizedBestFor(): String = com.hefimer.app.ui.theme.tr(bestFor, bestForVi)
+    fun localizedLimitations(): String = com.hefimer.app.ui.theme.tr(limitations, limitationsVi)
     fun localizedFeatures(): String = com.hefimer.app.ui.theme.tr(features, featuresVi)
 }
 
@@ -121,12 +136,22 @@ object UploadProviders {
             name = "storage.to",
             maxSizeBytes = 25L * GB,
             maxSizeLabel = "25 GB",
-            expiry = "Deletes after 3 days (1-7 days configurable)",
-            expiryVi = "Tự xóa sau 3 ngày (chọn 1-7 ngày)",
-            speed = "Fast, powered by Cloudflare R2 multipart",
-            speedVi = "Nhanh, chạy trên hạ tầng Cloudflare R2 đa luồng",
-            features = "Default route up to 25 GB via Cloudflare R2 presigned multipart. Auto-falls back across 17 backup hosts if needed.",
-            featuresVi = "Tuyến mặc định tối đa 25 GB trên Cloudflare R2 đa luồng. Tự động chuyển sang 17 máy chủ dự phòng nếu mạng bị chặn.",
+            limitDetail = "25 GB/file • Anonymous: 50 files/24h & 100 GB/24h (500 GB/IP) • Free API Token: Unlimited files & bandwidth",
+            limitDetailVi = "25 GB/tệp • Ẩn danh: 50 tệp/24h & 100 GB/24h (500 GB/IP) • Có API Token miễn phí: Không giới hạn số tệp & băng thông",
+            expiry = "3 days default (configurable 1, 2, 3, 5, or 7 days)",
+            expiryVi = "Mặc định 3 ngày (chọn linh hoạt 1, 2, 3, 5 hoặc 7 ngày)",
+            speed = "Very fast direct Cloudflare R2 presigned PUT + batched multipart (>50 MB)",
+            speedVi = "Rất nhanh: đẩy thẳng lên Cloudflare R2, tự chia phần đa luồng khi >50 MB",
+            downloadFlow = "On-device direct stream resolution via phone IP to Cloudflare CDN (no speed cap)",
+            downloadFlowVi = "Giải mã tải thẳng trên điện thoại về CDN Cloudflare (không giới hạn tốc độ)",
+            privacyDetail = "No account needed; calls directly from your phone IP; supports optional Free Bearer Token & Owner Token",
+            privacyDetailVi = "Không cần tài khoản; gọi API bằng IP riêng của máy; hỗ trợ gắn Free API Token trong Cài đặt",
+            bestFor = "Default everyday & large-file sharing up to 25 GB (videos, archives, APKs, builds)",
+            bestForVi = "Mặc định mọi nhu cầu & tệp lớn tới 25 GB (video, file nén, APK, bộ cài)",
+            limitations = "Anonymous rate limits: 60 init/min, 120 parts/min per IP; files always expire after max 7 days (free tier)",
+            limitationsVi = "Ẩn danh giới hạn 60 lượt tạo/phút & 50 tệp/ngày/IP; tệp tự xóa tối đa sau 7 ngày (bản miễn phí)",
+            features = "Default primary host. Calls storage.to directly from your device (with Hefimer proxy backup) and auto-falls back across 17 hosts if throttled.",
+            featuresVi = "Máy chủ mặc định. Gọi trực tiếp từ IP máy bạn (dự phòng qua proxy nếu bị chặn) và tự chuyển qua 17 host khác nếu đầy hạn mức.",
             isLargeFile = true,
             defaultExpire = "72h",
             expireOptions = listOf(
@@ -142,12 +167,22 @@ object UploadProviders {
             name = "sto.care",
             maxSizeBytes = 99L * MB,
             maxSizeLabel = "100 MB",
+            limitDetail = "Up to 99 MB on mobile direct PUT route (no daily file count limit)",
+            limitDetailVi = "Tối đa 99 MB qua luồng PUT trực tiếp trên mobile (không giới hạn số tệp/ngày)",
             expiry = "Deletes after 72 hours (fixed)",
             expiryVi = "Tự xóa sau 72 giờ (cố định)",
-            speed = "Very fast direct stream upload & clean raw download",
-            speedVi = "Tải lên trực tiếp siêu nhanh & tải xuống nguyên gốc",
-            features = "High-speed direct route up to 100 MB via trystocare.com with clean raw downloads.",
-            featuresVi = "Tuyến tốc độ cao tối đa 100 MB qua trystocare.com kèm tải thẳng tệp gốc.",
+            speed = "Very fast direct PUT stream to trystocare.com edge",
+            speedVi = "Siêu nhanh: PUT trực tiếp tới edge trystocare.com",
+            downloadFlow = "Clean direct raw binary URL (instant in-app download)",
+            downloadFlowVi = "Liên kết tải thẳng tệp gốc (tải ngay trong app không qua trung gian)",
+            privacyDetail = "Zero signup, anonymous one-shot upload with randomized short URL",
+            privacyDetailVi = "Không cần đăng ký, tải ẩn danh một chạm kèm đường dẫn ngẫu nhiên",
+            bestFor = "Quick documents, photos, short clips under 100 MB needing fast direct downloads",
+            bestForVi = "Tài liệu, ảnh, clip ngắn dưới 100 MB cần gửi và tải thẳng cực nhanh",
+            limitations = "Fixed 72h expiry (cannot extend/shorten); 99 MB cap on Android route",
+            limitationsVi = "Thời hạn cố định 72 giờ (không chỉnh được); giới hạn 99 MB trên bản di động",
+            features = "Great lightweight #1 backup whenever storage.to hits a local carrier or quota limit.",
+            featuresVi = "Tuyến dự phòng số 1 siêu nhẹ và ổn định khi storage.to gặp giới hạn mạng.",
             isLargeFile = false,
             defaultExpire = "72h",
             expireOptions = listOf(ExpireOption("72 hours (Fixed)", "72 giờ (Cố định)", "72h")),
@@ -157,12 +192,22 @@ object UploadProviders {
             name = "x0.at",
             maxSizeBytes = 512L * MB,
             maxSizeLabel = "512 MB",
-            expiry = "Deletes after 3-100 days (size-scaled)",
-            expiryVi = "Lưu 3-100 ngày (tùy dung lượng)",
-            speed = "Ultra-lightweight direct stream & zero-redirect raw download",
-            speedVi = "Siêu nhẹ, tải thẳng không chuyển hướng",
-            features = "Anonymous 512 MB host returning direct raw binary URLs with fast mobile downloads.",
-            featuresVi = "Máy chủ ẩn danh tối đa 512 MB trả về liên kết tải thẳng trực tiếp siêu nhanh.",
+            limitDetail = "512 MB mobile cap (service max 1 GiB) • No strict daily count cap",
+            limitDetailVi = "Tối đa 512 MB trên mobile (hệ thống tối đa 1 GiB) • Không giới hạn số lượt",
+            expiry = "3–100 days (size-scaled: smaller files stay up to 100d, max-size files stay 3d)",
+            expiryVi = "Lưu 3–100 ngày theo dung lượng (tệp nhỏ giữ tới 100 ngày, tệp tối đa giữ 3 ngày)",
+            speed = "Ultra-lightweight direct multipart POST with minimal overhead",
+            speedVi = "Siêu nhẹ, phản hồi tức thì với ít chi phí kết nối",
+            downloadFlow = "Direct raw file URL with zero redirect or HTML wrapper",
+            downloadFlowVi = "Liên kết tải thẳng tệp gốc, không chuyển hướng hay trang chờ",
+            privacyDetail = "Minimalist privacy-focused host, no account or cookies required",
+            privacyDetailVi = "Tối giản bảo vệ riêng tư, không tài khoản hay cookie theo dõi",
+            bestFor = "Scripts, APKs, logs, and medium files under 512 MB shared to CLI/mobile",
+            bestForVi = "Tệp cài đặt, tài liệu, bản ghi dưới 512 MB cần link tải thẳng sạch sẽ",
+            limitations = "Retention shrinks non-linearly as file size approaches limit; no custom expiry control",
+            limitationsVi = "Thời gian lưu giảm dần theo dung lượng tệp; không tự chọn số ngày hết hạn",
+            features = "Rock-solid fallback host returning clean raw URLs.",
+            featuresVi = "Máy chủ dự phòng cực kỳ bền bỉ, trả về link tải thẳng sạch.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -172,12 +217,22 @@ object UploadProviders {
             name = "pomf.lain.la",
             maxSizeBytes = 1L * GB,
             maxSizeLabel = "1 GB",
-            expiry = "Permanent / long-term CDN retention",
-            expiryVi = "Lưu trữ lâu dài trên CDN",
-            speed = "Fast direct upload & raw pomf2.lain.la CDN download",
-            speedVi = "Tải lên nhanh & tải thẳng từ CDN pomf2.lain.la",
-            features = "Reliable 1 GB host serving direct raw bytes on pomf2.lain.la with range request support.",
-            featuresVi = "Máy chủ ổn định tới 1 GB, tải xuống trực tiếp từ CDN pomf2.lain.la không qua trang trung gian.",
+            limitDetail = "Up to 1 GB per file • No account required",
+            limitDetailVi = "Tối đa 1 GB mỗi tệp • Không cần tài khoản",
+            expiry = "Permanent / long-term CDN retention (unless removed for abuse)",
+            expiryVi = "Lưu trữ lâu dài / vĩnh viễn trên CDN (trừ nội dung vi phạm)",
+            speed = "Fast direct upload & pomf2.lain.la CDN with HTTP Range resume support",
+            speedVi = "Tải lên trực tiếp nhanh & CDN pomf2.lain.la hỗ trợ tiếp tục tải (Range)",
+            downloadFlow = "Direct raw bytes from pomf2.lain.la CDN",
+            downloadFlowVi = "Tải thẳng byte gốc từ CDN pomf2.lain.la",
+            privacyDetail = "Privacy-friendly open Pomf host; anonymous uploads without login",
+            privacyDetailVi = "Máy chủ Pomf thân thiện quyền riêng tư, tải ẩn danh không cần đăng nhập",
+            bestFor = "Files up to 1 GB you want to stay accessible long-term without auto-expiry",
+            bestForVi = "Tệp tối đa 1 GB cần giữ lâu dài mà không bị tự xóa sau vài ngày",
+            limitations = "Occasional brief maintenance windows; no password or manual delete UI from Hefimer",
+            limitationsVi = "Đôi khi bảo trì định kỳ ngắn; chưa hỗ trợ đặt mật khẩu hay tự xóa từ app",
+            features = "Reliable 1 GB host serving direct raw bytes on pomf2.lain.la.",
+            featuresVi = "Máy chủ 1 GB ổn định, tải xuống trực tiếp không qua trang trung gian.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -187,10 +242,20 @@ object UploadProviders {
             name = "qu.ax",
             maxSizeBytes = 256L * MB,
             maxSizeLabel = "256 MB",
-            expiry = "Deletes after 30 days",
-            expiryVi = "Tự xóa sau 30 ngày",
-            speed = "Fast global nginx edge with direct byte resolution",
-            speedVi = "Edge nginx nhanh kèm giải mã tải trực tiếp",
+            limitDetail = "256 MB per file • Anonymous public uploads",
+            limitDetailVi = "Tối đa 256 MB mỗi tệp • Tải công khai ẩn danh",
+            expiry = "30 days default (inactive files subject to periodic cleanup)",
+            expiryVi = "Mặc định 30 ngày (tệp không có lượt truy cập lâu ngày có thể bị dọn)",
+            speed = "Fast global nginx edge with low-latency multipart upload",
+            speedVi = "Edge nginx toàn cầu phản hồi nhanh, độ trễ thấp",
+            downloadFlow = "On-device direct stream extraction (app resolves raw file bytes automatically)",
+            downloadFlowVi = "Tự động tách luồng tải tệp gốc ngay trên điện thoại",
+            privacyDetail = "No signup or tracking; generates short randomized URLs",
+            privacyDetailVi = "Không cần tài khoản hay theo dõi; tạo liên kết ngắn ngẫu nhiên",
+            bestFor = "Medium files up to 256 MB needing ~1 month availability",
+            bestForVi = "Tệp vừa tối đa 256 MB cần lưu khoảng 1 tháng",
+            limitations = "Some networks/ISPs may rate-limit public nginx edges; no custom expiry via Hefimer",
+            limitationsVi = "Một số mạng có thể giới hạn tốc độ tải liên tiếp; không tùy chỉnh hạn xóa",
             features = "256 MB anonymous host with automatic on-device direct file stream extraction.",
             featuresVi = "Máy chủ 256 MB tự động tách luồng tải tệp trực tiếp ngay trên điện thoại.",
             isLargeFile = true,
@@ -202,12 +267,22 @@ object UploadProviders {
             name = "Catbox",
             maxSizeBytes = 200L * MB,
             maxSizeLabel = "200 MB",
-            expiry = "Permanent / long-term CDN retention",
-            expiryVi = "Lưu trữ lâu dài trên CDN Catbox",
-            speed = "Fast direct files.catbox.moe raw download",
-            speedVi = "Tải thẳng tốc độ cao qua files.catbox.moe",
-            features = "Dedicated 200 MB Catbox host with instant direct CDN links and high reliability.",
-            featuresVi = "Máy chủ Catbox 200 MB phản hồi nhanh, tải thẳng qua files.catbox.moe siêu ổn định.",
+            limitDetail = "200 MB per file • No daily upload count cap",
+            limitDetailVi = "Tối đa 200 MB mỗi tệp • Không giới hạn số lượt tải lên/ngày",
+            expiry = "Permanent (hosted indefinitely unless violating ToS)",
+            expiryVi = "Vĩnh viễn (lưu trữ vô thời hạn trừ khi vi phạm điều khoản)",
+            speed = "Very fast global CDN via files.catbox.moe",
+            speedVi = "Rất nhanh qua CDN toàn cầu files.catbox.moe",
+            downloadFlow = "Instant direct raw CDN link (ideal for media & direct previews)",
+            downloadFlowVi = "Link CDN tải thẳng tức thì (hỗ trợ xem trước ảnh/video cực mượt)",
+            privacyDetail = "Anonymous upload with no account required",
+            privacyDetailVi = "Tải ẩn danh không cần đăng ký tài khoản",
+            bestFor = "Images, audio, PDFs, and videos under 200 MB that need permanent hosting",
+            bestForVi = "Ảnh, âm thanh, PDF, video dưới 200 MB cần lưu trữ vĩnh viễn",
+            limitations = "Explicitly blocks executable/script formats (.exe, .scr, .cpl, .jar, macro .doc)",
+            limitationsVi = "Chặn các định dạng thực thi/script (.exe, .scr, .cpl, .jar, file .doc có macro)",
+            features = "Dedicated 200 MB Catbox host with instant direct CDN links and high uptime.",
+            featuresVi = "Máy chủ Catbox 200 MB siêu ổn định, tải thẳng qua files.catbox.moe.",
             isLargeFile = false,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -217,12 +292,22 @@ object UploadProviders {
             name = "Litterbox",
             maxSizeBytes = 1L * GB,
             maxSizeLabel = "1 GB",
-            expiry = "Deletes after 1, 12, 24, or 72 hours",
-            expiryVi = "Xóa sau 1, 12, 24 hoặc 72 giờ",
-            speed = "Fast direct Catbox CDN",
-            speedVi = "CDN Catbox trực tiếp tốc độ cao",
+            limitDetail = "Up to 1 GB per file • Companion temporary service to Catbox",
+            limitDetailVi = "Tối đa 1 GB mỗi tệp • Dịch vụ lưu tạm cùng hệ sinh thái Catbox",
+            expiry = "Auto-deletes strictly after chosen 1, 12, 24, or 72 hours",
+            expiryVi = "Tự hủy chính xác sau 1, 12, 24 hoặc 72 giờ tùy chọn",
+            speed = "Fast direct Catbox CDN upload & delivery (proxy fallback if blocked)",
+            speedVi = "Tải thẳng tốc độ cao qua CDN Catbox (có dự phòng qua proxy nếu bị chặn)",
+            downloadFlow = "Instant direct raw CDN download",
+            downloadFlowVi = "Tải xuống trực tiếp tệp gốc từ CDN",
+            privacyDetail = "Anonymous temporary drop; auto-purged on schedule without trace",
+            privacyDetailVi = "Chia sẻ tạm ẩn danh; tự động xóa sạch đúng hạn đã chọn",
+            bestFor = "Temporary files up to 1 GB that you want guaranteed auto-deletion",
+            bestForVi = "Tệp tạm tới 1 GB cần đảm bảo tự động xóa đúng giờ",
+            limitations = "Same blocked executable types as Catbox (.exe, .scr, .cpl, .jar); max retention 72h",
+            limitationsVi = "Chặn một số file thực thi giống Catbox (.exe, .scr, .cpl, .jar); giữ tối đa 72 giờ",
             features = "Temporary Catbox host up to 1 GB with configurable retention and direct downloads.",
-            featuresVi = "Lưu tạm qua Catbox tối đa 1 GB, tải xuống trực tiếp không qua trang trung gian.",
+            featuresVi = "Lưu tạm qua Catbox tối đa 1 GB, tùy chọn thời hạn xóa và tải xuống trực tiếp.",
             isLargeFile = true,
             defaultExpire = "24h",
             expireOptions = listOf(
@@ -238,12 +323,22 @@ object UploadProviders {
             maxSizeBytes = Long.MAX_VALUE,
             maxSizeLabel = "No limit",
             maxSizeLabelVi = "Không giới hạn",
-            expiry = "8 days (+2d per download, max 60d)",
-            expiryVi = "8 ngày (+2 ngày mỗi lượt tải, tối đa 60 ngày)",
-            speed = "High-throughput raw PUT upload",
-            speedVi = "Tải lên PUT trực tiếp băng thông rộng",
-            features = "No-limit anonymous large-file host with fast PUT streaming. Downloads open Buzzheavier page.",
-            featuresVi = "Lưu trữ tệp không giới hạn dung lượng, truyền tải PUT nhanh. Khi tải sẽ mở trang Buzzheavier.",
+            limitDetail = "No file size limit • No bandwidth or speed caps",
+            limitDetailVi = "Không giới hạn dung lượng tệp • Không bóp băng thông hay tốc độ",
+            expiry = "8 days initial (+2 days per download, max 60d; permanent if 30+ downloads/60d)",
+            expiryVi = "8 ngày ban đầu (+2 ngày mỗi lượt tải, tối đa 60 ngày; vĩnh viễn nếu ≥30 lượt/60 ngày)",
+            speed = "High-throughput raw HTTP PUT streaming upload",
+            speedVi = "Tải lên HTTP PUT trực tiếp băng thông rộng",
+            downloadFlow = "Opens Buzzheavier download page in browser / WebView",
+            downloadFlowVi = "Khi tải sẽ mở trang Buzzheavier để lấy tệp",
+            privacyDetail = "Anonymous upload without login; public link access",
+            privacyDetailVi = "Tải ẩn danh không cần đăng nhập; truy cập qua liên kết chia sẻ",
+            bestFor = "Huge files (>25 GB) that exceed storage.to's 25 GB ceiling",
+            bestForVi = "Tệp siêu lớn (>25 GB) vượt quá giới hạn 25 GB của storage.to",
+            limitations = "Requires opening Buzzheavier web page to download (not raw in-app byte stream)",
+            limitationsVi = "Không tải thẳng byte trong app mà mở trang web Buzzheavier",
+            features = "No-limit anonymous large-file host with fast PUT streaming.",
+            featuresVi = "Lưu trữ tệp không giới hạn dung lượng, truyền tải PUT nhanh.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -253,12 +348,22 @@ object UploadProviders {
             name = "Fileditch",
             maxSizeBytes = 150L * GB,
             maxSizeLabel = "150 GB",
-            expiry = "Retained while actively downloaded",
-            expiryVi = "Giữ lâu dài khi còn lượt truy cập",
+            limitDetail = "Up to 150 GB per file • Anonymous friendly",
+            limitDetailVi = "Tối đa 150 GB mỗi tệp • Hỗ trợ ẩn danh hoàn toàn",
+            expiry = "Retained while active; files untouched for 45+ days may be cleaned up",
+            expiryVi = "Giữ lâu dài khi còn lượt tải; tệp không có tương tác >45 ngày có thể bị dọn",
             speed = "High-capacity edge upload up to 150 GB",
             speedVi = "Tải lên dung lượng cực lớn tới 150 GB",
-            features = "High-capacity anonymous host up to 150 GB. Downloads open Fileditch page.",
-            featuresVi = "Máy chủ dung lượng lớn tới 150 GB làm tuyến dự phòng mạnh. Khi tải sẽ mở trang Fileditch.",
+            downloadFlow = "Opens Fileditch page to download (direct stream fallback attempted where possible)",
+            downloadFlowVi = "Khi tải sẽ mở trang Fileditch để tải xuống",
+            privacyDetail = "No account needed; anonymous upload",
+            privacyDetailVi = "Không cần tài khoản; tải lên ẩn danh",
+            bestFor = "Extra-large backups, ISOs, or raw footage from 25 GB to 150 GB",
+            bestForVi = "Bản sao lưu, file ISO hoặc video thô cực nặng từ 25 GB đến 150 GB",
+            limitations = "Downloads go through Fileditch web page; occasional heavy load on free edges",
+            limitationsVi = "Tải xuống qua trang web Fileditch; đôi lúc tải nặng vào giờ cao điểm",
+            features = "High-capacity anonymous host up to 150 GB as a heavy-duty backup route.",
+            featuresVi = "Máy chủ dung lượng lớn tới 150 GB làm tuyến dự phòng mạnh.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -269,12 +374,22 @@ object UploadProviders {
             maxSizeBytes = Long.MAX_VALUE,
             maxSizeLabel = "No limit",
             maxSizeLabelVi = "Không giới hạn",
-            expiry = "Deletes after 10 days of inactivity",
-            expiryVi = "Xóa sau 10 ngày không có lượt truy cập",
-            speed = "Fast multi-server direct upload",
-            speedVi = "Tải trực tiếp đa máy chủ tốc độ cao",
-            features = "Large-file external route with multi-server retry. Downloads open Gofile page.",
-            featuresVi = "Tuyến tệp lớn kèm tự động đổi máy chủ. Khi tải sẽ mở trang Gofile.",
+            limitDetail = "No file size limit • Multi-server auto-selection • No speed cap",
+            limitDetailVi = "Không giới hạn dung lượng • Tự chọn máy chủ tốt nhất • Không bóp tốc độ",
+            expiry = "Temporary free storage: stays active while downloaded, purged after ~10+ days idle",
+            expiryVi = "Lưu tạm miễn phí: giữ khi còn lượt tải, tự xóa sau ~10 ngày không có lượt truy cập",
+            speed = "Fast multi-server direct upload across global Gofile nodes",
+            speedVi = "Tải trực tiếp đa máy chủ tốc độ cao trên các node toàn cầu",
+            downloadFlow = "Opens Gofile share folder page (supports multi-file web preview)",
+            downloadFlowVi = "Mở trang thư mục Gofile (hỗ trợ xem trước nhiều định dạng trên web)",
+            privacyDetail = "Anonymous guest upload; generates unique folder link",
+            privacyDetailVi = "Tải lên dạng khách ẩn danh; tạo liên kết thư mục riêng",
+            bestFor = "Very large files (>25 GB) or recipients comfortable downloading via Gofile web UI",
+            bestForVi = "Tệp rất lớn (>25 GB) hoặc người nhận quen tải qua giao diện web Gofile",
+            limitations = "Downloads open Gofile page; free tier purges inactive files quickly under high server load",
+            limitationsVi = "Khi tải sẽ mở trang Gofile; tệp miễn phí không có lượt tải sẽ bị xóa sớm khi server đầy",
+            features = "Large-file external route with automatic multi-server retry.",
+            featuresVi = "Tuyến tệp lớn kèm tự động đổi máy chủ khi kết nối lỗi.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -285,12 +400,22 @@ object UploadProviders {
             maxSizeBytes = Long.MAX_VALUE,
             maxSizeLabel = "No limit",
             maxSizeLabelVi = "Không giới hạn",
-            expiry = "Inactive cleanup (long retention)",
-            expiryVi = "Lưu trữ lâu dài, dọn dẹp khi ngừng truy cập",
-            speed = "Fast S3 multipart direct upload",
+            limitDetail = "No stated size limit (smoothly handles multi-GB files) • No speed cap",
+            limitDetailVi = "Không giới hạn dung lượng (hỗ trợ mượt tệp nhiều GB) • Không bóp tốc độ",
+            expiry = "Typically ~30 days for anonymous shares (activity-based cleanup)",
+            expiryVi = "Thường lưu ~30 ngày cho chia sẻ ẩn danh (dọn khi ngừng truy cập)",
+            speed = "Fast S3 multipart direct chunk upload",
             speedVi = "Tải lên S3 đa phần tốc độ cao",
-            features = "Large-file S3 multipart fallback route. Downloads open VikingFile page.",
-            featuresVi = "Tuyến dự phòng S3 cho tệp lớn. Khi tải sẽ mở trang VikingFile.",
+            downloadFlow = "Opens VikingFile download page",
+            downloadFlowVi = "Khi tải sẽ mở trang VikingFile để tải tệp",
+            privacyDetail = "Anonymous upload; signed S3 multipart flow via Hefimer relay",
+            privacyDetailVi = "Tải ẩn danh; chia luồng S3 đa phần qua điều phối của Hefimer",
+            bestFor = "Large fallback uploads when other hosts are throttled or full",
+            bestForVi = "Tuyến dự phòng cho tệp lớn khi các máy chủ khác bị giới hạn",
+            limitations = "Init/complete goes via Hefimer relay; downloads open VikingFile web page",
+            limitationsVi = "Khởi tạo qua trung gian Hefimer; khi tải sẽ mở trang web VikingFile",
+            features = "Large-file S3 multipart fallback route.",
+            featuresVi = "Tuyến dự phòng S3 cho tệp lớn.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -300,10 +425,20 @@ object UploadProviders {
             name = "tfLink",
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
-            expiry = "Deletes after 7 days (fixed)",
-            expiryVi = "Tự xóa sau 7 ngày (cố định)",
-            speed = "Global CDN delivery",
-            speedVi = "Phân phối qua CDN toàn cầu",
+            limitDetail = "95 MB safe limit on Hefimer (host max 100 MB)",
+            limitDetailVi = "Giới hạn an toàn 95 MB trên Hefimer (máy chủ gốc tối đa 100 MB)",
+            expiry = "Deletes automatically after 7 days (fixed)",
+            expiryVi = "Tự động xóa sau 7 ngày (cố định)",
+            speed = "Global CDN upload & fast edge delivery (direct + proxy fallback)",
+            speedVi = "Tải lên nhanh & phân phối CDN toàn cầu (trực tiếp + dự phòng proxy)",
+            downloadFlow = "Direct CDN download",
+            downloadFlowVi = "Tải xuống trực tiếp qua CDN",
+            privacyDetail = "Anonymous one-step upload, auto-expires in 7 days",
+            privacyDetailVi = "Tải ẩn danh một bước, tự động hết hạn sau 7 ngày",
+            bestFor = "Documents & media under 95 MB needing a full 7-day window",
+            bestForVi = "Tài liệu & media dưới 95 MB cần thời hạn lưu cố định 7 ngày",
+            limitations = "Capped at 95 MB; 7-day expiry cannot be shortened",
+            limitationsVi = "Giới hạn dưới 95 MB; không rút ngắn được thời hạn 7 ngày",
             features = "tmpfile.link temporary hosting with 7-day retention and direct CDN downloads.",
             featuresVi = "Lưu trữ tạm trên tmpfile.link trong 7 ngày và tải trực tiếp qua CDN.",
             isLargeFile = false,
@@ -315,10 +450,20 @@ object UploadProviders {
             name = "TempFile",
             maxSizeBytes = 100L * MB,
             maxSizeLabel = "100 MB",
-            expiry = "Deletes after 1, 6, 24, or 48 hours",
-            expiryVi = "Tự xóa sau 1, 6, 24 hoặc 48 giờ",
-            speed = "Fast direct upload & CDN delivery",
-            speedVi = "Tải lên nhanh & phân phối CDN",
+            limitDetail = "Up to 100 MB per file • Public API with proxy backup",
+            limitDetailVi = "Tối đa 100 MB mỗi tệp • API công khai kèm dự phòng proxy",
+            expiry = "Deletes after 1, 6, 24, or 48 hours (configurable)",
+            expiryVi = "Tự xóa sau 1, 6, 24 hoặc 48 giờ (tùy chọn)",
+            speed = "Fast direct upload & CDN edge delivery",
+            speedVi = "Tải lên nhanh & phân phối qua CDN",
+            downloadFlow = "Direct CDN raw download",
+            downloadFlowVi = "Tải thẳng tệp gốc qua CDN",
+            privacyDetail = "Anonymous upload; configurable short retention window",
+            privacyDetailVi = "Tải ẩn danh; tùy chỉnh thời hạn tự xóa ngắn hạn",
+            bestFor = "Files under 100 MB where you want exact 1h–48h auto-expiry",
+            bestForVi = "Tệp dưới 100 MB muốn hẹn giờ tự hủy chính xác 1–48 giờ",
+            limitations = "100 MB hard cap; max retention 48 hours",
+            limitationsVi = "Giới hạn tối đa 100 MB; chỉ giữ tối đa 48 giờ",
             features = "Public API with direct downloads and configurable temporary retention.",
             featuresVi = "Tải xuống trực tiếp, tùy chọn thời hạn lưu trữ linh hoạt.",
             isLargeFile = false,
@@ -335,10 +480,20 @@ object UploadProviders {
             name = "Filebin",
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
+            limitDetail = "95 MB safe limit on Hefimer (subject to shared server pool capacity)",
+            limitDetailVi = "Giới hạn an toàn 95 MB trên Hefimer (tùy dung lượng kho máy chủ)",
             expiry = "Deletes after 6 days (fixed)",
             expiryVi = "Tự xóa sau 6 ngày (cố định)",
-            speed = "Standard streaming speed",
-            speedVi = "Tốc độ truyền tải ổn định",
+            speed = "Standard streaming HTTP PUT into a dedicated random bin",
+            speedVi = "Tốc độ truyền tải PUT ổn định vào kho riêng ngẫu nhiên",
+            downloadFlow = "Verified direct file download",
+            downloadFlowVi = "Tải xuống trực tiếp tệp gốc",
+            privacyDetail = "Creates a unique unguessable bin ID per share; no account required",
+            privacyDetailVi = "Tạo mã kho riêng khó đoán cho mỗi lần gửi; không cần tài khoản",
+            bestFor = "Reliable direct file transfer under 95 MB for ~1 week",
+            bestForVi = "Gửi tệp trực tiếp ổn định dưới 95 MB lưu khoảng 6 ngày",
+            limitations = "95 MB cap; server may pause anonymous uploads briefly if global storage pool is full",
+            limitationsVi = "Giới hạn 95 MB; máy chủ có thể tạm ngưng nhận tệp mới khi kho chung quá tải",
             features = "One private bin per share with verified direct file downloads.",
             featuresVi = "Tạo kho riêng cho mỗi lượt gửi với tải xuống trực tiếp.",
             isLargeFile = false,
@@ -350,11 +505,21 @@ object UploadProviders {
             name = "temp.sh",
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
+            limitDetail = "95 MB safe limit via fallback route (host native limit 4 GB)",
+            limitDetailVi = "Giới hạn an toàn 95 MB qua tuyến dự phòng (máy chủ gốc tối đa 4 GB)",
             expiry = "Deletes after 3 days (fixed)",
             expiryVi = "Tự xóa sau 3 ngày (cố định)",
-            speed = "Standard speed",
-            speedVi = "Tốc độ tiêu chuẩn ổn định",
-            features = "Minimalist temporary host with 3-day retention and proxied byte downloads.",
+            speed = "Fast minimalist HTTP form upload (direct + proxy fallback)",
+            speedVi = "Tải lên tối giản nhanh (trực tiếp + dự phòng proxy)",
+            downloadFlow = "Direct byte download via Hefimer download resolver",
+            downloadFlowVi = "Tải thẳng byte tệp qua bộ xử lý của Hefimer",
+            privacyDetail = "Zero-account, no-bloat temporary file drop",
+            privacyDetailVi = "Không tài khoản, tối giản không lưu thông tin dư thừa",
+            bestFor = "Quick 3-day temporary backup under 95 MB",
+            bestForVi = "Gửi nhanh tệp tạm dưới 95 MB lưu cố định 3 ngày",
+            limitations = "Capped at 95 MB in Hefimer to keep proxy fallback reliable; fixed 3-day expiry",
+            limitationsVi = "Giới hạn 95 MB trong Hefimer để đảm bảo tuyến dự phòng ổn định; cố định 3 ngày",
+            features = "Minimalist temporary host with 3-day retention.",
             featuresVi = "Máy chủ tối giản lưu 3 ngày, hỗ trợ tải thẳng ổn định.",
             isLargeFile = false,
             defaultExpire = "72h",
@@ -365,12 +530,22 @@ object UploadProviders {
             name = "tmpfiles.org",
             maxSizeBytes = 100L * MB,
             maxSizeLabel = "100 MB",
-            expiry = "Deletes after 60 minutes",
-            expiryVi = "Tự xóa sau 60 phút",
-            speed = "Fast direct CORS upload",
-            speedVi = "Tải trực tiếp nhanh",
-            features = "Short-lived temporary hosting. Automatically deleted after 1 hour.",
-            featuresVi = "Lưu tạm siêu ngắn hạn, tự động xóa sau 1 giờ.",
+            limitDetail = "Up to 100 MB per file (100 MiB)",
+            limitDetailVi = "Tối đa 100 MB mỗi tệp (100 MiB)",
+            expiry = "Auto-deletes after 60 minutes (1 hour)",
+            expiryVi = "Tự động xóa chỉ sau 60 phút (1 giờ)",
+            speed = "Fast direct upload with automatic /dl/ raw link conversion",
+            speedVi = "Tải trực tiếp nhanh kèm tự đổi sang link gốc /dl/",
+            downloadFlow = "Direct raw byte download",
+            downloadFlowVi = "Tải xuống trực tiếp tệp gốc",
+            privacyDetail = "Ephemeral 1-hour lifetime minimizes exposure of sensitive one-time files",
+            privacyDetailVi = "Tự hủy sau đúng 1 giờ, giảm thiểu lộ lọt tệp dùng một lần",
+            bestFor = "One-time sensitive docs, tickets, or quick transfers needed for under 1 hour",
+            bestForVi = "Tài liệu nhạy cảm dùng một lần hoặc tệp chỉ cần nhận ngay trong 1 giờ",
+            limitations = "Very short 60-minute expiry; 100 MB max size",
+            limitationsVi = "Thời hạn cực ngắn chỉ 60 phút; giới hạn 100 MB",
+            features = "Ultra-short-lived temporary hosting. Automatically deleted after 1 hour.",
+            featuresVi = "Lưu tạm siêu ngắn hạn, tự động xóa sạch sau đúng 1 giờ.",
             isLargeFile = false,
             defaultExpire = "1h",
             expireOptions = listOf(ExpireOption("1 hour (Fixed)", "1 giờ (Cố định)", "1h")),
@@ -380,10 +555,20 @@ object UploadProviders {
             name = "Uguu.se",
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
+            limitDetail = "95 MB safe limit on Hefimer (host max 128 MiB)",
+            limitDetailVi = "Giới hạn an toàn 95 MB trên Hefimer (máy chủ gốc tối đa 128 MiB)",
             expiry = "Deletes after 3 hours (fixed)",
             expiryVi = "Tự xóa sau 3 giờ (cố định)",
-            speed = "Fast lightweight host",
-            speedVi = "Máy chủ nhẹ, phản hồi nhanh",
+            speed = "Fast lightweight Pomf-style upload",
+            speedVi = "Máy chủ nhẹ kiểu Pomf, phản hồi cực nhanh",
+            downloadFlow = "Direct raw file download",
+            downloadFlowVi = "Tải xuống trực tiếp tệp gốc",
+            privacyDetail = "Anonymous ephemeral upload, auto-purged in 3 hours",
+            privacyDetailVi = "Tải ẩn danh ngắn hạn, tự động xóa sau 3 giờ",
+            bestFor = "Quick screenshots, short clips, or temporary files needed for a few hours",
+            bestForVi = "Ảnh chụp màn hình, clip ngắn hoặc tệp chỉ cần chia sẻ trong vài giờ",
+            limitations = "Fixed 3-hour expiry; 95 MB limit",
+            limitationsVi = "Tự xóa cố định sau 3 giờ; giới hạn 95 MB",
             features = "Pomf-style ephemeral file host with direct downloads.",
             featuresVi = "Máy chủ chia sẻ ngắn hạn nhẹ, tải xuống trực tiếp nhanh gọn.",
             isLargeFile = false,
@@ -395,10 +580,20 @@ object UploadProviders {
             name = "Put.icu",
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
-            expiry = "Deletes after 5 min to 24 hours",
-            expiryVi = "Tự xóa sau 5 phút đến 24 giờ",
-            speed = "Standard Linx server",
-            speedVi = "Máy chủ Linx tiêu chuẩn",
+            limitDetail = "95 MB safe limit (via Hefimer Linx proxy)",
+            limitDetailVi = "Giới hạn an toàn 95 MB (qua proxy Linx của Hefimer)",
+            expiry = "Deletes after 5 min, 1h, 12h, or 24h (via Linx-Expiry)",
+            expiryVi = "Tự xóa sau 5 phút, 1 giờ, 12 giờ hoặc 24 giờ (Linx-Expiry)",
+            speed = "Standard Linx PUT upload via Hefimer proxy",
+            speedVi = "Tải lên Linx PUT ổn định qua proxy Hefimer",
+            downloadFlow = "Direct raw file download",
+            downloadFlowVi = "Tải xuống trực tiếp tệp gốc",
+            privacyDetail = "Anonymous Linx drop with randomized key & short expiry",
+            privacyDetailVi = "Tải ẩn danh qua Linx với khóa ngẫu nhiên và tự hủy ngắn hạn",
+            bestFor = "Ultra-short 5-minute to 24-hour file drops under 95 MB",
+            bestForVi = "Chia sẻ siêu ngắn hạn từ 5 phút tới 24 giờ cho tệp dưới 95 MB",
+            limitations = "95 MB proxy cap; max retention 24 hours",
+            limitationsVi = "Giới hạn 95 MB qua proxy; lưu tối đa 24 giờ",
             features = "Configurable short-lived retention (5m, 1h, 12h, 24h) with direct downloads.",
             featuresVi = "Tùy chọn thời hạn ngắn (5p, 1g, 12g, 24g) kèm tải trực tiếp.",
             isLargeFile = false,
@@ -853,8 +1048,26 @@ class FileUploadEngine(
     ): String {
         onStatus(com.hefimer.app.ui.theme.tr("Initializing upload with storage.to...", "Đang khởi tạo với storage.to..."))
         val visitorToken = storage.getVisitorToken()
+        val apiToken = storage.getStorageToApiToken()
         val jsonMedia = "application/json; charset=utf-8".toMediaTypeOrNull()
         val cleanMime = picked.mimeType.substringBefore(';').trim().ifBlank { "application/octet-stream" }
+        val directBase = "https://storage.to/api"
+        val proxyBase = "$origin/api/proxy/storageto"
+
+        fun Request.Builder.withStorageToAuth(ownerToken: String? = null): Request.Builder {
+            if (apiToken.isNotBlank()) {
+                header("Authorization", "Bearer $apiToken")
+                if (!ownerToken.isNullOrBlank()) {
+                    header("X-Owner-Token", ownerToken)
+                }
+            } else {
+                header("X-Visitor-Token", visitorToken)
+                if (!ownerToken.isNullOrBlank()) {
+                    header("Authorization", "Owner $ownerToken")
+                }
+            }
+            return this
+        }
 
         val initPayload = buildJsonObject {
             put("filename", JsonPrimitive(picked.name))
@@ -862,12 +1075,27 @@ class FileUploadEngine(
             put("size", JsonPrimitive(picked.size))
         }.toString()
 
-        val initReq = Request.Builder()
-            .url("$origin/api/proxy/storageto/upload/init")
-            .header("X-Visitor-Token", visitorToken)
-            .post(initPayload.toRequestBody(jsonMedia))
-            .build()
-        val (_, initText, _) = execute(initReq, cancelToken)
+        var activeBase = directBase
+        val initText = try {
+            val directReq = Request.Builder()
+                .url("$directBase/upload/init")
+                .withStorageToAuth()
+                .post(initPayload.toRequestBody(jsonMedia))
+                .build()
+            execute(directReq, cancelToken).second
+        } catch (directErr: Throwable) {
+            if (cancelToken.isCancelled() || directErr.message == "UPLOAD_CANCELED") throw directErr
+            // Don't burn shared proxy IP quota if user's own IP already hit 429 rate/quota limit
+            if (directErr.message?.contains("(429)") == true) throw directErr
+            activeBase = proxyBase
+            val proxyReq = Request.Builder()
+                .url("$proxyBase/upload/init")
+                .withStorageToAuth()
+                .post(initPayload.toRequestBody(jsonMedia))
+                .build()
+            execute(proxyReq, cancelToken).second
+        }
+
         val initObj = json.parseToJsonElement(initText).jsonObject
         if (initObj["success"]?.jsonPrimitive?.content != "true") {
             throw IOException(
@@ -893,29 +1121,42 @@ class FileUploadEngine(
             val uploadId = initObj["upload_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
             val partSize = initObj["part_size"]?.jsonPrimitive?.longOrNull ?: (10L * 1024L * 1024L)
             val totalParts = initObj["total_parts"]?.jsonPrimitive?.intOrNull ?: 1
-            val initialUrls = initObj["initial_urls"] as? JsonObject
+            val partUrlMap = mutableMapOf<Int, String>()
+            (initObj["initial_urls"] as? JsonObject)?.forEach { (key, elem) ->
+                val num = key.toIntOrNull()
+                val url = elem.jsonPrimitive.contentOrNull
+                if (num != null && !url.isNullOrBlank()) {
+                    partUrlMap[num] = url
+                }
+            }
             onStatus(com.hefimer.app.ui.theme.tr("Uploading $totalParts parts to storage.to...", "Đang tải $totalParts phần lên storage.to..."))
             val completedParts = mutableListOf<Pair<Int, String>>()
 
             for (partNum in 1..totalParts) {
                 if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
-                var partUrl = initialUrls?.get(partNum.toString())?.jsonPrimitive?.contentOrNull
-                if (partUrl.isNullOrBlank()) {
+                if (partUrlMap[partNum].isNullOrBlank()) {
+                    val batchNumbers = (partNum..minOf(totalParts, partNum + 24)).filter { partUrlMap[it].isNullOrBlank() }
                     val partReqBody = buildJsonObject {
                         put("upload_id", JsonPrimitive(uploadId))
-                        put("part_numbers", buildJsonArray { add(JsonPrimitive(partNum)) })
+                        put("part_numbers", buildJsonArray { batchNumbers.forEach { add(JsonPrimitive(it)) } })
                     }.toString()
                     val partUrlReq = Request.Builder()
-                        .url("$origin/api/proxy/storageto/upload/parts")
-                        .header("Authorization", "Owner $ownerToken")
+                        .url("$activeBase/upload/parts")
+                        .withStorageToAuth(ownerToken)
                         .post(partReqBody.toRequestBody(jsonMedia))
                         .build()
                     val (_, partUrlText, _) = execute(partUrlReq, cancelToken)
                     val arr = json.parseToJsonElement(partUrlText).jsonObject["part_urls"]?.jsonArray
-                    partUrl = arr?.firstOrNull {
-                        it.jsonObject["partNumber"]?.jsonPrimitive?.intOrNull == partNum
-                    }?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+                    arr?.forEach { item ->
+                        val obj = item.jsonObject
+                        val num = obj["partNumber"]?.jsonPrimitive?.intOrNull
+                        val url = obj["url"]?.jsonPrimitive?.contentOrNull
+                        if (num != null && !url.isNullOrBlank()) {
+                            partUrlMap[num] = url
+                        }
+                    }
                 }
+                val partUrl = partUrlMap[partNum]
                 if (partUrl.isNullOrBlank()) {
                     throw IOException(com.hefimer.app.ui.theme.tr("Missing URL for part $partNum", "Thiếu liên kết cho phần $partNum"))
                 }
@@ -963,8 +1204,8 @@ class FileUploadEngine(
                 )
             }.toString()
             val completeReq = Request.Builder()
-                .url("$origin/api/proxy/storageto/upload/complete-multipart")
-                .header("Authorization", "Owner $ownerToken")
+                .url("$activeBase/upload/complete-multipart")
+                .withStorageToAuth(ownerToken)
                 .post(completeBody.toRequestBody(jsonMedia))
                 .build()
             execute(completeReq, cancelToken)
@@ -985,8 +1226,8 @@ class FileUploadEngine(
             put("r2_key", JsonPrimitive(r2Key))
         }.toString()
         val confirmReq = Request.Builder()
-            .url("$origin/api/proxy/storageto/upload/confirm")
-            .header("X-Visitor-Token", visitorToken)
+            .url("$activeBase/upload/confirm")
+            .withStorageToAuth()
             .post(confirmBody.toRequestBody(jsonMedia))
             .build()
         val (_, confirmText, _) = execute(confirmReq, cancelToken)
@@ -1012,8 +1253,8 @@ class FileUploadEngine(
         if (!fileId.isNullOrBlank() && ownerToken.isNotBlank() && days != 3) {
             runCatching {
                 val expReq = Request.Builder()
-                    .url("$origin/api/proxy/storageto/file/$fileId/expiry")
-                    .header("Authorization", "Owner $ownerToken")
+                    .url("$activeBase/file/$fileId/expiry")
+                    .withStorageToAuth(ownerToken)
                     .post("""{"days":$days}""".toRequestBody(jsonMedia))
                     .build()
                 HefimerApiConfig.apiClient.newCall(expReq).execute().close()

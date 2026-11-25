@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Cloud Firestore is NOT used by the Hefimer application.
+// All active application data (web app `src/`, Cloudflare Functions
+// `functions/`, and Android app `android/`) is stored in Firebase
+// Realtime Database (`hefimer-default-rtdb`, governed by
+// `database.rules.json`).
+//
+// Because a `(default)` Firestore Native database is provisioned on
+// the `hefimer` Firebase project, this ruleset explicitly denies all
+// client-side reads and writes across every document path to prevent
+// unauthorized access and eliminate open/test-mode security alerts.
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny all client reads and writes: Firestore is unused;
+    // Firebase Realtime Database (RTDB) is the active datastore.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

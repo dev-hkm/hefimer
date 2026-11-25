@@ -183,6 +183,7 @@ private fun HefimerRootScreen(
     val isLightMode by vm.isLightMode.collectAsState()
     val appLanguage by vm.appLanguage.collectAsState()
     val defaultProviderId by vm.defaultProviderId.collectAsState()
+    val storageToApiToken by vm.storageToApiToken.collectAsState()
     val showSettingsSheet by vm.showSettingsSheet.collectAsState()
     val showOnboarding by vm.showOnboarding.collectAsState()
     val promptOpenAfterDownload by vm.promptOpenAfterDownload.collectAsState()
@@ -382,6 +383,7 @@ private fun HefimerRootScreen(
                     appLanguage = appLanguage,
                     defaultStartTab = defaultStartTab,
                     defaultProviderId = defaultProviderId,
+                    storageToApiToken = storageToApiToken,
                     promptOpenAfterDownload = promptOpenAfterDownload,
                     confirmRedownload = confirmRedownload,
                     smartClipboardBanner = smartClipboardBanner,
@@ -390,6 +392,7 @@ private fun HefimerRootScreen(
                     onSetLightMode = { vm.setLightMode(it) },
                     onSetAppLanguage = { vm.setAppLanguage(it) },
                     onSetDefaultStartTab = { vm.setDefaultStartTab(it) },
+                    onSetStorageToApiToken = { vm.setStorageToApiToken(it) },
                     onTogglePromptOpenAfterDownload = { vm.togglePromptOpenAfterDownload() },
                     onToggleConfirmRedownload = { vm.toggleConfirmRedownload() },
                     onToggleSmartClipboardBanner = { vm.toggleSmartClipboardBanner() },
