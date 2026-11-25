@@ -77,13 +77,17 @@ import com.hefimer.app.ui.screens.SendScreen
 import com.hefimer.app.ui.screens.SpaceCanvasOverlay
 import com.hefimer.app.ui.screens.SpaceScreen
 import com.hefimer.app.ui.screens.WhiteboardOverlay
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.AppleLayeredNavigationHost
+import com.hefimer.app.ui.theme.AppleMonochromeBackdrop
 import com.hefimer.app.ui.theme.AppleSwipeableSheet
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.HefimerTheme
 import com.hefimer.app.ui.theme.HeroBoundsRegistry
 import com.hefimer.app.ui.theme.LocalHeroBounds
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
+import com.hefimer.app.ui.theme.tr
 
 class MainActivity : ComponentActivity() {
     private val viewModel: HefimerViewModel by viewModels()
@@ -181,6 +185,9 @@ private fun HefimerRootScreen(
 
     CompositionLocalProvider(LocalHeroBounds provides heroRegistry) {
         Box(modifier = Modifier.fillMaxSize()) {
+            AppleMonochromeBackdrop(
+                isR2Mode = sendState.isR2Mode && selectedTab == MainTab.SEND,
+            )
             AppleLayeredNavigationHost(
                 currentTab = selectedTab,
                 overlay = activeOverlay,
@@ -310,9 +317,11 @@ private fun HefimerRootScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(HefimerColors.SurfaceCard.copy(alpha = 0.94f))
-                        .border(1.dp, HefimerColors.White15, RoundedCornerShape(18.dp))
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(22.dp),
+                            variant = AppleGlassVariant.Elevated,
+                            elevation = 14.dp,
+                        )
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                 ) {
                     Icon(Icons.Rounded.Notifications, null, tint = HefimerColors.White80, modifier = Modifier.size(16.dp))
@@ -327,9 +336,9 @@ private fun HefimerRootScreen(
                     )
                     Icon(
                         Icons.Rounded.Close,
-                        "Dismiss notice",
+                        com.hefimer.app.ui.theme.tr("Dismiss notice", "Đóng thông báo"),
                         tint = HefimerColors.White50,
-                        modifier = Modifier.size(16.dp).applePressable { vm.dismissNotice() },
+                        modifier = Modifier.size(16.dp).applePressable(pressedScale = 0.88f) { vm.dismissNotice() },
                     )
                 }
             }
@@ -340,7 +349,7 @@ private fun HefimerRootScreen(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(HefimerColors.Black.copy(alpha = 0.86f))
+                        .background(HefimerColors.Black.copy(alpha = 0.78f))
                         .padding(24.dp),
                 ) {
                     Column(
@@ -348,9 +357,9 @@ private fun HefimerRootScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(34.dp))
+                            .clip(RoundedCornerShape(36.dp))
                             .background(HefimerColors.SurfaceCard)
-                            .border(1.dp, HefimerColors.White15, RoundedCornerShape(34.dp))
+                            .border(1.dp, HefimerColors.White15, RoundedCornerShape(36.dp))
                             .padding(26.dp),
                     ) {
                         Text(

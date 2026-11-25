@@ -53,7 +53,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.appleGlassSurface
+import com.hefimer.app.ui.theme.appleLiquidRefraction
 import com.hefimer.app.ui.theme.tr
 
 enum class MainTab(val label: String, val labelVi: String, val icon: ImageVector) {
@@ -68,10 +71,11 @@ enum class MainTab(val label: String, val labelVi: String, val icon: ImageVector
 }
 
 /**
- * Compact floating round pill bottom navigation dock harmonized seamlessly
+ * Compact floating Apple Liquid Glass pill bottom navigation dock harmonized seamlessly
  * with the transparent Android navigation bar.
- * Features a sleek concentric pill capsule inside that glides fluidly between tabs
- * driven by AppMotion.layoutSpring() with tactile press compression and zero Material ripples.
+ * - Outer dock capsule uses Elevated Apple Glass (luminance tint + overhead sheen + diagonal Fresnel specular rim)
+ *   layered smoothly above a progressive vertical scroll-edge frost fade.
+ * - Inner gliding pill capsule runs strictly on GPU translationX via AppMotion.layoutSpring() with API 33+ AGSL lensing.
  */
 @Composable
 fun HefimerFloatingBottomDock(
@@ -93,25 +97,29 @@ fun HefimerFloatingBottomDock(
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.5f to HefimerColors.Black.copy(alpha = 0.65f),
-                    1f to HefimerColors.Black.copy(alpha = 0.92f),
+                    0.0f to Color.Transparent,
+                    0.42f to HefimerColors.Black.copy(alpha = 0.45f),
+                    0.78f to HefimerColors.Black.copy(alpha = 0.80f),
+                    1.0f to HefimerColors.Black.copy(alpha = 0.94f),
                 ),
             )
-            .padding(top = 14.dp, bottom = navBottom + 10.dp, start = 24.dp, end = 24.dp),
+            .padding(top = 18.dp, bottom = navBottom + 10.dp, start = 24.dp, end = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val pillHeight = 48.dp
-        val innerPadding = 3.5.dp
+        val pillHeight = 50.dp
+        val innerPadding = 4.dp
         val thumbHeight = pillHeight - innerPadding * 2
 
         BoxWithConstraints(
             modifier = Modifier
-                .width(244.dp)
+                .width(248.dp)
                 .height(pillHeight)
-                .clip(CircleShape)
-                .background(HefimerColors.DockBg)
-                .border(1.dp, HefimerColors.White15, CircleShape)
+                .appleGlassSurface(
+                    shape = CircleShape,
+                    variant = AppleGlassVariant.Elevated,
+                    accentBorderTint = if (isR2Mode && selectedTab == MainTab.SEND) HefimerColors.Emerald400 else null,
+                    elevation = 20.dp,
+                )
                 .padding(innerPadding),
         ) {
             val density = androidx.compose.ui.platform.LocalDensity.current
@@ -128,12 +136,18 @@ fun HefimerFloatingBottomDock(
                 label = "pill_thumb_color",
             )
 
-            // Gliding round pill capsule inside the outer pill (GPU-only translationX)
+            // Gliding solid high-contrast capsule inside the glass pill (never stacked glass-on-glass)
             Box(
                 modifier = Modifier
                     .graphicsLayer { translationX = thumbOffsetPx }
                     .width(slotWidth)
                     .height(thumbHeight)
+                    .appleLiquidRefraction(
+                        cornerRadius = thumbHeight / 2,
+                        bezelWidth = 8.dp,
+                        refractionPx = 4f,
+                        dispersion = 0.008f,
+                    )
                     .clip(CircleShape)
                     .background(thumbColor),
             )

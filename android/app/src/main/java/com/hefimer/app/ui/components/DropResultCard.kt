@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -66,8 +67,10 @@ import com.hefimer.app.data.model.formatCountdown
 import com.hefimer.app.data.network.DownloadHelper
 import com.hefimer.app.data.network.HefimerApiConfig
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.UbuntuFontFamily
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.tr
@@ -117,7 +120,7 @@ fun DropResultCard(
         if (expiresAt == null || expiresAt <= 0L) return@LaunchedEffect
         while (true) {
             timeLeft = formatCountdown(expiresAt)
-            if (timeLeft == "Expired") break
+            if (System.currentTimeMillis() >= expiresAt) break
             delay(1000L)
         }
     }
@@ -129,9 +132,13 @@ fun DropResultCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(38.dp))
-            .background(HefimerColors.SurfaceElevated)
-            .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White12, RoundedCornerShape(38.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(38.dp),
+                variant = AppleGlassVariant.Regular,
+                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                accentFillTint = if (isR2) HefimerColors.EmeraldBg.copy(alpha = 0.22f) else null,
+                elevation = 14.dp,
+            )
             .padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -254,7 +261,7 @@ fun DropResultCard(
                     modifier = Modifier.size(13.dp),
                 )
                 Text(
-                    text = if (timeLeft == "Expired") tr("Expired", "Đã hết hạn") else tr("Expires in $timeLeft", "Hết hạn sau $timeLeft"),
+                    text = if (timeLeft == "Expired" || timeLeft == "Đã hết hạn") tr("Expired", "Đã hết hạn") else tr("Expires in $timeLeft", "Hết hạn sau $timeLeft"),
                     color = accent.copy(alpha = 0.65f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -463,8 +470,21 @@ private fun AnimatedCopyPill(
 ) {
     val activeBg = if (isR2) HefimerColors.Emerald400 else HefimerColors.White
     val inactiveBg = if (isR2) HefimerColors.EmeraldBg else HefimerColors.White10
-    val border = if (copied) activeBg else if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White12
-    val fg = if (copied) HefimerColors.Black else if (isR2) HefimerColors.Emerald400 else HefimerColors.White80
+    val bgColor by animateColorAsState(
+        targetValue = if (copied) activeBg else inactiveBg,
+        animationSpec = tween(320, easing = AppMotion.AppleSilk),
+        label = "copy_pill_bg",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (copied) activeBg else if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White12,
+        animationSpec = tween(280, easing = AppMotion.AppleSilk),
+        label = "copy_pill_border",
+    )
+    val fgColor by animateColorAsState(
+        targetValue = if (copied) HefimerColors.Black else if (isR2) HefimerColors.Emerald400 else HefimerColors.White80,
+        animationSpec = tween(260, easing = AppMotion.AppleSilk),
+        label = "copy_pill_fg",
+    )
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -472,32 +492,39 @@ private fun AnimatedCopyPill(
         modifier = modifier
             .height(48.dp)
             .clip(CircleShape)
-            .background(if (copied) activeBg else inactiveBg)
-            .border(1.dp, border, CircleShape)
-            .applePressable(onClick = onClick),
+            .background(bgColor)
+            .border(1.dp, borderColor, CircleShape)
+            .applePressable(pressedScale = 0.96f, onClick = onClick),
     ) {
         AnimatedContent(
-            targetState = copied,
+            targetState = copied to label,
             transitionSpec = {
-                (fadeIn(tween(220, easing = AppMotion.AppleSilk)) + scaleIn(tween(260, easing = AppMotion.AppleSheet), initialScale = 0.8f)) togetherWith
-                    (fadeOut(tween(160, easing = AppMotion.AppleEase)) + scaleOut(tween(160, easing = AppMotion.AppleEase), targetScale = 0.8f))
+                (fadeIn(tween(260, easing = AppMotion.AppleSilk)) +
+                    scaleIn(tween(300, easing = AppMotion.AppleSheet), initialScale = 0.90f)) togetherWith
+                    (fadeOut(tween(170, easing = AppMotion.AppleEase)) +
+                        scaleOut(tween(170, easing = AppMotion.AppleEase), targetScale = 0.92f))
             },
-            label = "copy_icon",
-        ) { isCopied ->
-            Icon(
-                imageVector = if (isCopied) Icons.Rounded.Check else icon,
-                contentDescription = null,
-                tint = fg,
-                modifier = Modifier.size(16.dp),
-            )
+            label = "copy_pill_content",
+        ) { (isCopied, lbl) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = if (isCopied) Icons.Rounded.Check else icon,
+                    contentDescription = null,
+                    tint = fgColor,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    text = lbl,
+                    color = fgColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = label,
-            color = fg,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-        )
     }
 }
 
@@ -527,9 +554,11 @@ fun QrShareModal(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(34.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
                     .padding(24.dp),
             ) {
                 Row(
@@ -550,11 +579,11 @@ fun QrShareModal(
                             .size(34.dp)
                             .clip(CircleShape)
                             .background(HefimerColors.White06)
-                            .applePressable(onClick = onDismiss),
+                            .applePressable(pressedScale = 0.89f, onClick = onDismiss),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
-                            contentDescription = "Close",
+                            contentDescription = tr("Close", "Đóng"),
                             tint = HefimerColors.White60,
                             modifier = Modifier.size(16.dp),
                         )
@@ -572,14 +601,17 @@ fun QrShareModal(
                 Spacer(Modifier.height(16.dp))
 
                 Text(
-                    text = "Scan to open & retrieve instantly",
+                    text = tr("Scan to open & retrieve instantly", "Quét để mở & nhận tức thì"),
                     color = HefimerColors.White80,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = "Compatible with any smartphone camera or Hefimer scanner",
+                    text = tr(
+                        "Compatible with any smartphone camera or Hefimer scanner",
+                        "Tương thích với mọi camera điện thoại hoặc trình quét Hefimer",
+                    ),
                     color = HefimerColors.White30,
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center,
@@ -599,22 +631,22 @@ fun QrShareModal(
                             .height(46.dp)
                             .clip(CircleShape)
                             .background(HefimerColors.White)
-                            .applePressable {
+                            .applePressable(pressedScale = 0.96f) {
                                 scope.launch {
                                     runCatching {
                                         val bmp = BeautifulQrRenderer.renderBitmap(url, 1024, emeraldTheme)
                                         DownloadHelper.saveBitmapToGallery(context, bmp, "hefimer_qr_$code.png")
                                     }.onSuccess {
-                                        onToast("QR saved to Pictures/Hefimer", false)
+                                        onToast(tr("QR saved to Pictures/Hefimer", "Đã lưu mã QR vào Pictures/Hefimer"), false)
                                     }.onFailure {
-                                        onToast(it.message ?: "Failed to save QR", true)
+                                        onToast(it.message ?: tr("Failed to save QR", "Không thể lưu mã QR"), true)
                                     }
                                 }
                             },
                     ) {
                         Icon(Icons.Rounded.Download, null, tint = HefimerColors.Black, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Save QR", color = HefimerColors.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Save QR", "Lưu mã QR"), color = HefimerColors.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Row(
@@ -626,14 +658,14 @@ fun QrShareModal(
                             .clip(CircleShape)
                             .background(HefimerColors.White08)
                             .border(1.dp, HefimerColors.White12, CircleShape)
-                            .applePressable {
+                            .applePressable(pressedScale = 0.96f) {
                                 copyToClipboard(context, "Hefimer Link", url)
-                                onToast("Link copied", false)
+                                onToast(tr("Link copied", "Đã sao chép liên kết"), false)
                             },
                     ) {
                         Icon(Icons.Rounded.ContentCopy, null, tint = HefimerColors.White, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Copy Link", color = HefimerColors.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Copy Link", "Chép link"), color = HefimerColors.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

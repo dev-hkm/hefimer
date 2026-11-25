@@ -68,7 +68,9 @@ import com.google.zxing.DecodeHintType
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.tr
 import java.util.concurrent.Executors
@@ -256,43 +258,58 @@ fun QrScannerOverlay(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(CircleShape)
-                    .background(HefimerColors.Black.copy(alpha = 0.65f))
-                    .border(1.dp, HefimerColors.White15, CircleShape)
-                    .applePressable(onClick = onClose),
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 12.dp,
+                    )
+                    .applePressable(pressedScale = 0.89f, onClick = onClose),
             ) {
-                Icon(Icons.Rounded.Close, tr("Close scanner", "Đóng máy quét"), tint = HefimerColors.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Close, tr("Close scanner", "Đóng máy quét"), tint = Color.White, modifier = Modifier.size(20.dp))
             }
 
             Text(
                 text = tr("SCAN QR CODE", "QUÉT MÃ QR"),
-                color = HefimerColors.White,
+                color = Color.White,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.4.sp,
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(HefimerColors.Black.copy(alpha = 0.65f))
-                    .border(1.dp, HefimerColors.White15, CircleShape)
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 10.dp,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 9.dp),
             )
 
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(CircleShape)
-                    .background(if (torchOn) HefimerColors.White else HefimerColors.Black.copy(alpha = 0.65f))
-                    .border(1.dp, HefimerColors.White15, CircleShape)
-                    .applePressable {
+                    .then(
+                        if (torchOn) {
+                            Modifier
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(1.dp, Color.White, CircleShape)
+                        } else {
+                            Modifier.appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 12.dp,
+                            )
+                        },
+                    )
+                    .applePressable(pressedScale = 0.89f) {
                         torchOn = !torchOn
                         boundCamera?.cameraControl?.enableTorch(torchOn)
                     },
             ) {
                 Icon(
                     imageVector = if (torchOn) Icons.Rounded.FlashOn else Icons.Rounded.FlashOff,
-                    contentDescription = "Torch",
-                    tint = if (torchOn) HefimerColors.Black else HefimerColors.White,
+                    contentDescription = tr("Torch", "Đèn flash"),
+                    tint = if (torchOn) Color.Black else Color.White,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -303,14 +320,16 @@ fun QrScannerOverlay(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = navBottom + 28.dp, start = 24.dp, end = 24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(HefimerColors.Black.copy(alpha = 0.78f))
-                .border(1.dp, HefimerColors.White12, RoundedCornerShape(24.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(26.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 16.dp,
+                )
                 .padding(horizontal = 18.dp, vertical = 14.dp),
         ) {
             Text(
                 text = hint,
-                color = HefimerColors.White70,
+                color = HefimerColors.White80,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
             )

@@ -135,4 +135,22 @@ class HefimerCoreTests {
         assertTrue(com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.VI, enUsLocale))
         assertEquals(false, com.hefimer.app.ui.theme.HefimerLang.resolveIsVietnamese(com.hefimer.app.ui.theme.AppLanguage.EN, viLocale))
     }
+
+    @Test
+    fun vietnameseLocalizationCoversFormatsProvidersAndCodeHighlighter() {
+        val prev = com.hefimer.app.ui.theme.HefimerLang.mode
+        try {
+            com.hefimer.app.ui.theme.HefimerLang.update(com.hefimer.app.ui.theme.AppLanguage.VI)
+            assertTrue(com.hefimer.app.ui.theme.HefimerLang.isVi)
+            assertEquals("Đã hết hạn", com.hefimer.app.data.model.formatCountdown(System.currentTimeMillis() - 10_000L))
+            assertEquals("Không hết hạn", com.hefimer.app.data.model.formatRemainingCompact(null))
+            assertEquals("Văn bản thuần", CodeHighlighter.detectLanguage("hello world").localizedLabel())
+            assertEquals("Không giới hạn", UploadProviders.getConfig("gofile").localizedMaxSize())
+            assertEquals("30 giây", UploadProviders.STANDARD_EXPIRE_OPTIONS.first().localizedLabel())
+            assertEquals("5 phút", UploadProviders.STANDARD_EXPIRE_OPTIONS[1].localizedLabel())
+            assertEquals("Gửi Email", CodeHighlighter.getSmartAction("dev@hefimer.qzz.io")?.label)
+        } finally {
+            com.hefimer.app.ui.theme.HefimerLang.update(prev)
+        }
+    }
 }

@@ -33,9 +33,11 @@ import androidx.compose.ui.unit.sp
 import com.hefimer.app.BuildConfig
 import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.theme.AppLanguage
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.tr
 
@@ -57,9 +59,11 @@ fun SettingsSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
-            .background(HefimerColors.SurfaceSheet)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                variant = AppleGlassVariant.Elevated,
+                elevation = 24.dp,
+            )
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -187,7 +191,7 @@ fun SettingsSheetContent(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${defaultCfg.maxSizeLabel} • ${tr("Auto-routes larger files", "Tự chuyển tuyến tệp lớn")}",
+                        text = "${defaultCfg.localizedMaxSize()} • ${tr("Auto-routes larger files", "Tự chuyển tuyến tệp lớn")}",
                         color = HefimerColors.White40,
                         fontSize = 11.sp,
                     )

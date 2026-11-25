@@ -1,8 +1,10 @@
 package com.hefimer.app.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -10,6 +12,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -56,10 +59,12 @@ import com.hefimer.app.data.model.formatBytes
 import com.hefimer.app.ui.DownloadProgressState
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.AppleFluidProgressTrack
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.AppleRollingPercentage
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.UbuntuFontFamily
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 
 @Composable
@@ -85,7 +90,7 @@ fun HefimerToastHost(
                 scaleOut(tween(220, easing = AppMotion.AppleEase), targetScale = 0.95f),
         ) {
             val current = toast ?: return@AnimatedVisibility
-            val isLight = current.type == ToastType.SUCCESS || current.type == ToastType.ERROR
+            val isInfo = current.type == ToastType.INFO
             val bg = when (current.type) {
                 ToastType.SUCCESS -> HefimerColors.White
                 ToastType.ERROR -> HefimerColors.Red500
@@ -96,21 +101,29 @@ fun HefimerToastHost(
                 ToastType.ERROR -> Color.White
                 ToastType.INFO -> HefimerColors.White
             }
-            val borderColor = if (isLight) bg else HefimerColors.White20
+
+            val rowModifier = if (isInfo) {
+                Modifier.appleGlassSurface(
+                    shape = CircleShape,
+                    variant = com.hefimer.app.ui.theme.AppleGlassVariant.Elevated,
+                    elevation = 16.dp,
+                )
+            } else {
+                Modifier
+                    .clip(CircleShape)
+                    .background(bg)
+                    .border(1.dp, bg, CircleShape)
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(bg)
-                    .border(1.dp, borderColor, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = rowModifier.padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 when (current.type) {
                     ToastType.SUCCESS -> Icon(Icons.Rounded.Check, null, tint = fg, modifier = Modifier.size(17.dp))
                     ToastType.ERROR -> Icon(Icons.Rounded.ErrorOutline, null, tint = fg, modifier = Modifier.size(17.dp))
-                    ToastType.INFO -> Icon(Icons.Rounded.Info, null, tint = fg.copy(alpha = 0.75f), modifier = Modifier.size(17.dp))
+                    ToastType.INFO -> Icon(Icons.Rounded.Info, null, tint = fg.copy(alpha = 0.78f), modifier = Modifier.size(17.dp))
                 }
                 Text(
                     text = current.message,
@@ -139,6 +152,17 @@ fun HefimerPrimaryButton(
     height: Dp = 54.dp,
 ) {
     val active = enabled && !loading
+    val bgColor by animateColorAsState(
+        targetValue = if (active) accentColor else accentColor.copy(alpha = 0.24f),
+        animationSpec = tween(320, easing = AppMotion.AppleSilk),
+        label = "primary_btn_bg",
+    )
+    val fgColor by animateColorAsState(
+        targetValue = if (active) contentColor else contentColor.copy(alpha = 0.52f),
+        animationSpec = tween(260, easing = AppMotion.AppleSilk),
+        label = "primary_btn_fg",
+    )
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -146,33 +170,52 @@ fun HefimerPrimaryButton(
             .fillMaxWidth()
             .height(height)
             .clip(CircleShape)
-            .background(if (active) accentColor else accentColor.copy(alpha = 0.25f))
-            .applePressable(enabled = active, onClick = onClick),
+            .background(bgColor)
+            .applePressable(enabled = active, pressedScale = 0.96f, onClick = onClick)
+            .padding(horizontal = 16.dp),
     ) {
-        if (loading) {
-            CircularProgressIndicator(
-                color = contentColor,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-        } else if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (active) contentColor else contentColor.copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
+        AnimatedContent(
+            targetState = Triple(loading, icon, text),
+            transitionSpec = {
+                (fadeIn(tween(300, easing = AppMotion.AppleSilk)) +
+                    scaleIn(tween(340, easing = AppMotion.AppleSheet), initialScale = 0.93f)) togetherWith
+                    (fadeOut(tween(180, easing = AppMotion.AppleEase)) +
+                        scaleOut(tween(180, easing = AppMotion.AppleEase), targetScale = 0.95f))
+            },
+            label = "primary_btn_content",
+        ) { (isLoading, ic, labelText) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = fgColor,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                } else if (ic != null) {
+                    Icon(
+                        imageVector = ic,
+                        contentDescription = null,
+                        tint = fgColor,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    text = labelText,
+                    color = fgColor,
+                    fontFamily = UbuntuFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    letterSpacing = 0.2.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        Text(
-            text = text,
-            color = if (active) contentColor else contentColor.copy(alpha = 0.55f),
-            fontFamily = UbuntuFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            letterSpacing = 0.2.sp,
-        )
     }
 }
 
@@ -185,33 +228,71 @@ fun HefimerSecondaryButton(
     icon: ImageVector? = null,
     height: Dp = 48.dp,
 ) {
+    val bgColor by animateColorAsState(
+        targetValue = if (enabled) HefimerColors.White06 else HefimerColors.White04,
+        animationSpec = tween(280, easing = AppMotion.AppleSilk),
+        label = "sec_btn_bg",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (enabled) HefimerColors.White12 else HefimerColors.White08,
+        animationSpec = tween(280, easing = AppMotion.AppleSilk),
+        label = "sec_btn_border",
+    )
+    val fgColor by animateColorAsState(
+        targetValue = if (enabled) HefimerColors.White80 else HefimerColors.White30,
+        animationSpec = tween(260, easing = AppMotion.AppleSilk),
+        label = "sec_btn_fg",
+    )
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .clip(CircleShape)
-            .background(HefimerColors.White06)
-            .border(1.dp, HefimerColors.White12, CircleShape)
-            .applePressable(enabled = enabled, onClick = onClick),
-    ) {
-        if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (enabled) HefimerColors.White80 else HefimerColors.White30,
-                modifier = Modifier.size(16.dp),
+            .appleGlassSurface(
+                shape = CircleShape,
+                variant = AppleGlassVariant.Clear,
+                accentFillTint = bgColor,
+                elevation = if (enabled) 4.dp else 0.dp,
             )
-            Spacer(Modifier.width(7.dp))
+            .applePressable(enabled = enabled, pressedScale = 0.96f, onClick = onClick)
+            .padding(horizontal = 14.dp),
+    ) {
+        AnimatedContent(
+            targetState = icon to text,
+            transitionSpec = {
+                (fadeIn(tween(280, easing = AppMotion.AppleSilk)) +
+                    scaleIn(tween(320, easing = AppMotion.AppleSheet), initialScale = 0.93f)) togetherWith
+                    (fadeOut(tween(180, easing = AppMotion.AppleEase)) +
+                        scaleOut(tween(180, easing = AppMotion.AppleEase), targetScale = 0.95f))
+            },
+            label = "sec_btn_content",
+        ) { (ic, labelText) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                if (ic != null) {
+                    Icon(
+                        imageVector = ic,
+                        contentDescription = null,
+                        tint = fgColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(7.dp))
+                }
+                Text(
+                    text = labelText,
+                    color = fgColor,
+                    fontFamily = UbuntuFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        Text(
-            text = text,
-            color = if (enabled) HefimerColors.White80 else HefimerColors.White30,
-            fontFamily = UbuntuFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-        )
     }
 }
 
@@ -227,10 +308,12 @@ fun HefimerHeaderIconButton(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(38.dp)
-            .clip(CircleShape)
-            .background(HefimerColors.White06)
-            .border(1.dp, HefimerColors.White12, CircleShape)
-            .applePressable(pressedScale = 0.91f, onClick = onClick),
+            .appleGlassSurface(
+                shape = CircleShape,
+                variant = AppleGlassVariant.Clear,
+                elevation = 6.dp,
+            )
+            .applePressable(pressedScale = 0.89f, onClick = onClick),
     ) {
         Icon(
             imageVector = icon,
@@ -238,11 +321,16 @@ fun HefimerHeaderIconButton(
             tint = HefimerColors.White80,
             modifier = Modifier.size(18.dp),
         )
-        if (badgeDot) {
+        AnimatedVisibility(
+            visible = badgeDot,
+            enter = scaleIn(AppMotion.softPopSpring(), initialScale = 0.5f) + fadeIn(tween(180)),
+            exit = scaleOut(tween(150), targetScale = 0.5f) + fadeOut(tween(150)),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(7.dp),
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(7.dp)
                     .size(7.dp)
                     .clip(CircleShape)
                     .background(HefimerColors.White),
@@ -345,9 +433,11 @@ fun FloatingDownloadProgressBanner(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(HefimerColors.BannerBg)
-                .border(1.dp, HefimerColors.White15, RoundedCornerShape(28.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(30.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 18.dp,
+                )
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Row(

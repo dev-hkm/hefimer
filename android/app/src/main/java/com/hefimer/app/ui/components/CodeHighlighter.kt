@@ -19,7 +19,10 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import com.hefimer.app.ui.theme.HefimerColors
 
-data class LanguageInfo(val id: String, val label: String, val ext: String)
+data class LanguageInfo(val id: String, val label: String, val ext: String) {
+    fun localizedLabel(): String =
+        if (id == "text") com.hefimer.app.ui.theme.tr("Plain Text", "Văn bản thuần") else label
+}
 
 data class SmartAction(
     val type: String,
@@ -148,28 +151,28 @@ object CodeHighlighter {
         if (t.isEmpty()) return null
 
         if (Regex("""^[^\s@]+@[^\s@]+\.[^\s@]+$""").matches(t)) {
-            return SmartAction("email", "Send Email", Icons.Rounded.Email, "mailto:$t")
+            return SmartAction("email", com.hefimer.app.ui.theme.tr("Send Email", "Gửi Email"), Icons.Rounded.Email, "mailto:$t")
         }
         if (Regex("""^\+?[\d\s-]{8,15}$""").matches(t) && !t.contains('\n')) {
             val clean = t.replace(Regex("""[^\d+]"""), "")
-            return SmartAction("phone", "Call Now", Icons.Rounded.Call, "tel:$clean")
+            return SmartAction("phone", com.hefimer.app.ui.theme.tr("Call Now", "Gọi ngay"), Icons.Rounded.Call, "tel:$clean")
         }
         if (Regex("""^-?\d+(\.\d+)?,\s?-?\d+(\.\d+)?$""").matches(t)) {
             val q = java.net.URLEncoder.encode(t, "UTF-8")
-            return SmartAction("map", "Open Maps", Icons.Rounded.LocationOn, "https://www.google.com/maps?q=$q")
+            return SmartAction("map", com.hefimer.app.ui.theme.tr("Open Maps", "Mở bản đồ"), Icons.Rounded.LocationOn, "https://www.google.com/maps?q=$q")
         }
         if (t.length <= 9 && Regex("""^#(?:[0-9a-fA-F]{3,4}){1,2}$""").matches(t)) {
-            return SmartAction("color", "Color Info", Icons.Rounded.Palette, "https://www.color-hex.com/color/${t.removePrefix("#")}")
+            return SmartAction("color", com.hefimer.app.ui.theme.tr("Color Info", "Chi tiết màu"), Icons.Rounded.Palette, "https://www.color-hex.com/color/${t.removePrefix("#")}")
         }
         if (Regex("""^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$""").matches(t)) {
-            return SmartAction("ip", "Whois IP", Icons.Rounded.Shield, "https://who.is/whois-ip/ip-address/$t")
+            return SmartAction("ip", com.hefimer.app.ui.theme.tr("Whois IP", "Tra cứu IP"), Icons.Rounded.Shield, "https://who.is/whois-ip/ip-address/$t")
         }
         if (!t.any { it.isWhitespace() } &&
             (t.startsWith("http://", true) || t.startsWith("https://", true) || t.startsWith("www.", true) ||
                 Regex("""^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+\.[a-zA-Z]{2,}(/\S*)?$""").matches(t))
         ) {
             val url = if (t.startsWith("http://", true) || t.startsWith("https://", true)) t else "https://$t"
-            return SmartAction("link", "Open Link", Icons.Rounded.OpenInNew, url)
+            return SmartAction("link", com.hefimer.app.ui.theme.tr("Open Link", "Mở liên kết"), Icons.Rounded.OpenInNew, url)
         }
         return null
     }

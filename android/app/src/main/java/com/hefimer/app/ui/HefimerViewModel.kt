@@ -40,6 +40,7 @@ import com.hefimer.app.data.network.UploadCancellationToken
 import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.components.CodeHighlighter
 import com.hefimer.app.ui.components.MainTab
+import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -341,7 +342,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         storage.setDefaultUploadProvider(providerId)
         _defaultProviderId.value = providerId
         selectUploadProvider(providerId)
-        showToast("Default provider set to ${UploadProviders.getConfig(providerId).name}", ToastType.SUCCESS)
+        showToast(
+            tr(
+                "Default provider set to ${UploadProviders.getConfig(providerId).name}",
+                "Đã đặt máy chủ mặc định: ${UploadProviders.getConfig(providerId).name}",
+            ),
+            ToastType.SUCCESS,
+        )
     }
 
     fun openSettings() {
@@ -492,7 +499,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val now = System.currentTimeMillis()
         if (now - lastRootBackMs > 2_200L) {
             lastRootBackMs = now
-            showToast("Back again to exit Hefimer", ToastType.INFO)
+            showToast(tr("Back again to exit Hefimer", "Nhấn quay lại lần nữa để thoát Hefimer"), ToastType.INFO)
             return true
         }
         return false
@@ -546,7 +553,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun clearHistory() {
         storage.clearHistory()
         _history.value = emptyList()
-        showToast("History cleared", ToastType.SUCCESS)
+        showToast(tr("History cleared", "Đã xóa lịch sử"), ToastType.SUCCESS)
     }
 
     // region Global Firebase observers & presence
@@ -673,7 +680,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             _linkState.update { it.copy(pairToken = token, setupMode = "join") }
             _selectedTab.value = MainTab.LINK
             refreshLink(silent = true)
-            showToast("Pairing token captured", ToastType.SUCCESS)
+            showToast(tr("Pairing token captured", "Đã nhận mã ghép nối"), ToastType.SUCCESS)
             return
         }
 
@@ -687,17 +694,17 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 path.contains("/space") -> {
                     _spaceState.update { it.copy(joinCode = codeParam, lobbyMode = "join") }
                     _selectedTab.value = MainTab.SPACE
-                    showToast("Space $codeParam ready to join", ToastType.INFO)
+                    showToast(tr("Space $codeParam ready to join", "Space $codeParam sẵn sàng tham gia"), ToastType.INFO)
                 }
                 path.contains("/chat-room") -> {
                     _roomsState.update { it.copy(section = "chat", chatLobbyMode = "join", chatJoinCode = codeParam) }
                     _selectedTab.value = MainTab.ROOMS
-                    showToast("Chat room $codeParam ready to join", ToastType.INFO)
+                    showToast(tr("Chat room $codeParam ready to join", "Phòng chat $codeParam sẵn sàng tham gia"), ToastType.INFO)
                 }
                 path.contains("/board") -> {
                     _roomsState.update { it.copy(section = "board", boardLobbyMode = "join", boardJoinCode = codeParam) }
                     _selectedTab.value = MainTab.ROOMS
-                    showToast("Board $codeParam ready to join", ToastType.INFO)
+                    showToast(tr("Board $codeParam ready to join", "Bảng $codeParam sẵn sàng tham gia"), ToastType.INFO)
                 }
                 else -> {
                     _selectedTab.value = MainTab.RECEIVE
@@ -706,7 +713,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         } else {
-            showToast("Unrecognized QR code", ToastType.ERROR)
+            showToast(tr("Unrecognized QR code", "Mã QR không hợp lệ"), ToastType.ERROR)
         }
     }
     // endregion
@@ -719,7 +726,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 fileTabTapCount = 0
                 if (_sendState.value.isR2Mode) {
                     _sendState.update { it.copy(isR2Mode = false) }
-                    showToast("Secret R2 mode deactivated", ToastType.SUCCESS)
+                    showToast(tr("Secret R2 mode deactivated", "Đã tắt chế độ Secret R2"), ToastType.SUCCESS)
                 } else {
                     _sendState.update { it.copy(showR2AuthDialog = true) }
                 }
@@ -737,9 +744,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun verifyR2Passcode(input: String) {
         if (input == _globalStats.value.secretPass) {
             _sendState.update { it.copy(isR2Mode = true, showR2AuthDialog = false, fileExpire = "1h") }
-            showToast("Secret R2 mode activated", ToastType.SUCCESS)
+            showToast(tr("Secret R2 mode activated", "Đã bật chế độ Secret R2"), ToastType.SUCCESS)
         } else {
-            showToast("Incorrect password", ToastType.ERROR)
+            showToast(tr("Incorrect password", "Sai mật khẩu"), ToastType.ERROR)
         }
     }
 
@@ -750,7 +757,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 fileExpire = UploadProviders.getConfig(it.selectedProviderId).defaultExpire,
             )
         }
-        showToast("Exited Secret R2 mode", ToastType.INFO)
+        showToast(tr("Exited Secret R2 mode", "Đã thoát chế độ Secret R2"), ToastType.INFO)
     }
 
     fun setFolderMode(enabled: Boolean) {
@@ -802,7 +809,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         fileStatus = "",
                     )
                 }
-                showToast("Folder packed as ${zipped.name}", ToastType.SUCCESS)
+                showToast(tr("Folder packed as ${zipped.name}", "Đã nén thư mục thành ${zipped.name}"), ToastType.SUCCESS)
             } catch (e: Throwable) {
                 _sendState.update {
                     it.copy(
@@ -815,7 +822,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }
                 if (e.message != "UPLOAD_CANCELED") {
-                    showToast(e.message ?: "Failed to package folder", ToastType.ERROR)
+                    showToast(e.message ?: tr("Failed to package folder", "Nén thư mục thất bại"), ToastType.ERROR)
                 }
             }
         }
@@ -854,7 +861,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 fileStatus = "",
             )
         }
-        showToast("Upload canceled", ToastType.INFO)
+        showToast(tr("Upload canceled", "Đã hủy tải lên"), ToastType.INFO)
     }
 
     fun resetFileResult(clearSelection: Boolean) {
@@ -876,7 +883,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun uploadFiles() {
         val st = _sendState.value
         if (st.pickedFiles.isEmpty()) {
-            showToast("Please select a file first", ToastType.ERROR)
+            showToast(tr("Please select a file first", "Vui lòng chọn tệp trước"), ToastType.ERROR)
             return
         }
         if (st.isR2Mode) {
@@ -896,11 +903,23 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 maxFileSize <= UploadProviders.getConfig(id).maxSizeBytes
             }
             if (autoHostId == null) {
-                showToast("File exceeds limit of ${selectedCfg.maxSizeLabel} for ${selectedCfg.name}", ToastType.ERROR)
+                showToast(
+                    tr(
+                        "File exceeds limit of ${selectedCfg.localizedMaxSize()} for ${selectedCfg.name}",
+                        "Tệp vượt quá giới hạn ${selectedCfg.localizedMaxSize()} của ${selectedCfg.name}",
+                    ),
+                    ToastType.ERROR,
+                )
                 return
             }
             val autoCfg = UploadProviders.getConfig(autoHostId)
-            showToast("File > ${selectedCfg.maxSizeLabel} (${selectedCfg.name}), routing via ${autoCfg.name}...", ToastType.INFO)
+            showToast(
+                tr(
+                    "File > ${selectedCfg.localizedMaxSize()} (${selectedCfg.name}), routing via ${autoCfg.name}...",
+                    "Tệp > ${selectedCfg.localizedMaxSize()} (${selectedCfg.name}), chuyển tuyến qua ${autoCfg.name}...",
+                ),
+                ToastType.INFO,
+            )
             autoHostId
         } else {
             st.selectedProviderId
@@ -917,7 +936,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 fileProgressFraction = 0f,
                 fileUploadedBytes = 0L,
                 fileTotalBytes = totalSize,
-                fileStatus = "Preparing upload...",
+                fileStatus = tr("Preparing upload...", "Đang chuẩn bị tải lên..."),
             )
         }
 
@@ -965,7 +984,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         },
                         onFallback = { from, to ->
                             fileBytes[idx] = 0L
-                            showToast("$from unavailable, switching to $to...", ToastType.INFO)
+                            showToast(tr("$from unavailable, switching to $to...", "$from đang bận, chuyển sang $to..."), ToastType.INFO)
                         },
                     )
                     fileBytes[idx] = picked.size
@@ -985,14 +1004,14 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         fileProgress = 100,
                         fileProgressFraction = 1f,
                         fileUploadedBytes = totalSize,
-                        fileStatus = "Generating 5-digit drop code...",
+                        fileStatus = tr("Generating 5-digit drop code...", "Đang tạo mã Drop 5 chữ số..."),
                     )
                 }
                 val code = generateUniqueDropCode()
                 val expiresAt = System.currentTimeMillis() + parseExpireDurationMs(st.fileExpire)
                 val firstFile = st.pickedFiles.first()
                 val firstUrl = uploadedEntries.first()["fileUrl"]!!.jsonPrimitive.content
-                val displayName = if (isMulti) "${uploadedEntries.size} files" else firstFile.name
+                val displayName = if (isMulti) tr("${uploadedEntries.size} files", "${uploadedEntries.size} tệp") else firstFile.name
 
                 val textPayload = if (isMulti) {
                     "__HEFIMER_FILES__${JsonArray(uploadedEntries)}"
@@ -1045,7 +1064,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         fileResultIsR2 = false,
                     )
                 }
-                showToast("Uploaded via $actualProviderName!", ToastType.SUCCESS)
+                showToast(tr("Uploaded via $actualProviderName!", "Đã tải lên qua $actualProviderName!"), ToastType.SUCCESS)
                 offerDropToLinkedGroup(
                     DropCreatedOffer(
                         kind = "file",
@@ -1059,7 +1078,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 )
             } catch (e: Throwable) {
                 if (!token.isCancelled() && e.message != "UPLOAD_CANCELED") {
-                    showToast(e.message?.take(140) ?: "Upload failed", ToastType.ERROR)
+                    showToast(e.message?.take(140) ?: tr("Upload failed", "Tải lên thất bại"), ToastType.ERROR)
                 }
                 _sendState.update {
                     it.copy(
@@ -1141,12 +1160,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         fileProgress = 100,
                         fileProgressFraction = 1f,
                         fileUploadedBytes = totalSize,
-                        fileStatus = "Finalizing Secret R2 drop...",
+                        fileStatus = tr("Finalizing Secret R2 drop...", "Đang hoàn tất lưu trữ Secret R2..."),
                     )
                 }
                 val code = generateUniqueDropCode()
                 val expiresAt = System.currentTimeMillis() + parseExpireDurationMs(st.fileExpire)
-                val displayName = if (isMulti) "${entries.size} files" else singleName
+                val displayName = if (isMulti) tr("${entries.size} files", "${entries.size} tệp") else singleName
 
                 val dropJson = buildJsonObject {
                     put("type", JsonPrimitive("r2_file"))
@@ -1189,10 +1208,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         fileResultIsR2 = true,
                     )
                 }
-                showToast("Uploaded to Secret Cloudflare R2!", ToastType.SUCCESS)
+                showToast(tr("Uploaded to Secret Cloudflare R2!", "Đã tải lên Secret Cloudflare R2!"), ToastType.SUCCESS)
             } catch (e: Throwable) {
                 if (!token.isCancelled() && e.message != "UPLOAD_CANCELED") {
-                    showToast(e.message?.take(140) ?: "Secret R2 upload failed", ToastType.ERROR)
+                    showToast(e.message?.take(140) ?: tr("Secret R2 upload failed", "Tải lên Secret R2 thất bại"), ToastType.ERROR)
                 }
                 _sendState.update {
                     it.copy(
@@ -1230,7 +1249,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun generateTextDrop() {
         val st = _sendState.value
         if (st.textContent.isBlank()) {
-            showToast("Please enter some text or code", ToastType.ERROR)
+            showToast(tr("Please enter some text or code", "Vui lòng nhập văn bản hoặc mã nguồn"), ToastType.ERROR)
             return
         }
         _sendState.update { it.copy(textLoading = true) }
@@ -1253,7 +1272,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 _sendState.update {
                     it.copy(textLoading = false, textResultCode = code, textResultExpiresAt = expiresAt)
                 }
-                showToast("Drop code $code generated!", ToastType.SUCCESS)
+                showToast(tr("Drop code $code generated!", "Đã tạo mã Drop $code!"), ToastType.SUCCESS)
 
                 val lang = st.manualLangId?.let { id ->
                     CodeHighlighter.SUPPORTED_LANGUAGES.firstOrNull { it.id == id }
@@ -1261,7 +1280,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 offerDropToLinkedGroup(
                     DropCreatedOffer(
                         kind = "text",
-                        name = if (lang.id == "text") "Shared text" else "${lang.label} snippet",
+                        name = if (lang.id == "text") tr("Shared text", "Văn bản chia sẻ") else tr("${lang.localizedLabel()} snippet", "Đoạn mã ${lang.localizedLabel()}"),
                         provider = "Hefimer",
                         sizeBytes = st.textContent.toByteArray().size.toLong(),
                         dropCode = code,
@@ -1271,7 +1290,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 )
             } catch (e: Throwable) {
                 _sendState.update { it.copy(textLoading = false) }
-                showToast(e.message ?: "Failed to generate code", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to generate code", "Tạo mã thất bại"), ToastType.ERROR)
             }
         }
     }
@@ -1303,7 +1322,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun unlockReceiveWithPassword(inputPassword: String) {
         val pending = _receiveState.value.pendingDrop ?: return
         if (inputPassword != pending.password) {
-            showToast("Incorrect password", ToastType.ERROR)
+            showToast(tr("Incorrect password", "Sai mật khẩu"), ToastType.ERROR)
             return
         }
         finalizeReceivedDrop(pending)
@@ -1312,7 +1331,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun retrieveDrop(codeOverride: String? = null) {
         val targetCode = (codeOverride ?: _receiveState.value.code).filter { it.isDigit() }.take(5)
         if (targetCode.length != 5) {
-            showToast("Please enter exactly 5 digits", ToastType.ERROR)
+            showToast(tr("Please enter exactly 5 digits", "Vui lòng nhập đủ 5 chữ số"), ToastType.ERROR)
             return
         }
         _receiveState.update { it.copy(code = targetCode, loading = true) }
@@ -1322,13 +1341,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 val raw = rtdb.get("drops/$targetCode") as? JsonObject
                 if (raw == null) {
                     _receiveState.update { it.copy(loading = false) }
-                    showToast("Code not found", ToastType.ERROR)
+                    showToast(tr("Code not found", "Không tìm thấy mã"), ToastType.ERROR)
                     return@launch
                 }
                 val parsed = normalizeDropItem(targetCode, raw)
                 if (parsed.expiresAt > 0L && parsed.expiresAt < System.currentTimeMillis()) {
                     _receiveState.update { it.copy(loading = false) }
-                    showToast("Code has expired", ToastType.ERROR)
+                    showToast(tr("Code has expired", "Mã đã hết hạn"), ToastType.ERROR)
                     return@launch
                 }
                 if (!parsed.password.isNullOrBlank()) {
@@ -1340,7 +1359,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 finalizeReceivedDrop(parsed)
             } catch (e: Throwable) {
                 _receiveState.update { it.copy(loading = false) }
-                showToast(e.message ?: "Failed to retrieve drop", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to retrieve drop", "Không thể nhận dữ liệu"), ToastType.ERROR)
             }
         }
     }
@@ -1358,7 +1377,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 isR2 = drop.isR2Drop,
             ),
         )
-        showToast("Drop retrieved!", ToastType.SUCCESS)
+        showToast(tr("Drop retrieved!", "Đã nhận dữ liệu!"), ToastType.SUCCESS)
 
         // Notify Hefimer Link if this drop matched an incoming transfer
         markLinkedTransferReceived(drop.code)
@@ -1372,7 +1391,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         if (f.objectKey.isNotBlank()) r2Service.deleteObject(f.objectKey)
                     }
                     rtdb.remove("drops/${drop.code}")
-                    showToast("This drop self-destructed after viewing", ToastType.INFO)
+                    showToast(tr("This drop self-destructed after viewing", "Dữ liệu này đã tự hủy sau khi xem"), ToastType.INFO)
                 }
             }
         }
@@ -1413,7 +1432,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         activeDownloadToken?.cancel()
         activeDownloadToken = null
         _downloadState.value = null
-        showToast("Download canceled", ToastType.INFO)
+        showToast(tr("Download canceled", "Đã hủy tải xuống"), ToastType.INFO)
     }
 
     fun downloadDropFile(entry: DropFileEntry) {
@@ -1455,11 +1474,11 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         )
                     },
                 )
-                showToast("Saved ${entry.resolvedName} to Downloads", ToastType.SUCCESS)
+                showToast(tr("Saved ${entry.resolvedName} to Downloads", "Đã lưu ${entry.resolvedName} vào Tải xuống"), ToastType.SUCCESS)
             } else {
                 val url = entry.resolvedUrl
                 if (!url.startsWith("http", ignoreCase = true)) {
-                    showToast("Invalid or missing file link", ToastType.ERROR)
+                    showToast(tr("Invalid or missing file link", "Liên kết tệp không hợp lệ hoặc bị thiếu"), ToastType.ERROR)
                     return
                 }
                 val mode = DownloadHelper.downloadFile(
@@ -1483,13 +1502,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     },
                 )
                 showToast(
-                    if (mode == "tab") "Opening in browser..." else "Saved ${entry.resolvedName} to Downloads",
+                    if (mode == "tab") tr("Opening in browser...", "Đang mở trong trình duyệt...") else tr("Saved ${entry.resolvedName} to Downloads", "Đã lưu ${entry.resolvedName} vào Tải xuống"),
                     ToastType.SUCCESS,
                 )
             }
         } catch (e: Throwable) {
             if (!token.isCancelled() && e.message != "DOWNLOAD_CANCELED") {
-                showToast(e.message?.take(140) ?: "Download failed", ToastType.ERROR)
+                showToast(e.message?.take(140) ?: tr("Download failed", "Tải xuống thất bại"), ToastType.ERROR)
             }
         } finally {
             if (activeDownloadToken === token) {
@@ -1501,7 +1520,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun downloadAllDropFiles(files: List<DropFileEntry>) {
         viewModelScope.launch {
-            showToast("Downloading ${files.size} files...", ToastType.INFO)
+            showToast(tr("Downloading ${files.size} files...", "Đang tải ${files.size} tệp..."), ToastType.INFO)
             files.forEachIndexed { idx, entry ->
                 downloadSingleDropEntry(entry)
                 if (idx < files.lastIndex) delay(250L)
@@ -1563,10 +1582,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val st = _spaceState.value
         val name = st.userName.trim()
         val title = st.createTitle.trim()
-        if (name.isBlank()) { showToast("Please enter your display name", ToastType.ERROR); return }
-        if (title.isBlank()) { showToast("Please enter a space title", ToastType.ERROR); return }
-        if (st.createCode.length != 5) { showToast("Code must be 5 digits", ToastType.ERROR); return }
-        if (st.createCodeStatus == "taken") { showToast("Space code is already taken", ToastType.ERROR); return }
+        if (name.isBlank()) { showToast(tr("Please enter your display name", "Vui lòng nhập tên hiển thị của bạn"), ToastType.ERROR); return }
+        if (title.isBlank()) { showToast(tr("Please enter a space title", "Vui lòng nhập tên Space"), ToastType.ERROR); return }
+        if (st.createCode.length != 5) { showToast(tr("Code must be 5 digits", "Mã phải gồm 5 chữ số"), ToastType.ERROR); return }
+        if (st.createCodeStatus == "taken") { showToast(tr("Space code is already taken", "Mã Space đã có người dùng"), ToastType.ERROR); return }
 
         _spaceState.update { it.copy(loading = true) }
         viewModelScope.launch {
@@ -1591,10 +1610,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         recentSpaces = recents,
                     )
                 }
-                showToast("Space created!", ToastType.SUCCESS)
+                showToast(tr("Space created!", "Đã tạo Space!"), ToastType.SUCCESS)
             } catch (e: Throwable) {
                 _spaceState.update { it.copy(loading = false) }
-                showToast(e.message ?: "Failed to create space", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to create space", "Tạo Space thất bại"), ToastType.ERROR)
             }
         }
     }
@@ -1616,9 +1635,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun joinSpace(codeOverride: String? = null) {
         val st = _spaceState.value
-        val name = st.userName.trim().ifBlank { "Guest" }
+        val name = st.userName.trim().ifBlank { tr("Guest", "Khách") }
         val target = (codeOverride ?: st.joinCode).filter { it.isDigit() }.take(5)
-        if (target.length != 5) { showToast("Space code must be 5 digits", ToastType.ERROR); return }
+        if (target.length != 5) { showToast(tr("Space code must be 5 digits", "Mã Space phải gồm 5 chữ số"), ToastType.ERROR); return }
 
         _spaceState.update { it.copy(loading = true, userName = name) }
         storage.setUserName(name)
@@ -1627,25 +1646,25 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 val obj = rtdb.get("spaces/$target") as? JsonObject
                 if (obj == null) {
                     _spaceState.update { it.copy(loading = false) }
-                    showToast("Space not found", ToastType.ERROR)
+                    showToast(tr("Space not found", "Không tìm thấy Space"), ToastType.ERROR)
                     return@launch
                 }
                 val exp = obj["expiresAt"]?.jsonPrimitive?.longOrNull ?: 0L
                 if (exp in 1 until System.currentTimeMillis()) {
                     _spaceState.update { it.copy(loading = false) }
-                    showToast("Space has expired", ToastType.ERROR)
+                    showToast(tr("Space has expired", "Space đã hết hạn"), ToastType.ERROR)
                     return@launch
                 }
                 val pw = obj["password"]?.jsonPrimitive?.contentOrNull
                 if (!pw.isNullOrBlank()) {
                     if (!st.joinRequiresPassword || st.joinPassword.isBlank()) {
                         _spaceState.update { it.copy(loading = false, joinRequiresPassword = true, joinCode = target) }
-                        showToast("This space requires a passcode", ToastType.INFO)
+                        showToast(tr("This space requires a passcode", "Space này yêu cầu mật mã"), ToastType.INFO)
                         return@launch
                     }
                     if (st.joinPassword != pw) {
                         _spaceState.update { it.copy(loading = false) }
-                        showToast("Incorrect space passcode", ToastType.ERROR)
+                        showToast(tr("Incorrect space passcode", "Sai mật mã Space"), ToastType.ERROR)
                         return@launch
                     }
                 }
@@ -1656,7 +1675,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 startSpaceSession(target, sName, exp)
             } catch (e: Throwable) {
                 _spaceState.update { it.copy(loading = false) }
-                showToast(e.message ?: "Failed to join space", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to join space", "Không thể tham gia Space"), ToastType.ERROR)
             }
         }
     }
@@ -1781,8 +1800,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             runCatching { rtdb.set("spaces/$code/items/$id", payload) }
-                .onSuccess { showToast("Placed on canvas", ToastType.SUCCESS) }
-                .onFailure { showToast("Failed to add item", ToastType.ERROR) }
+                .onSuccess { showToast(tr("Placed on canvas", "Đã đặt lên bảng"), ToastType.SUCCESS) }
+                .onFailure { showToast(tr("Failed to add item", "Không thể thêm mục"), ToastType.ERROR) }
         }
     }
 
@@ -1797,7 +1816,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             runCatching { rtdb.update("spaces/$code/${item.sourceNode}/${item.id}", patch) }
-                .onSuccess { showToast("Updated item", ToastType.SUCCESS) }
+                .onSuccess { showToast(tr("Updated item", "Đã cập nhật"), ToastType.SUCCESS) }
         }
     }
 
@@ -1827,7 +1846,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         if (code.isBlank()) return
         viewModelScope.launch {
             runCatching { rtdb.remove("spaces/$code/${item.sourceNode}/${item.id}") }
-                .onSuccess { showToast("Removed from space", ToastType.SUCCESS) }
+                .onSuccess { showToast(tr("Removed from space", "Đã xóa khỏi Space"), ToastType.SUCCESS) }
         }
     }
 
@@ -1850,7 +1869,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             runCatching { rtdb.update("", JsonObject(patchMap)) }
-                .onSuccess { showToast("Canvas auto-arranged", ToastType.SUCCESS) }
+                .onSuccess { showToast(tr("Canvas auto-arranged", "Đã tự động sắp xếp bảng"), ToastType.SUCCESS) }
         }
     }
 
@@ -1863,7 +1882,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         spaceCancelToken = token
         val provName = UploadProviders.getConfig(st.selectedProviderId).name
         val tasks = pickedList.mapIndexed { i, f ->
-            SpaceUploadTask("up_${System.currentTimeMillis()}_$i", f.name, 0, if (i == 0) "Starting..." else "Queued...", provName)
+            SpaceUploadTask(
+                "up_${System.currentTimeMillis()}_$i",
+                f.name,
+                0,
+                if (i == 0) tr("Starting...", "Đang bắt đầu...") else tr("Queued...", "Đang chờ..."),
+                provName,
+            )
         }
         _spaceState.update { it.copy(uploadTasks = it.uploadTasks + tasks) }
 
@@ -1883,8 +1908,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         onProgress = { pct -> patchTask { it.copy(progress = pct) } },
                         onStatus = { msg -> patchTask { it.copy(status = msg) } },
                         onFallback = { from, to ->
-                            patchTask { it.copy(providerName = to, status = "Switching to $to...") }
-                            showToast("$from unavailable, switching to $to", ToastType.INFO)
+                            patchTask { it.copy(providerName = to, status = tr("Switching to $to...", "Đang chuyển sang $to...")) }
+                            showToast(tr("$from unavailable, switching to $to", "$from đang bận, chuyển sang $to"), ToastType.INFO)
                         },
                     )
                     val itemId = UUID.randomUUID().toString().replace("-", "").take(12)
@@ -1896,17 +1921,17 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         put("mimeType", JsonPrimitive(picked.mimeType))
                         put("url", JsonPrimitive(res.fileUrl))
                         put("providerName", JsonPrimitive(res.providerName))
-                        put("uploadedBy", JsonPrimitive(_spaceState.value.userName.ifBlank { "Guest" }))
+                        put("uploadedBy", JsonPrimitive(_spaceState.value.userName.ifBlank { tr("Guest", "Khách") }))
                         put("timestamp", JsonPrimitive(System.currentTimeMillis()))
                         put("x", JsonPrimitive(startX + idx * 32f))
                         put("y", JsonPrimitive(startY + idx * 32f))
                         put("zIndex", JsonPrimitive(nextZ))
                     }
                     rtdb.set("spaces/$code/items/$itemId", payload)
-                    showToast("Uploaded ${picked.name} via ${res.providerName}", ToastType.SUCCESS)
+                    showToast(tr("Uploaded ${picked.name} via ${res.providerName}", "Đã tải ${picked.name} qua ${res.providerName}"), ToastType.SUCCESS)
                 } catch (e: Throwable) {
                     if (!token.isCancelled() && e.message != "UPLOAD_CANCELED") {
-                        showToast(e.message ?: "Upload failed", ToastType.ERROR)
+                        showToast(e.message ?: tr("Upload failed", "Tải lên thất bại"), ToastType.ERROR)
                     }
                 } finally {
                     _spaceState.update { s -> s.copy(uploadTasks = s.uploadTasks.filterNot { it.id == taskId }) }
@@ -2005,10 +2030,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val st = _roomsState.value
         val user = st.userName.trim()
         val name = st.chatCreateName.trim()
-        if (user.isBlank()) { showToast("Please enter your name", ToastType.ERROR); return }
-        if (name.isBlank()) { showToast("Please enter a room name", ToastType.ERROR); return }
-        if (st.chatCreateCode.length != 5) { showToast("Room code must be 5 digits", ToastType.ERROR); return }
-        if (st.chatCreateCodeStatus == "taken") { showToast("Room code already taken", ToastType.ERROR); return }
+        if (user.isBlank()) { showToast(tr("Please enter your name", "Vui lòng nhập tên của bạn"), ToastType.ERROR); return }
+        if (name.isBlank()) { showToast(tr("Please enter a room name", "Vui lòng nhập tên phòng"), ToastType.ERROR); return }
+        if (st.chatCreateCode.length != 5) { showToast(tr("Room code must be 5 digits", "Mã phòng phải gồm 5 chữ số"), ToastType.ERROR); return }
+        if (st.chatCreateCodeStatus == "taken") { showToast(tr("Room code already taken", "Mã phòng đã được dùng"), ToastType.ERROR); return }
 
         _roomsState.update { it.copy(chatLoading = true) }
         viewModelScope.launch {
@@ -2032,10 +2057,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         chatCreatedExpiresAt = expiresAt,
                     )
                 }
-                showToast("Room created!", ToastType.SUCCESS)
+                showToast(tr("Room created!", "Đã tạo phòng chat!"), ToastType.SUCCESS)
             } catch (e: Throwable) {
                 _roomsState.update { it.copy(chatLoading = false) }
-                showToast(e.message ?: "Failed to create room", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to create room", "Tạo phòng thất bại"), ToastType.ERROR)
             }
         }
     }
@@ -2059,8 +2084,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val st = _roomsState.value
         val user = st.userName.trim()
         val target = (codeOverride ?: st.chatJoinCode).filter { it.isDigit() }.take(5)
-        if (user.isBlank()) { showToast("Please enter your name", ToastType.ERROR); return }
-        if (target.length != 5) { showToast("Room ID must be 5 digits", ToastType.ERROR); return }
+        if (user.isBlank()) { showToast(tr("Please enter your name", "Vui lòng nhập tên của bạn"), ToastType.ERROR); return }
+        if (target.length != 5) { showToast(tr("Room ID must be 5 digits", "Mã phòng phải gồm 5 chữ số"), ToastType.ERROR); return }
 
         _roomsState.update { it.copy(chatLoading = true) }
         viewModelScope.launch {
@@ -2068,13 +2093,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 val obj = rtdb.get("chats/$target") as? JsonObject
                 if (obj == null) {
                     _roomsState.update { it.copy(chatLoading = false) }
-                    showToast("Room not found", ToastType.ERROR)
+                    showToast(tr("Room not found", "Không tìm thấy phòng"), ToastType.ERROR)
                     return@launch
                 }
                 val exp = obj["expiresAt"]?.jsonPrimitive?.longOrNull ?: 0L
                 if (exp in 1 until System.currentTimeMillis()) {
                     _roomsState.update { it.copy(chatLoading = false) }
-                    showToast("Room has expired", ToastType.ERROR)
+                    showToast(tr("Room has expired", "Phòng đã hết hạn"), ToastType.ERROR)
                     return@launch
                 }
                 val rName = obj["name"]?.jsonPrimitive?.contentOrNull ?: "Chat $target"
@@ -2083,7 +2108,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 startChatSession(target, rName, exp)
             } catch (e: Throwable) {
                 _roomsState.update { it.copy(chatLoading = false) }
-                showToast(e.message ?: "Failed to join room", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to join room", "Không thể tham gia phòng"), ToastType.ERROR)
             }
         }
     }
@@ -2151,7 +2176,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val clean = text.trim()
         val roomId = _roomsState.value.activeChatId
         if (clean.isBlank() || roomId.isBlank()) return
-        val sender = _roomsState.value.userName.ifBlank { "Guest" }
+        val sender = _roomsState.value.userName.ifBlank { tr("Guest", "Khách") }
         viewModelScope.launch {
             runCatching {
                 rtdb.push(
@@ -2165,7 +2190,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     },
                 )
             }.onFailure {
-                showToast("Failed to send message", ToastType.ERROR)
+                showToast(tr("Failed to send message", "Gửi tin nhắn thất bại"), ToastType.ERROR)
             }
         }
     }
@@ -2204,7 +2229,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val user = st.userName.trim()
         val name = st.boardCreateName.trim()
         if (user.isBlank() || name.isBlank()) {
-            showToast("Please enter board name and your name", ToastType.ERROR)
+            showToast(tr("Please enter board name and your name", "Vui lòng nhập tên bảng và tên của bạn"), ToastType.ERROR)
             return
         }
         _roomsState.update { it.copy(boardLoading = true) }
@@ -2230,10 +2255,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         boardCreatedExpiresAt = expiresAt,
                     )
                 }
-                showToast("Board created!", ToastType.SUCCESS)
+                showToast(tr("Board created!", "Đã tạo bảng trắng!"), ToastType.SUCCESS)
             } catch (e: Throwable) {
                 _roomsState.update { it.copy(boardLoading = false) }
-                showToast(e.message ?: "Failed to create board", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to create board", "Tạo bảng thất bại"), ToastType.ERROR)
             }
         }
     }
@@ -2256,8 +2281,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val st = _roomsState.value
         val user = st.userName.trim()
         val target = (codeOverride ?: st.boardJoinCode).filter { it.isDigit() }.take(5)
-        if (user.isBlank()) { showToast("Please enter your name", ToastType.ERROR); return }
-        if (target.length != 5) { showToast("Board ID must be 5 digits", ToastType.ERROR); return }
+        if (user.isBlank()) { showToast(tr("Please enter your name", "Vui lòng nhập tên của bạn"), ToastType.ERROR); return }
+        if (target.length != 5) { showToast(tr("Board ID must be 5 digits", "Mã bảng phải gồm 5 chữ số"), ToastType.ERROR); return }
 
         _roomsState.update { it.copy(boardLoading = true) }
         viewModelScope.launch {
@@ -2265,13 +2290,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 val obj = rtdb.get("boards/$target") as? JsonObject
                 if (obj == null) {
                     _roomsState.update { it.copy(boardLoading = false) }
-                    showToast("Board not found", ToastType.ERROR)
+                    showToast(tr("Board not found", "Không tìm thấy bảng"), ToastType.ERROR)
                     return@launch
                 }
                 val exp = obj["expiresAt"]?.jsonPrimitive?.longOrNull ?: 0L
                 if (exp in 1 until System.currentTimeMillis()) {
                     _roomsState.update { it.copy(boardLoading = false) }
-                    showToast("Board has expired", ToastType.ERROR)
+                    showToast(tr("Board has expired", "Bảng đã hết hạn"), ToastType.ERROR)
                     return@launch
                 }
                 val bName = obj["name"]?.jsonPrimitive?.contentOrNull ?: "Board $target"
@@ -2280,7 +2305,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 startBoardSession(target, bName, exp)
             } catch (e: Throwable) {
                 _roomsState.update { it.copy(boardLoading = false) }
-                showToast(e.message ?: "Failed to join board", ToastType.ERROR)
+                showToast(e.message ?: tr("Failed to join board", "Không thể tham gia bảng"), ToastType.ERROR)
             }
         }
     }
@@ -2362,8 +2387,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         if (boardId.isBlank()) return
         viewModelScope.launch {
             runCatching { rtdb.remove("board_paths/$boardId") }
-                .onSuccess { showToast("Board cleared", ToastType.SUCCESS) }
-                .onFailure { showToast("Failed to clear board", ToastType.ERROR) }
+                .onSuccess { showToast(tr("Board cleared", "Đã xóa bảng"), ToastType.SUCCESS) }
+                .onFailure { showToast(tr("Failed to clear board", "Xóa bảng thất bại"), ToastType.ERROR) }
         }
     }
 
@@ -2468,10 +2493,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
             deviceApi.updateTransferStatus(transfer.id, "received")
-            showToast("${transfer.name} downloading automatically", ToastType.SUCCESS)
+            showToast(tr("${transfer.name} downloading automatically", "Đang tự động tải xuống ${transfer.name}"), ToastType.SUCCESS)
         } catch (e: Throwable) {
             runCatching { deviceApi.updateTransferStatus(transfer.id, "failed") }
-            showToast(e.message ?: "Auto-download failed", ToastType.ERROR)
+            showToast(e.message ?: tr("Auto-download failed", "Tự động tải xuống thất bại"), ToastType.ERROR)
         }
     }
 
@@ -2485,7 +2510,14 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 deviceApi.createTransfer(offer)
                 val count = (current.members.size - 1).coerceAtLeast(0)
                 showToast(
-                    if (count > 0) "Offered to $count paired device${if (count == 1) "" else "s"}" else "Saved to your device group",
+                    if (count > 0) {
+                        tr(
+                            "Offered to $count paired device${if (count == 1) "" else "s"}",
+                            "Đã gửi tới $count thiết bị đã ghép nối",
+                        )
+                    } else {
+                        tr("Saved to your device group", "Đã lưu vào nhóm thiết bị")
+                    },
                     ToastType.SUCCESS,
                 )
                 refreshLink(silent = true)
@@ -2527,7 +2559,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 if (!successMsg.isNullOrBlank()) showToast(successMsg, ToastType.SUCCESS)
                 refreshLink(silent = true)
             } catch (e: Throwable) {
-                showToast(e.message ?: "Action failed", ToastType.ERROR)
+                showToast(e.message ?: tr("Action failed", "Thao tác thất bại"), ToastType.ERROR)
             } finally {
                 _linkState.update { it.copy(busyKey = "") }
             }
@@ -2536,8 +2568,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun createLinkGroup() {
         val st = _linkState.value
-        runLinkAction("create", "Device group created") {
-            deviceApi.createGroup(st.groupName.ifBlank { "My Hefimer Group" }, st.duration)
+        runLinkAction("create", tr("Device group created", "Đã tạo nhóm thiết bị")) {
+            deviceApi.createGroup(st.groupName.ifBlank { tr("My Hefimer Group", "Nhóm Hefimer của tôi") }, st.duration)
             val invite = deviceApi.createInvite()
             _linkState.update { it.copy(invite = invite) }
         }
@@ -2545,7 +2577,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun joinLinkGroup() {
         val token = _linkState.value.pairToken.trim()
-        runLinkAction("join", "Devices paired successfully") {
+        runLinkAction("join", tr("Devices paired successfully", "Đã ghép nối thiết bị thành công")) {
             deviceApi.joinGroup(token)
             _linkState.update { it.copy(pairToken = "") }
         }
@@ -2559,25 +2591,25 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun renameLinkDevice() {
         val name = _linkState.value.deviceNameInput.trim()
         if (name.isBlank()) return
-        runLinkAction("rename", "Device renamed") {
+        runLinkAction("rename", tr("Device renamed", "Đã đổi tên thiết bị")) {
             deviceApi.rename(name)
         }
     }
 
     fun toggleLinkAutoApprove() {
         val cur = _linkState.value.sync.group?.autoApprove ?: return
-        runLinkAction("auto", if (cur) "Approval required again" else "Auto-approve enabled") {
+        runLinkAction("auto", if (cur) tr("Approval required again", "Đã bật lại xác nhận thủ công") else tr("Auto-approve enabled", "Đã bật tự động chấp nhận")) {
             deviceApi.setAutoApprove(!cur)
         }
     }
 
-    fun removeLinkDevice(deviceId: String) = runLinkAction("remove:$deviceId", "Device removed") {
+    fun removeLinkDevice(deviceId: String) = runLinkAction("remove:$deviceId", tr("Device removed", "Đã gỡ thiết bị")) {
         deviceApi.removeDevice(deviceId)
     }
 
     fun leaveLinkGroup() {
         val isOwner = _linkState.value.sync.group?.ownerDeviceId == _linkState.value.sync.device.id
-        runLinkAction("leave", if (isOwner) "Group deleted" else "Device unpaired") {
+        runLinkAction("leave", if (isOwner) tr("Group deleted", "Đã xóa nhóm") else tr("Device unpaired", "Đã ngắt ghép nối thiết bị")) {
             deviceApi.leaveGroup()
             _linkState.update { it.copy(invite = null) }
         }
@@ -2605,7 +2637,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun cancelLinkTransfer(transferId: String) = runLinkAction("cancel:$transferId", "Transfer cancelled") {
+    fun cancelLinkTransfer(transferId: String) = runLinkAction("cancel:$transferId", tr("Transfer cancelled", "Đã hủy truyền tải")) {
         deviceApi.cancelTransfer(transferId)
     }
     // endregion

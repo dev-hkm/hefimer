@@ -9,6 +9,7 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
@@ -197,7 +198,8 @@ fun rememberReduceMotion(): Boolean {
 }
 
 /**
- * Tactile Apple press feedback: immediate ACTION_DOWN compression, zero Material ripple.
+ * Tactile Apple press feedback: immediate ACTION_DOWN compression + subtle optical press highlight,
+ * unhurried release spring, and zero Material ripple.
  */
 fun Modifier.applePressable(
     enabled: Boolean = true,
@@ -215,11 +217,17 @@ fun Modifier.applePressable(
         animationSpec = if (isPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
         label = "apple_press_scale",
     )
+    val pressAlpha by animateFloatAsState(
+        targetValue = if (isPressed && enabled && !reduceMotion) 0.84f else 1f,
+        animationSpec = tween(if (isPressed) 90 else 220, easing = AppMotion.AppleSilk),
+        label = "apple_press_alpha",
+    )
 
     this
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
+            alpha = pressAlpha
         }
         .clickable(
             enabled = enabled,
@@ -424,9 +432,7 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
     }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HefimerColors.Black),
+        modifier = Modifier.fillMaxSize(),
     ) {
         val rootW = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
         val rootH = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
@@ -569,7 +575,10 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
                         }
                     },
             ) {
-                renderOverlay(activeOverlay) { requestOverlayDismiss(fromEdgeSwipe = false) }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AppleMonochromeBackdrop()
+                    renderOverlay(activeOverlay) { requestOverlayDismiss(fromEdgeSwipe = false) }
+                }
             }
         }
     }
@@ -803,13 +812,29 @@ fun <T> AppleSegmentedControl(
         Row(Modifier.fillMaxWidth()) {
             options.forEach { item ->
                 val isSelected = item == selected
+                val segInteract = remember { MutableInteractionSource() }
+                val segPressed by segInteract.collectIsPressedAsState()
+                val segScale by animateFloatAsState(
+                    targetValue = if (segPressed) 0.94f else 1f,
+                    animationSpec = if (segPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+                    label = "seg_press_scale",
+                )
+                val segTextColor by animateColorAsState(
+                    targetValue = if (isSelected) selectedTextColor else HefimerColors.White50,
+                    animationSpec = tween(260, easing = AppMotion.AppleSilk),
+                    label = "seg_text_color",
+                )
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .weight(1f)
                         .height(height - padding * 2)
+                        .graphicsLayer {
+                            scaleX = segScale
+                            scaleY = segScale
+                        }
                         .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
+                            interactionSource = segInteract,
                             indication = null,
                         ) {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -818,7 +843,7 @@ fun <T> AppleSegmentedControl(
                 ) {
                     Text(
                         text = label(item),
-                        color = if (isSelected) selectedTextColor else HefimerColors.White50,
+                        color = segTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,

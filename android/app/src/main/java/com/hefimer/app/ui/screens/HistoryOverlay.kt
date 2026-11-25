@@ -50,9 +50,11 @@ import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
 import com.hefimer.app.ui.components.HefimerHeaderIconButton
 import com.hefimer.app.ui.components.MainTab
 import com.hefimer.app.ui.components.copyToClipboard
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.appleEntrance
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
@@ -193,9 +195,11 @@ private fun HistoryItemCard(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(HefimerColors.White04)
-            .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(28.dp),
+                variant = AppleGlassVariant.Regular,
+                elevation = 8.dp,
+            )
             .applePressable(pressedScale = 0.98f, onClick = onOpen)
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {

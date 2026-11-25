@@ -88,10 +88,12 @@ import com.hefimer.app.ui.components.HefimerSecondaryButton
 import com.hefimer.app.ui.components.HefimerToggleRow
 import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.appleEntrance
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.tr
@@ -266,7 +268,7 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                         }
                     }
                     HefimerPrimaryButton(
-                        text = if (state.busyKey == "create") "Creating..." else "Create Secure Group",
+                        text = if (state.busyKey == "create") tr("Creating...", "Đang tạo...") else tr("Create Secure Group", "Tạo nhóm bảo mật"),
                         icon = Icons.Rounded.Group,
                         loading = state.busyKey == "create",
                         enabled = state.busyKey.isEmpty(),
@@ -277,18 +279,18 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(22.dp))
+                            .clip(RoundedCornerShape(24.dp))
                             .background(HefimerColors.White04)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(22.dp))
+                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
                             .padding(16.dp),
                     ) {
                         Icon(Icons.Rounded.QrCode2, null, tint = HefimerColors.White, modifier = Modifier.size(22.dp))
-                        Text("Scan a pairing QR or paste the single-use token.", color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Text("Every token pairs one device and expires after ten minutes.", color = HefimerColors.White40, fontSize = 12.sp)
+                        Text(tr("Scan a pairing QR or paste the single-use token.", "Quét mã QR ghép nối hoặc dán mã dùng một lần."), color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Every token pairs one device and expires after ten minutes.", "Mỗi mã chỉ ghép nối một thiết bị và hết hạn sau mười phút."), color = HefimerColors.White40, fontSize = 12.sp)
                     }
 
                     HefimerSecondaryButton(
-                        text = "Scan Pairing QR Code",
+                        text = tr("Scan Pairing QR Code", "Quét mã QR ghép nối"),
                         icon = Icons.Rounded.QrCodeScanner,
                         onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.PAIR_TOKEN)) },
                     )
@@ -302,7 +304,7 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
 
                     val validToken = Regex("""^hfm-[A-Za-z0-9]{36}$""").matches(state.pairToken.trim())
                     HefimerPrimaryButton(
-                        text = if (state.busyKey == "join") "Pairing..." else "Pair This Device",
+                        text = if (state.busyKey == "join") tr("Pairing...", "Đang ghép nối...") else tr("Pair This Device", "Ghép nối thiết bị này"),
                         icon = Icons.Rounded.Link,
                         loading = state.busyKey == "join",
                         enabled = validToken && state.busyKey.isEmpty(),
@@ -330,9 +332,9 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
             modifier = Modifier
                 .fillMaxWidth()
                 .appleEntrance(0)
-                .clip(RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(34.dp))
                 .background(HefimerColors.White04)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(32.dp)),
+                .border(1.dp, HefimerColors.White10, RoundedCornerShape(34.dp)),
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 val center = Offset(size.width - 10.dp.toPx(), 10.dp.toPx())
@@ -343,7 +345,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
             Column(modifier = Modifier.padding(22.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Rounded.Radio, null, tint = HefimerColors.White70, modifier = Modifier.size(13.dp))
-                    Text("ACTIVE GROUP", color = HefimerColors.White50, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
+                    Text(tr("ACTIVE GROUP", "NHÓM ĐANG HOẠT ĐỘNG"), color = HefimerColors.White50, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -355,7 +357,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "${state.sync.members.size} device${if (state.sync.members.size == 1) "" else "s"} · ${formatRemainingCompact(group.expiresAt)}",
+                    text = "${state.sync.members.size} ${tr(if (state.sync.members.size == 1) "device" else "devices", "thiết bị")} · ${formatRemainingCompact(group.expiresAt)}",
                     color = HefimerColors.White40,
                     fontSize = 13.sp,
                 )
@@ -367,7 +369,13 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
             options = listOf("devices", "activity"),
             selected = state.section,
             label = {
-                if (it == "devices") "Devices" else if (pendingCount > 0) "Activity ($pendingCount)" else "Activity"
+                if (it == "devices") {
+                    tr("Devices", "Thiết bị")
+                } else if (pendingCount > 0) {
+                    "${tr("Activity", "Hoạt động")} ($pendingCount)"
+                } else {
+                    tr("Activity", "Hoạt động")
+                }
             },
             onSelect = { vm.setLinkSection(it) },
             modifier = Modifier.appleEntrance(1),
@@ -385,9 +393,9 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(28.dp))
+                            .clip(RoundedCornerShape(30.dp))
                             .background(HefimerColors.White025)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
                             .padding(18.dp),
                     ) {
                         Row(
@@ -396,11 +404,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column {
-                                Text("TRUSTED LANE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
-                                Text("Connected devices", color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                Text(tr("TRUSTED LANE", "LUỒNG TIN CẬY"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
+                                Text(tr("Connected devices", "Thiết bị đã kết nối"), color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             }
                             Text(
-                                text = "${state.sync.members.count { it.online }} online",
+                                text = "${state.sync.members.count { it.online }} ${tr("online", "trực tuyến")}",
                                 color = HefimerColors.White50,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -431,16 +439,16 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                 .border(1.dp, HefimerColors.White08, RoundedCornerShape(20.dp))
                                 .padding(12.dp),
                         ) {
-                            Text("THIS DEVICE NAME", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text(tr("THIS DEVICE NAME", "TÊN THIẾT BỊ NÀY"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 HefimerTextField(
                                     value = state.deviceNameInput,
                                     onValueChange = { vm.setLinkDeviceNameInput(it.take(48)) },
-                                    placeholder = "Device name",
+                                    placeholder = tr("Device name", "Tên thiết bị"),
                                     modifier = Modifier.weight(1f),
                                 )
                                 Text(
-                                    text = "SAVE",
+                                    text = tr("SAVE", "LƯU"),
                                     color = HefimerColors.White,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
@@ -449,7 +457,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                         .clip(RoundedCornerShape(14.dp))
                                         .background(HefimerColors.White10)
                                         .border(1.dp, HefimerColors.White12, RoundedCornerShape(14.dp))
-                                        .applePressable { vm.renameLinkDevice() }
+                                        .applePressable(pressedScale = 0.92f) { vm.renameLinkDevice() }
                                         .padding(horizontal = 14.dp, vertical = 14.dp),
                                 )
                             }
@@ -462,11 +470,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             verticalArrangement = Arrangement.spacedBy(14.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(28.dp))
+                                .clip(RoundedCornerShape(30.dp))
                                 .background(
                                     Brush.verticalGradient(listOf(HefimerColors.White08, HefimerColors.White025)),
                                 )
-                                .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+                                .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
                                 .padding(18.dp),
                         ) {
                             Row(
@@ -475,8 +483,8 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column {
-                                    Text("ONE-TIME ENTRANCE", color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
-                                    Text("Pair another device", color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                    Text(tr("ONE-TIME ENTRANCE", "MÃ MỜI MỘT LẦN"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
+                                    Text(tr("Pair another device", "Ghép nối thiết bị khác"), color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Icon(Icons.Rounded.GroupAdd, null, tint = HefimerColors.White50, modifier = Modifier.size(22.dp))
                             }
@@ -484,7 +492,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             val inv = state.invite
                             if (inv == null) {
                                 HefimerPrimaryButton(
-                                    text = if (state.busyKey == "invite") "Generating..." else "Generate QR + Token",
+                                    text = if (state.busyKey == "invite") tr("Generating...", "Đang tạo...") else tr("Generate QR + Token", "Tạo mã QR + Token"),
                                     icon = Icons.Rounded.QrCode2,
                                     loading = state.busyKey == "invite",
                                     height = 48.dp,
@@ -503,10 +511,10 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                         .clip(RoundedCornerShape(18.dp))
                                         .background(HefimerColors.Black.copy(alpha = 0.5f))
                                         .border(1.dp, HefimerColors.White12, RoundedCornerShape(18.dp))
-                                        .applePressable {
+                                        .applePressable(pressedScale = 0.96f) {
                                             copyToClipboard(context, "Pairing Token", inv.token)
                                             copiedToken = true
-                                            vm.showToast("Pairing token copied", ToastType.SUCCESS)
+                                            vm.showToast(tr("Pairing token copied", "Đã sao chép mã ghép nối"), ToastType.SUCCESS)
                                             scope.launch { delay(1800L); copiedToken = false }
                                         }
                                         .padding(12.dp),
@@ -531,18 +539,18 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    Text("SINGLE USE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                                    Text(tr("SINGLE USE", "DÙNG 1 LẦN"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                                     Text(formatRemainingCompact(inv.expiresAt), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
-                                HefimerSecondaryButton("Replace Token", height = 42.dp, onClick = { vm.createLinkInvite() })
+                                HefimerSecondaryButton(tr("Replace Token", "Đổi mã mới"), height = 42.dp, onClick = { vm.createLinkInvite() })
                             }
                         }
                     }
 
                     // Always Approve toggle
                     HefimerToggleRow(
-                        title = "Always approve",
-                        subtitle = "Accept & auto-download file offers from this group",
+                        title = tr("Always approve", "Luôn tự động chấp nhận"),
+                        subtitle = tr("Accept & auto-download file offers from this group", "Tự nhận và tải xuống tệp từ nhóm này"),
                         checked = group.autoApprove,
                         onToggle = { vm.toggleLinkAutoApprove() },
                         icon = Icons.Rounded.Inventory2,
@@ -551,7 +559,7 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
 
                     // Leave / Delete Group
                     HefimerSecondaryButton(
-                        text = if (isOwner) "Delete Group For Everyone" else "Leave This Group",
+                        text = if (isOwner) tr("Delete Group For Everyone", "Xóa nhóm cho tất cả") else tr("Leave This Group", "Rời khỏi nhóm này"),
                         icon = Icons.Rounded.Logout,
                         onClick = { vm.leaveLinkGroup() },
                     )
@@ -564,21 +572,21 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(28.dp))
+                            .clip(RoundedCornerShape(30.dp))
                             .background(HefimerColors.White025)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
                             .padding(18.dp),
                     ) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column {
-                                Text("INCOMING", color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
-                                Text("Waiting for you", color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                Text(tr("INCOMING", "ĐẾN"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
+                                Text(tr("Waiting for you", "Đang chờ bạn"), color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             }
                             Icon(Icons.Rounded.Download, null, tint = HefimerColors.White40, modifier = Modifier.size(20.dp))
                         }
                         if (state.sync.incoming.isEmpty()) {
                             Text(
-                                text = "Nothing incoming yet.",
+                                text = tr("Nothing incoming yet.", "Chưa có tệp nào gửi đến."),
                                 color = HefimerColors.White30,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
@@ -601,21 +609,21 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(28.dp))
+                            .clip(RoundedCornerShape(30.dp))
                             .background(HefimerColors.White025)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
                             .padding(18.dp),
                     ) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column {
-                                Text("OUTGOING", color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
-                                Text("Sent from here", color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                Text(tr("OUTGOING", "ĐI"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.2.sp)
+                                Text(tr("Sent from here", "Đã gửi từ đây"), color = HefimerColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             }
                             Icon(Icons.Rounded.Send, null, tint = HefimerColors.White40, modifier = Modifier.size(19.dp))
                         }
                         if (state.sync.outgoing.isEmpty()) {
                             Text(
-                                text = "Your next drop will appear here automatically.",
+                                text = tr("Your next drop will appear here automatically.", "Các tệp bạn gửi tiếp theo sẽ hiện tại đây."),
                                 color = HefimerColors.White30,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
@@ -672,17 +680,17 @@ private fun MemberRow(
             Text(member.name, color = HefimerColors.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val meta = buildString {
                 append(member.platform)
-                if (isSelf) append(" · This device")
-                if (member.isOwner) append(" · Owner")
+                if (isSelf) append(" · ${tr("This device", "Thiết bị này")}")
+                if (member.isOwner) append(" · ${tr("Owner", "Chủ nhóm")}")
             }
             Text(meta, color = HefimerColors.White40, fontSize = 11.sp)
         }
         if (canRemove) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(34.dp).clip(CircleShape).applePressable(onClick = onRemove),
+                modifier = Modifier.size(34.dp).clip(CircleShape).applePressable(pressedScale = 0.88f, onClick = onRemove),
             ) {
-                Icon(Icons.Rounded.DeleteOutline, "Remove", tint = HefimerColors.White30, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.DeleteOutline, tr("Remove", "Gỡ"), tint = HefimerColors.White30, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -714,18 +722,18 @@ private fun IncomingTransferRow(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(transfer.name, color = HefimerColors.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${transfer.senderName ?: "Paired device"} · ${formatBytes(transfer.sizeBytes)}", color = HefimerColors.White40, fontSize = 11.sp)
+                Text("${transfer.senderName ?: tr("Paired device", "Thiết bị đã ghép")} · ${formatBytes(transfer.sizeBytes)}", color = HefimerColors.White40, fontSize = 11.sp)
             }
             LinkStatusPill(status)
         }
 
         if (status == "pending") {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HefimerSecondaryButton("Decline", height = 40.dp, modifier = Modifier.weight(1f), onClick = onDecline)
-                HefimerPrimaryButton("Approve", height = 40.dp, modifier = Modifier.weight(1f), onClick = onApprove)
+                HefimerSecondaryButton(tr("Decline", "Từ chối"), height = 40.dp, modifier = Modifier.weight(1f), onClick = onDecline)
+                HefimerPrimaryButton(tr("Approve", "Chấp nhận"), height = 40.dp, modifier = Modifier.weight(1f), onClick = onApprove)
             }
         } else if (status in setOf("approved", "downloading", "received")) {
-            HefimerPrimaryButton("Open Transfer", icon = Icons.Rounded.ChevronRight, height = 42.dp, onClick = onOpen)
+            HefimerPrimaryButton(tr("Open Transfer", "Mở tệp nhận"), icon = Icons.Rounded.ChevronRight, height = 42.dp, onClick = onOpen)
         }
     }
 }
@@ -836,9 +844,11 @@ fun FloatingIncomingOfferBanner(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(HefimerColors.BannerBg)
-                .border(1.dp, HefimerColors.White15, RoundedCornerShape(32.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(34.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 20.dp,
+                )
                 .padding(18.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -868,8 +878,8 @@ fun FloatingIncomingOfferBanner(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HefimerSecondaryButton("Decline", height = 44.dp, modifier = Modifier.weight(1f), onClick = { onDecline(current) })
-                HefimerPrimaryButton("Approve", icon = Icons.Rounded.Check, height = 44.dp, modifier = Modifier.weight(1f), onClick = { onApprove(current) })
+                HefimerSecondaryButton(tr("Decline", "Từ chối"), height = 44.dp, modifier = Modifier.weight(1f), onClick = { onDecline(current) })
+                HefimerPrimaryButton(tr("Approve", "Chấp nhận"), icon = Icons.Rounded.Check, height = 44.dp, modifier = Modifier.weight(1f), onClick = { onApprove(current) })
             }
         }
     }

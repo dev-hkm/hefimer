@@ -39,20 +39,31 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-data class ExpireOption(val label: String, val value: String)
+data class ExpireOption(val label: String, val labelVi: String = label, val value: String) {
+    fun localizedLabel(): String = com.hefimer.app.ui.theme.tr(label, labelVi)
+}
 
 data class UploadProviderConfig(
     val id: String,
     val name: String,
     val maxSizeBytes: Long,
     val maxSizeLabel: String,
+    val maxSizeLabelVi: String = maxSizeLabel,
     val expiry: String,
+    val expiryVi: String,
     val speed: String,
+    val speedVi: String,
     val features: String,
+    val featuresVi: String,
     val isLargeFile: Boolean,
     val defaultExpire: String,
     val expireOptions: List<ExpireOption>,
-)
+) {
+    fun localizedMaxSize(): String = com.hefimer.app.ui.theme.tr(maxSizeLabel, maxSizeLabelVi)
+    fun localizedExpiry(): String = com.hefimer.app.ui.theme.tr(expiry, expiryVi)
+    fun localizedSpeed(): String = com.hefimer.app.ui.theme.tr(speed, speedVi)
+    fun localizedFeatures(): String = com.hefimer.app.ui.theme.tr(features, featuresVi)
+}
 
 data class FallbackUploadResult(
     val fileUrl: String,
@@ -95,13 +106,13 @@ object UploadProviders {
     private const val WORKER_PROXY_SAFE_MAX = 95L * MB
 
     val STANDARD_EXPIRE_OPTIONS = listOf(
-        ExpireOption("30 sec", "30s"),
-        ExpireOption("5 min", "5p"),
-        ExpireOption("30 min", "30p"),
-        ExpireOption("1 hour", "1h"),
-        ExpireOption("12 hours", "12h"),
-        ExpireOption("24 hours", "24h"),
-        ExpireOption("48 hours", "48h"),
+        ExpireOption("30 sec", "30 giây", "30s"),
+        ExpireOption("5 min", "5 phút", "5p"),
+        ExpireOption("30 min", "30 phút", "30p"),
+        ExpireOption("1 hour", "1 giờ", "1h"),
+        ExpireOption("12 hours", "12 giờ", "12h"),
+        ExpireOption("24 hours", "24 giờ", "24h"),
+        ExpireOption("48 hours", "48 giờ", "48h"),
     )
 
     val ALL: List<UploadProviderConfig> = listOf(
@@ -111,11 +122,14 @@ object UploadProviders {
             maxSizeBytes = 99L * MB,
             maxSizeLabel = "100 MB",
             expiry = "Deletes after 72 hours (fixed)",
+            expiryVi = "Tự xóa sau 72 giờ (cố định)",
             speed = "Very fast direct stream upload & clean raw download",
+            speedVi = "Tải lên trực tiếp siêu nhanh & tải xuống nguyên gốc",
             features = "Default fast route up to 100 MB via trystocare.com. Files > 100 MB auto-route to storage.to / Gofile.",
+            featuresVi = "Tuyến mặc định tốc độ cao tối đa 100 MB qua trystocare.com. Tệp > 100 MB tự chuyển sang storage.to / Gofile.",
             isLargeFile = false,
             defaultExpire = "72h",
-            expireOptions = listOf(ExpireOption("72 hours (Fixed)", "72h")),
+            expireOptions = listOf(ExpireOption("72 hours (Fixed)", "72 giờ (Cố định)", "72h")),
         ),
         UploadProviderConfig(
             id = "storageto",
@@ -123,26 +137,33 @@ object UploadProviders {
             maxSizeBytes = 25L * GB,
             maxSizeLabel = "25 GB",
             expiry = "Deletes after 3 days (1-7 days configurable)",
+            expiryVi = "Tự xóa sau 3 ngày (chọn 1-7 ngày)",
             speed = "Fast, powered by Cloudflare R2 multipart",
+            speedVi = "Nhanh, chạy trên hạ tầng Cloudflare R2 đa luồng",
             features = "Direct R2 presigned multipart upload up to 25 GB. Falls back automatically if blocked.",
+            featuresVi = "Tải lên đa phần R2 tối đa 25 GB. Tự động dự phòng nếu mạng bị chặn.",
             isLargeFile = true,
             defaultExpire = "72h",
             expireOptions = listOf(
-                ExpireOption("1 day", "24h"),
-                ExpireOption("2 days", "48h"),
-                ExpireOption("3 days (Default)", "72h"),
-                ExpireOption("5 days", "120h"),
-                ExpireOption("7 days", "168h"),
+                ExpireOption("1 day", "1 ngày", "24h"),
+                ExpireOption("2 days", "2 ngày", "48h"),
+                ExpireOption("3 days (Default)", "3 ngày (Mặc định)", "72h"),
+                ExpireOption("5 days", "5 ngày", "120h"),
+                ExpireOption("7 days", "7 ngày", "168h"),
             ),
         ),
         UploadProviderConfig(
             id = "gofile",
             name = "Gofile",
             maxSizeBytes = Long.MAX_VALUE,
-            maxSizeLabel = "No stated limit",
+            maxSizeLabel = "No limit",
+            maxSizeLabelVi = "Không giới hạn",
             expiry = "Deletes after 10 days of inactivity",
+            expiryVi = "Xóa sau 10 ngày không có lượt truy cập",
             speed = "Fast multi-server direct upload",
+            speedVi = "Tải trực tiếp đa máy chủ tốc độ cao",
             features = "Large-file external route with multi-server retry. Downloads open Gofile page.",
+            featuresVi = "Tuyến tệp lớn kèm tự động đổi máy chủ. Khi tải sẽ mở trang Gofile.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -153,25 +174,32 @@ object UploadProviders {
             maxSizeBytes = 1L * GB,
             maxSizeLabel = "1 GB",
             expiry = "Deletes after 1, 12, 24, or 72 hours",
+            expiryVi = "Xóa sau 1, 12, 24 hoặc 72 giờ",
             speed = "Fast direct Catbox CDN",
+            speedVi = "CDN Catbox trực tiếp tốc độ cao",
             features = "Temporary Catbox host up to 1 GB with configurable retention and direct downloads.",
+            featuresVi = "Lưu tạm qua Catbox tối đa 1 GB, tải xuống trực tiếp không qua trang trung gian.",
             isLargeFile = true,
             defaultExpire = "24h",
             expireOptions = listOf(
-                ExpireOption("1 hour", "1h"),
-                ExpireOption("12 hours", "12h"),
-                ExpireOption("24 hours", "24h"),
-                ExpireOption("72 hours", "72h"),
+                ExpireOption("1 hour", "1 giờ", "1h"),
+                ExpireOption("12 hours", "12 giờ", "12h"),
+                ExpireOption("24 hours", "24 giờ", "24h"),
+                ExpireOption("72 hours", "72 giờ", "72h"),
             ),
         ),
         UploadProviderConfig(
             id = "vikingfile",
             name = "VikingFile",
             maxSizeBytes = Long.MAX_VALUE,
-            maxSizeLabel = "No stated limit",
+            maxSizeLabel = "No limit",
+            maxSizeLabelVi = "Không giới hạn",
             expiry = "Inactive cleanup (long retention)",
+            expiryVi = "Lưu trữ lâu dài, dọn dẹp khi ngừng truy cập",
             speed = "Fast S3 multipart direct upload",
+            speedVi = "Tải lên S3 đa phần tốc độ cao",
             features = "Large-file S3 multipart fallback route. Downloads open VikingFile page.",
+            featuresVi = "Tuyến dự phòng S3 cho tệp lớn. Khi tải sẽ mở trang VikingFile.",
             isLargeFile = true,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
@@ -182,11 +210,14 @@ object UploadProviders {
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
             expiry = "Deletes after 7 days (fixed)",
+            expiryVi = "Tự xóa sau 7 ngày (cố định)",
             speed = "Global CDN delivery",
+            speedVi = "Phân phối qua CDN toàn cầu",
             features = "tmpfile.link temporary hosting with 7-day retention and direct CDN downloads.",
+            featuresVi = "Lưu trữ tạm trên tmpfile.link trong 7 ngày và tải trực tiếp qua CDN.",
             isLargeFile = false,
             defaultExpire = "168h",
-            expireOptions = listOf(ExpireOption("7 days (Fixed)", "168h")),
+            expireOptions = listOf(ExpireOption("7 days (Fixed)", "7 ngày (Cố định)", "168h")),
         ),
         UploadProviderConfig(
             id = "tempfile",
@@ -194,15 +225,18 @@ object UploadProviders {
             maxSizeBytes = 100L * MB,
             maxSizeLabel = "100 MB",
             expiry = "Deletes after 1, 6, 24, or 48 hours",
+            expiryVi = "Tự xóa sau 1, 6, 24 hoặc 48 giờ",
             speed = "Fast direct upload & CDN delivery",
+            speedVi = "Tải lên nhanh & phân phối CDN",
             features = "Public API with direct downloads and configurable temporary retention.",
+            featuresVi = "Tải xuống trực tiếp, tùy chọn thời hạn lưu trữ linh hoạt.",
             isLargeFile = false,
             defaultExpire = "24h",
             expireOptions = listOf(
-                ExpireOption("1 hour", "1h"),
-                ExpireOption("6 hours", "6h"),
-                ExpireOption("24 hours", "24h"),
-                ExpireOption("48 hours", "48h"),
+                ExpireOption("1 hour", "1 giờ", "1h"),
+                ExpireOption("6 hours", "6 giờ", "6h"),
+                ExpireOption("24 hours", "24 giờ", "24h"),
+                ExpireOption("48 hours", "48 giờ", "48h"),
             ),
         ),
         UploadProviderConfig(
@@ -211,11 +245,14 @@ object UploadProviders {
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
             expiry = "Deletes after 6 days (fixed)",
+            expiryVi = "Tự xóa sau 6 ngày (cố định)",
             speed = "Standard streaming speed",
+            speedVi = "Tốc độ truyền tải ổn định",
             features = "One private bin per share with verified direct file downloads.",
+            featuresVi = "Tạo kho riêng cho mỗi lượt gửi với tải xuống trực tiếp.",
             isLargeFile = false,
             defaultExpire = "144h",
-            expireOptions = listOf(ExpireOption("6 days (Fixed)", "144h")),
+            expireOptions = listOf(ExpireOption("6 days (Fixed)", "6 ngày (Cố định)", "144h")),
         ),
         UploadProviderConfig(
             id = "tempsh",
@@ -223,11 +260,14 @@ object UploadProviders {
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
             expiry = "Deletes after 3 days (fixed)",
+            expiryVi = "Tự xóa sau 3 ngày (cố định)",
             speed = "Standard speed",
+            speedVi = "Tốc độ tiêu chuẩn ổn định",
             features = "Minimalist temporary host with 3-day retention and proxied byte downloads.",
+            featuresVi = "Máy chủ tối giản lưu 3 ngày, hỗ trợ tải thẳng ổn định.",
             isLargeFile = false,
             defaultExpire = "72h",
-            expireOptions = listOf(ExpireOption("3 days (Fixed)", "72h")),
+            expireOptions = listOf(ExpireOption("3 days (Fixed)", "3 ngày (Cố định)", "72h")),
         ),
         UploadProviderConfig(
             id = "tmpfiles",
@@ -235,11 +275,14 @@ object UploadProviders {
             maxSizeBytes = 100L * MB,
             maxSizeLabel = "100 MB",
             expiry = "Deletes after 60 minutes",
+            expiryVi = "Tự xóa sau 60 phút",
             speed = "Fast direct CORS upload",
+            speedVi = "Tải trực tiếp nhanh",
             features = "Short-lived temporary hosting. Automatically deleted after 1 hour.",
+            featuresVi = "Lưu tạm siêu ngắn hạn, tự động xóa sau 1 giờ.",
             isLargeFile = false,
             defaultExpire = "1h",
-            expireOptions = listOf(ExpireOption("1 hour (Fixed)", "1h")),
+            expireOptions = listOf(ExpireOption("1 hour (Fixed)", "1 giờ (Cố định)", "1h")),
         ),
         UploadProviderConfig(
             id = "uguu",
@@ -247,11 +290,14 @@ object UploadProviders {
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
             expiry = "Deletes after 3 hours (fixed)",
+            expiryVi = "Tự xóa sau 3 giờ (cố định)",
             speed = "Fast lightweight host",
-            features = "Pomf-style ephemeral file host with direct d.uguu.se downloads.",
+            speedVi = "Máy chủ nhẹ, phản hồi nhanh",
+            features = "Pomf-style ephemeral file host with direct downloads.",
+            featuresVi = "Máy chủ chia sẻ ngắn hạn nhẹ, tải xuống trực tiếp nhanh gọn.",
             isLargeFile = false,
             defaultExpire = "3h",
-            expireOptions = listOf(ExpireOption("3 hours (Fixed)", "3h")),
+            expireOptions = listOf(ExpireOption("3 hours (Fixed)", "3 giờ (Cố định)", "3h")),
         ),
         UploadProviderConfig(
             id = "puticu",
@@ -259,15 +305,18 @@ object UploadProviders {
             maxSizeBytes = WORKER_PROXY_SAFE_MAX,
             maxSizeLabel = "95 MB",
             expiry = "Deletes after 5 min to 24 hours",
+            expiryVi = "Tự xóa sau 5 phút đến 24 giờ",
             speed = "Standard Linx server",
-            features = "Configurable short-lived retention (5m, 1h, 12h, 24h) with direct /s/ download.",
+            speedVi = "Máy chủ Linx tiêu chuẩn",
+            features = "Configurable short-lived retention (5m, 1h, 12h, 24h) with direct downloads.",
+            featuresVi = "Tùy chọn thời hạn ngắn (5p, 1g, 12g, 24g) kèm tải trực tiếp.",
             isLargeFile = false,
             defaultExpire = "24h",
             expireOptions = listOf(
-                ExpireOption("5 minutes", "5p"),
-                ExpireOption("1 hour", "1h"),
-                ExpireOption("12 hours", "12h"),
-                ExpireOption("24 hours", "24h"),
+                ExpireOption("5 minutes", "5 phút", "5p"),
+                ExpireOption("1 hour", "1 giờ", "1h"),
+                ExpireOption("12 hours", "12 giờ", "12h"),
+                ExpireOption("24 hours", "24 giờ", "24h"),
             ),
         ),
     )
@@ -604,7 +653,7 @@ class FileUploadEngine(
         if (picked.size > 99L * 1024L * 1024L) {
             throw IOException("sto.care API limit is 100 MB")
         }
-        onStatus("Uploading via sto.care...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via sto.care...", "Đang tải lên qua sto.care..."))
         val safeWireName = asciiSafeWireName(picked.name)
         val req = Request.Builder()
             .url("https://ul.sto.care/${encodePathSeg(safeWireName)}")
@@ -624,7 +673,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Initializing upload with storage.to...")
+        onStatus(com.hefimer.app.ui.theme.tr("Initializing upload with storage.to...", "Đang khởi tạo với storage.to..."))
         val visitorToken = storage.getVisitorToken()
         val jsonMedia = "application/json; charset=utf-8".toMediaTypeOrNull()
         val cleanMime = picked.mimeType.substringBefore(';').trim().ifBlank { "application/octet-stream" }
@@ -653,7 +702,7 @@ class FileUploadEngine(
         if (uploadType == "single") {
             val uploadUrl = initObj["upload_url"]?.jsonPrimitive?.contentOrNull
                 ?: throw IOException("Missing storage.to upload URL")
-            onStatus("Uploading bytes to storage.to...")
+            onStatus(com.hefimer.app.ui.theme.tr("Uploading bytes to storage.to...", "Đang tải lên storage.to..."))
             val putReq = Request.Builder()
                 .url(uploadUrl)
                 .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress, overrideMediaType = cleanMime.toMediaTypeOrNull()))
@@ -664,7 +713,7 @@ class FileUploadEngine(
             val partSize = initObj["part_size"]?.jsonPrimitive?.longOrNull ?: (10L * 1024L * 1024L)
             val totalParts = initObj["total_parts"]?.jsonPrimitive?.intOrNull ?: 1
             val initialUrls = initObj["initial_urls"] as? JsonObject
-            onStatus("Uploading $totalParts parts to storage.to...")
+            onStatus(com.hefimer.app.ui.theme.tr("Uploading $totalParts parts to storage.to...", "Đang tải $totalParts phần lên storage.to..."))
             val completedParts = mutableListOf<Pair<Int, String>>()
 
             for (partNum in 1..totalParts) {
@@ -713,7 +762,7 @@ class FileUploadEngine(
                 completedParts.add(partNum to etag)
             }
 
-            onStatus("Assembling parts...")
+            onStatus(com.hefimer.app.ui.theme.tr("Assembling parts...", "Đang ghép các phần..."))
             val completeBody = buildJsonObject {
                 put("upload_id", JsonPrimitive(uploadId))
                 put(
@@ -738,7 +787,7 @@ class FileUploadEngine(
             throw IOException("Unsupported storage.to upload type: $uploadType")
         }
 
-        onStatus("Finalizing upload with storage.to...")
+        onStatus(com.hefimer.app.ui.theme.tr("Finalizing upload with storage.to...", "Đang hoàn tất với storage.to..."))
         val confirmBody = buildJsonObject {
             put("filename", JsonPrimitive(picked.name))
             put("size", JsonPrimitive(picked.size))
@@ -788,7 +837,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Getting Gofile server...")
+        onStatus(com.hefimer.app.ui.theme.tr("Getting Gofile server...", "Đang tìm máy chủ Gofile..."))
         val servers = mutableListOf<String>()
         runCatching {
             val req = Request.Builder().url("https://api.gofile.io/servers").get().build()
@@ -805,7 +854,7 @@ class FileUploadEngine(
         cachedGofileServer?.let { if (!servers.contains(it)) servers.add(0, it) }
         listOf("store-eu-par-3", "store1", "store3").forEach { if (!servers.contains(it)) servers.add(it) }
 
-        onStatus("Uploading via Gofile.io...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Gofile.io...", "Đang tải lên qua Gofile.io..."))
         var lastErr: Throwable? = null
         for (server in servers.take(3)) {
             if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
@@ -862,7 +911,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via Litterbox...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Litterbox...", "Đang tải lên qua Litterbox..."))
         val allowed = setOf("1h", "12h", "24h", "72h")
         val timeVal = if (expire in allowed) expire else "24h"
         val wireName = asciiSafeWireName(picked.name)
@@ -903,7 +952,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Initializing upload with VikingFile...")
+        onStatus(com.hefimer.app.ui.theme.tr("Initializing upload with VikingFile...", "Đang khởi tạo với VikingFile..."))
         val initReq = Request.Builder()
             .url("$origin/api/proxy/vikingfile/get-upload-url")
             .post(FormBody.Builder().add("size", picked.size.toString()).build())
@@ -918,7 +967,13 @@ class FileUploadEngine(
             throw IOException("VikingFile returned invalid multipart metadata")
         }
 
-        onStatus(if (urls.size > 1) "Uploading ${urls.size} parts to VikingFile..." else "Uploading via VikingFile...")
+        onStatus(
+            if (urls.size > 1) {
+                com.hefimer.app.ui.theme.tr("Uploading ${urls.size} parts to VikingFile...", "Đang tải ${urls.size} phần lên VikingFile...")
+            } else {
+                com.hefimer.app.ui.theme.tr("Uploading via VikingFile...", "Đang tải lên qua VikingFile...")
+            }
+        )
         val parts = mutableListOf<Pair<Int, String>>()
         urls.forEachIndexed { idx, partUrl ->
             if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
@@ -948,7 +1003,7 @@ class FileUploadEngine(
             parts.add(partNum to etag)
         }
 
-        onStatus("Finalizing VikingFile upload...")
+        onStatus(com.hefimer.app.ui.theme.tr("Finalizing VikingFile upload...", "Đang hoàn tất tải lên VikingFile..."))
         val form = FormBody.Builder()
             .add("key", key)
             .add("uploadId", uploadId)
@@ -975,7 +1030,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via tfLink...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via tfLink...", "Đang tải lên qua tfLink..."))
         val safeName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -1001,7 +1056,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via TempFile...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via TempFile...", "Đang tải lên qua TempFile..."))
         val hours = Regex("""\d+""").find(expire)?.value?.toIntOrNull() ?: 24
         val validHours = if (hours in listOf(1, 6, 24, 48)) hours else 24
         val safeName = asciiSafeWireName(picked.name)
@@ -1032,7 +1087,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via Filebin...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Filebin...", "Đang tải lên qua Filebin..."))
         val bin = "hefimer-${UUID.randomUUID().toString().replace("-", "").take(20)}"
         val safeWireName = asciiSafeWireName(picked.name)
         val encodedName = encodePathSeg(safeWireName)
@@ -1064,7 +1119,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via temp.sh...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via temp.sh...", "Đang tải lên qua temp.sh..."))
         val safeName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -1088,7 +1143,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via tmpfiles.org...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via tmpfiles.org...", "Đang tải lên qua tmpfiles.org..."))
         val safeName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -1113,7 +1168,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via Uguu.se...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Uguu.se...", "Đang tải lên qua Uguu.se..."))
         val safeName = asciiSafeWireName(picked.name)
         fun makeBody() = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -1139,7 +1194,7 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String {
-        onStatus("Uploading via Put.icu...")
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Put.icu...", "Đang tải lên qua Put.icu..."))
         val sec = (com.hefimer.app.data.model.parseExpireDurationMs(expire) / 1000L).coerceIn(60L, 86400L)
         val req = Request.Builder()
             .url("$origin/api/proxy/puticu/${encodePathSeg(asciiSafeWireName(picked.name))}")

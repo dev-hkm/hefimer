@@ -107,6 +107,7 @@ import com.hefimer.app.ui.components.HefimerToggleRow
 import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.AppleFluidProgressTrack
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.AppleRollingPercentage
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.AppleSwipeableSheet
@@ -115,6 +116,7 @@ import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.LocalHeroBounds
 import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.appleEntrance
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
@@ -284,7 +286,7 @@ private fun SendFileSection(
                             .background(HefimerColors.Emerald400),
                     )
                     Text(
-                        text = "SECRET CLOUDFLARE R2",
+                        text = tr("SECRET CLOUDFLARE R2", "CLOUDFLARE R2 BÍ MẬT"),
                         color = HefimerColors.Emerald400.copy(alpha = 0.85f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -292,7 +294,7 @@ private fun SendFileSection(
                     )
                 }
                 Text(
-                    text = "EXIT",
+                    text = tr("EXIT", "THOÁT"),
                     color = HefimerColors.White50,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -301,7 +303,7 @@ private fun SendFileSection(
                         .clip(CircleShape)
                         .background(HefimerColors.White06)
                         .border(1.dp, HefimerColors.White10, CircleShape)
-                        .applePressable { vm.exitR2Mode() }
+                        .applePressable(pressedScale = 0.94f) { vm.exitR2Mode() }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
@@ -321,9 +323,13 @@ private fun SendFileSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 160.dp)
-                .clip(RoundedCornerShape(34.dp))
-                .background(dropBg)
-                .border(1.dp, dropBorder, RoundedCornerShape(34.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(36.dp),
+                    variant = AppleGlassVariant.Regular,
+                    accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                    accentFillTint = if (isR2) HefimerColors.EmeraldBg.copy(alpha = 0.25f) else null,
+                    elevation = 10.dp,
+                )
                 .applePressable(enabled = !state.fileUploading) {
                     if (state.isFolderMode) {
                         folderLauncher.launch(null)
@@ -476,12 +482,12 @@ private fun SendFileSection(
                                     .clip(CircleShape)
                                     .background(HefimerColors.RedBg)
                                     .border(1.dp, HefimerColors.RedBorder, CircleShape)
-                                    .applePressable { vm.cancelFileUpload() }
+                                    .applePressable(pressedScale = 0.94f) { vm.cancelFileUpload() }
                                     .padding(horizontal = 16.dp, vertical = 8.dp),
                             ) {
                                 Icon(Icons.Rounded.Close, null, tint = HefimerColors.Red400, modifier = Modifier.size(13.dp))
                                 Text(
-                                    text = "CANCEL UPLOAD",
+                                    text = tr("CANCEL UPLOAD", "HỦY TẢI LÊN"),
                                     color = HefimerColors.Red400,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
@@ -494,7 +500,7 @@ private fun SendFileSection(
                     "picked" -> {
                         val totalSize = state.pickedFiles.sumOf { it.size }
                         val label = if (state.pickedFiles.size > 1) {
-                            "${state.pickedFiles.size} files selected"
+                            tr("${state.pickedFiles.size} files selected", "Đã chọn ${state.pickedFiles.size} tệp")
                         } else {
                             state.pickedFiles.firstOrNull()?.name.orEmpty()
                         }
@@ -606,7 +612,7 @@ private fun SendFileSection(
                                     )
                                 }
                                 Text(
-                                    text = "${tr("Max", "Tối đa")} ${if (isR2) "5 GB" else providerCfg.maxSizeLabel}",
+                                    text = "${tr("Max", "Tối đa")} ${if (isR2) "5 GB" else providerCfg.localizedMaxSize()}",
                                     color = HefimerColors.White40,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontSize = 10.sp,
@@ -632,10 +638,12 @@ private fun SendFileSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(HefimerColors.White025)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(26.dp))
-                    .applePressable(onClick = onOpenProviderPicker)
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(28.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 6.dp,
+                    )
+                    .applePressable(pressedScale = 0.98f, onClick = onOpenProviderPicker)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
                 Box(
@@ -801,7 +809,7 @@ private fun SendFileSection(
                             expireOptions.forEach { opt ->
                                 val selected = state.fileExpire == opt.value
                                 Text(
-                                    text = opt.label,
+                                    text = opt.localizedLabel(),
                                     color = if (selected) HefimerColors.Black else HefimerColors.White50,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
@@ -960,9 +968,9 @@ private fun SendTextSection(
                                             state.textContent,
                                         )
                                     }.onSuccess {
-                                        vm.showToast("Saved $it to Downloads", ToastType.SUCCESS)
+                                        vm.showToast(tr("Saved $it to Downloads", "Đã lưu $it vào Tải xuống"), ToastType.SUCCESS)
                                     }.onFailure {
-                                        vm.showToast(it.message ?: "Save failed", ToastType.ERROR)
+                                        vm.showToast(it.message ?: tr("Save failed", "Lưu thất bại"), ToastType.ERROR)
                                     }
                                 }
                             }
@@ -979,7 +987,7 @@ private fun SendTextSection(
                         onClick = {
                             if (state.textContent.isNotBlank()) {
                                 copyToClipboard(context, "Hefimer Text", state.textContent)
-                                vm.showToast("Copied to clipboard", ToastType.SUCCESS)
+                                vm.showToast(tr("Copied to clipboard", "Đã sao chép"), ToastType.SUCCESS)
                             }
                         },
                     )
@@ -1002,14 +1010,14 @@ private fun SendTextSection(
                 ) {
                     val autoSel = state.manualLangId == null
                     Text(
-                        text = "Auto",
+                        text = tr("Auto", "Tự động"),
                         color = if (autoSel) HefimerColors.Black else HefimerColors.White60,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .clip(CircleShape)
                             .background(if (autoSel) HefimerColors.White else HefimerColors.White08)
-                            .applePressable {
+                            .applePressable(pressedScale = 0.94f) {
                                 vm.setManualLangId(null)
                                 showLangPicker = false
                             }
@@ -1018,14 +1026,14 @@ private fun SendTextSection(
                     CodeHighlighter.SUPPORTED_LANGUAGES.forEach { lang ->
                         val sel = state.manualLangId == lang.id
                         Text(
-                            text = lang.label,
+                            text = lang.localizedLabel(),
                             color = if (sel) HefimerColors.Black else HefimerColors.White60,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
                                 .clip(CircleShape)
                                 .background(if (sel) HefimerColors.White else HefimerColors.White08)
-                                .applePressable {
+                                .applePressable(pressedScale = 0.94f) {
                                     vm.setManualLangId(lang.id)
                                     showLangPicker = false
                                 }
@@ -1126,7 +1134,7 @@ private fun SendTextSection(
             UploadProviders.STANDARD_EXPIRE_OPTIONS.forEach { opt ->
                 val sel = state.textExpire == opt.value
                 Text(
-                    text = opt.label,
+                    text = opt.localizedLabel(),
                     color = if (sel) HefimerColors.Black else HefimerColors.White60,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1239,9 +1247,11 @@ fun ProviderPickerSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.76f)
-            .clip(RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
-            .background(HefimerColors.SurfaceSheet)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                variant = AppleGlassVariant.Elevated,
+                elevation = 24.dp,
+            )
             .navigationBarsPadding(),
     ) {
         // Drag handle pill
@@ -1518,9 +1528,12 @@ private fun SecretR2PasscodeModal(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.EmeraldBorder, RoundedCornerShape(32.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        accentBorderTint = HefimerColors.Emerald400,
+                        elevation = 24.dp,
+                    )
                     .padding(24.dp),
             ) {
                 Box(
@@ -1535,7 +1548,7 @@ private fun SecretR2PasscodeModal(
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "SECRET R2 ACCESS",
+                        text = tr("SECRET R2 ACCESS", "TRUY CẬP R2 BÍ MẬT"),
                         color = HefimerColors.Emerald400,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -1543,7 +1556,10 @@ private fun SecretR2PasscodeModal(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Enter secret passcode for private Cloudflare R2 storage",
+                        text = tr(
+                            "Enter secret passcode for private Cloudflare R2 storage",
+                            "Nhập mật mã bí mật cho kho lưu trữ Cloudflare R2 riêng tư",
+                        ),
                         color = HefimerColors.White40,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center,
@@ -1552,7 +1568,7 @@ private fun SecretR2PasscodeModal(
                 HefimerTextField(
                     value = pass,
                     onValueChange = { pass = it },
-                    placeholder = "Passcode...",
+                    placeholder = tr("Passcode...", "Mật mã..."),
                     leadingIcon = Icons.Rounded.Lock,
                     isPassword = true,
                 )
@@ -1565,12 +1581,14 @@ private fun SecretR2PasscodeModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.White06)
-                            .border(1.dp, HefimerColors.White10, CircleShape)
-                            .applePressable(onClick = onDismiss),
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
+                            .applePressable(pressedScale = 0.96f, onClick = onDismiss),
                     ) {
-                        Text("Cancel", color = HefimerColors.White60, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Cancel", "Hủy"), color = HefimerColors.White60, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(
                         contentAlignment = Alignment.Center,
@@ -1579,9 +1597,9 @@ private fun SecretR2PasscodeModal(
                             .height(48.dp)
                             .clip(CircleShape)
                             .background(HefimerColors.Emerald400)
-                            .applePressable { onSubmit(pass) },
+                            .applePressable(pressedScale = 0.96f) { onSubmit(pass) },
                     ) {
-                        Text("Unlock", color = HefimerColors.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Unlock", "Mở khóa"), color = HefimerColors.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

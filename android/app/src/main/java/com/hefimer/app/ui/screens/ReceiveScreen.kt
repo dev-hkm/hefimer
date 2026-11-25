@@ -353,7 +353,7 @@ private fun ReceivedDropView(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Received Data",
+                    text = tr("Received Data", "Dữ liệu đã nhận"),
                     color = HefimerColors.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -366,11 +366,11 @@ private fun ReceivedDropView(
                     .clip(CircleShape)
                     .background(HefimerColors.White08)
                     .border(1.dp, HefimerColors.White12, CircleShape)
-                    .applePressable(onClick = onBack)
+                    .applePressable(pressedScale = 0.94f, onClick = onBack)
                     .padding(horizontal = 14.dp, vertical = 9.dp),
             ) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = HefimerColors.White80, modifier = Modifier.size(15.dp))
-                Text("Back", color = HefimerColors.White80, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Back", "Quay lại"), color = HefimerColors.White80, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -381,9 +381,9 @@ private fun ReceivedDropView(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(32.dp))
+                    .clip(RoundedCornerShape(34.dp))
                     .background(HefimerColors.White04)
-                    .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White15, RoundedCornerShape(32.dp))
+                    .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White15, RoundedCornerShape(34.dp))
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -402,9 +402,9 @@ private fun ReceivedDropView(
                         Icon(Icons.Rounded.FolderCopy, null, tint = accent, modifier = Modifier.size(22.dp))
                     }
                     Column {
-                        Text("Shared Files", color = HefimerColors.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Shared Files", "Tệp được chia sẻ"), color = HefimerColors.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            text = "${multiFiles.size} items • ${formatBytes(totalSize)}",
+                            text = "${multiFiles.size} ${tr("items", "mục")} • ${formatBytes(totalSize)}",
                             color = HefimerColors.White40,
                             fontSize = 12.sp,
                         )
@@ -418,9 +418,9 @@ private fun ReceivedDropView(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(HefimerColors.Black.copy(alpha = 0.45f))
-                            .border(1.dp, HefimerColors.White08, RoundedCornerShape(18.dp))
+                            .border(1.dp, HefimerColors.White08, RoundedCornerShape(20.dp))
                             .padding(12.dp),
                     ) {
                         val (icon, iconTint) = fileIconForName(fileEntry.resolvedName, isR2)
@@ -450,15 +450,15 @@ private fun ReceivedDropView(
                             )
                         }
                         Text(
-                            text = "Download",
+                            text = tr("Download", "Tải xuống"),
                             color = HefimerColors.Black,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(CircleShape)
                                 .background(accent)
-                                .applePressable { vm.downloadDropFile(fileEntry) }
-                                .padding(horizontal = 12.dp, vertical = 7.dp),
+                                .applePressable(pressedScale = 0.94f) { vm.downloadDropFile(fileEntry) }
+                                .padding(horizontal = 13.dp, vertical = 7.dp),
                         )
                     }
                 }
@@ -466,21 +466,21 @@ private fun ReceivedDropView(
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HefimerPrimaryButton(
-                    text = "Download All",
+                    text = tr("Download All", "Tải tất cả"),
                     icon = Icons.Rounded.Download,
                     accentColor = accent,
                     modifier = Modifier.weight(1.2f),
                     onClick = { vm.downloadAllDropFiles(multiFiles) },
                 )
                 HefimerSecondaryButton(
-                    text = if (copiedLink) "Copied!" else "Copy Link",
+                    text = if (copiedLink) tr("Copied!", "Đã chép!") else tr("Copy Link", "Chép link"),
                     icon = if (copiedLink) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                     modifier = Modifier.weight(1f),
                     height = 54.dp,
                     onClick = {
                         copyToClipboard(context, "Hefimer Link", dropShareUrl)
                         copiedLink = true
-                        vm.showToast("Link copied", ToastType.SUCCESS)
+                        vm.showToast(tr("Link copied", "Đã chép liên kết"), ToastType.SUCCESS)
                         scope.launch { delay(2000L); copiedLink = false }
                     },
                 )
@@ -492,9 +492,9 @@ private fun ReceivedDropView(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
+                    .clip(RoundedCornerShape(36.dp))
                     .background(HefimerColors.EmeraldBg)
-                    .border(1.dp, HefimerColors.EmeraldBorder, RoundedCornerShape(34.dp))
+                    .border(1.dp, HefimerColors.EmeraldBorder, RoundedCornerShape(36.dp))
                     .padding(28.dp),
             ) {
                 Box(
@@ -508,14 +508,14 @@ private fun ReceivedDropView(
                     Icon(Icons.Rounded.Shield, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(30.dp))
                 }
                 Text(
-                    text = item.fileName ?: "Secret File",
+                    text = item.fileName ?: tr("Secret File", "Tệp bí mật"),
                     color = HefimerColors.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "SECRET CLOUDFLARE R2 STORAGE",
+                    text = tr("SECRET CLOUDFLARE R2 STORAGE", "LƯU TRỮ CLOUDFLARE R2 BÍ MẬT"),
                     color = HefimerColors.Emerald400.copy(alpha = 0.6f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -533,7 +533,7 @@ private fun ReceivedDropView(
             }
 
             HefimerPrimaryButton(
-                text = "Download from R2",
+                text = tr("Download from R2", "Tải xuống từ R2"),
                 icon = Icons.Rounded.Download,
                 accentColor = HefimerColors.Emerald400,
                 onClick = {
@@ -557,9 +557,9 @@ private fun ReceivedDropView(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
+                    .clip(RoundedCornerShape(36.dp))
                     .background(HefimerColors.White04)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(34.dp))
+                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(36.dp))
                     .padding(28.dp),
             ) {
                 Box(
@@ -573,14 +573,14 @@ private fun ReceivedDropView(
                     Icon(Icons.Rounded.UploadFile, null, tint = HefimerColors.White, modifier = Modifier.size(30.dp))
                 }
                 Text(
-                    text = item.fileName ?: "Unknown File",
+                    text = item.fileName ?: tr("Unknown File", "Tệp không rõ tên"),
                     color = HefimerColors.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "HOSTED ON ${providerName.uppercase()}",
+                    text = "${tr("HOSTED ON", "LƯU TRỮ TRÊN")} ${providerName.uppercase()}",
                     color = HefimerColors.White40,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -590,7 +590,7 @@ private fun ReceivedDropView(
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HefimerPrimaryButton(
-                    text = if (isTab) "Open in $providerName" else "Download",
+                    text = if (isTab) tr("Open in $providerName", "Mở trên $providerName") else tr("Download", "Tải xuống"),
                     icon = Icons.Rounded.Download,
                     modifier = Modifier.weight(1.3f),
                     onClick = {
@@ -604,14 +604,14 @@ private fun ReceivedDropView(
                     },
                 )
                 HefimerSecondaryButton(
-                    text = if (copiedLink) "Copied!" else "Copy Link",
+                    text = if (copiedLink) tr("Copied!", "Đã chép!") else tr("Copy Link", "Chép link"),
                     icon = if (copiedLink) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                     modifier = Modifier.weight(1f),
                     height = 54.dp,
                     onClick = {
                         copyToClipboard(context, "Hefimer Link", dropShareUrl)
                         copiedLink = true
-                        vm.showToast("Link copied", ToastType.SUCCESS)
+                        vm.showToast(tr("Link copied", "Đã chép liên kết"), ToastType.SUCCESS)
                         scope.launch { delay(2000L); copiedLink = false }
                     },
                 )
@@ -627,9 +627,9 @@ private fun ReceivedDropView(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(30.dp))
+                    .clip(RoundedCornerShape(34.dp))
                     .background(HefimerColors.Black)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(30.dp)),
+                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(34.dp)),
             ) {
                 Row(
                     modifier = Modifier
@@ -640,7 +640,7 @@ private fun ReceivedDropView(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = lang.label.uppercase(),
+                        text = lang.localizedLabel().uppercase(),
                         color = HefimerColors.White70,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,

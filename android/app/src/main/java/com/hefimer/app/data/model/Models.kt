@@ -280,28 +280,42 @@ fun formatBytes(bytes: Long): String {
 
 fun formatCountdown(expiresAt: Long, now: Long = System.currentTimeMillis()): String {
     val diff = expiresAt - now
-    if (diff <= 0L) return "Expired"
+    if (diff <= 0L) return com.hefimer.app.ui.theme.tr("Expired", "Đã hết hạn")
     val totalSec = diff / 1000L
     val days = totalSec / 86400L
     val hours = (totalSec % 86400L) / 3600L
     val minutes = (totalSec % 3600L) / 60L
     val seconds = totalSec % 60L
-    return when {
-        days > 0 -> "${days}d ${hours}h"
-        hours > 0 -> "${hours}h ${minutes}m ${seconds}s"
-        else -> "${minutes}m ${seconds}s"
+    return if (com.hefimer.app.ui.theme.HefimerLang.isVi) {
+        when {
+            days > 0 -> "${days}n ${hours}g"
+            hours > 0 -> "${hours}g ${minutes}p ${seconds}s"
+            else -> "${minutes}p ${seconds}s"
+        }
+    } else {
+        when {
+            days > 0 -> "${days}d ${hours}h"
+            hours > 0 -> "${hours}h ${minutes}m ${seconds}s"
+            else -> "${minutes}m ${seconds}s"
+        }
     }
 }
 
 fun formatRemainingCompact(expiresAt: Long?, now: Long = System.currentTimeMillis()): String {
-    if (expiresAt == null || expiresAt <= 0L) return "No expiry"
+    if (expiresAt == null || expiresAt <= 0L) return com.hefimer.app.ui.theme.tr("No expiry", "Không hết hạn")
     val diff = expiresAt - now
-    if (diff <= 0L) return "Expired"
+    if (diff <= 0L) return com.hefimer.app.ui.theme.tr("Expired", "Đã hết hạn")
     val hours = diff / 3_600_000L
     return when {
-        hours >= 48 -> "${(hours + 23) / 24} days left"
-        hours >= 1 -> "${hours}h left"
-        else -> "${((diff + 59_999L) / 60_000L).coerceAtLeast(1)}m left"
+        hours >= 48 -> {
+            val d = (hours + 23) / 24
+            com.hefimer.app.ui.theme.tr("$d days left", "Còn $d ngày")
+        }
+        hours >= 1 -> com.hefimer.app.ui.theme.tr("${hours}h left", "Còn ${hours}g")
+        else -> {
+            val m = ((diff + 59_999L) / 60_000L).coerceAtLeast(1)
+            com.hefimer.app.ui.theme.tr("${m}m left", "Còn ${m}p")
+        }
     }
 }
 

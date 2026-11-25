@@ -6,6 +6,8 @@ import android.graphics.Paint as AndroidPaint
 import android.graphics.Path as AndroidPath
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -101,6 +103,7 @@ import com.hefimer.app.ui.components.HefimerHeaderIconButton
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.QrShareModal
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.AppleOdometerNumber
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.HefimerColors
@@ -108,6 +111,7 @@ import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.LocalHeroBounds
 import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.appleEntrance
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
@@ -235,7 +239,7 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
         AppleSegmentedControl(
             options = listOf("join", "create"),
             selected = state.chatLobbyMode,
-            label = { if (it == "join") "Join Room" else "Create Room" },
+            label = { if (it == "join") tr("Join Room", "Vào phòng") else tr("Create Room", "Tạo phòng") },
             height = 40.dp,
             outerRadius = 20.dp,
             onSelect = { vm.setChatLobbyMode(it) },
@@ -245,41 +249,41 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(30.dp))
+                .clip(RoundedCornerShape(32.dp))
                 .background(HefimerColors.SurfaceElevated)
-                .border(1.dp, HefimerColors.White12, RoundedCornerShape(30.dp))
+                .border(1.dp, HefimerColors.White12, RoundedCornerShape(32.dp))
                 .padding(20.dp),
         ) {
             if (state.chatLobbyMode == "join") {
-                Text("5-DIGIT ROOM CODE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text(tr("5-DIGIT ROOM CODE", "MÃ PHÒNG 5 CHỮ SỐ"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 FiveDigitPinSlots(
                     code = state.chatJoinCode,
                     onCodeChange = { vm.setChatJoinCode(it) },
                     onDone = { vm.joinChatRoom() },
                 )
                 HefimerPrimaryButton(
-                    text = if (state.chatLoading) "Joining..." else "Join Chat Room",
+                    text = if (state.chatLoading) tr("Joining...", "Đang tham gia...") else tr("Join Chat Room", "Tham gia phòng chat"),
                     loading = state.chatLoading,
                     enabled = state.chatJoinCode.length == 5 && !state.chatLoading,
                     onClick = { vm.joinChatRoom() },
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("ROOM NAME", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(tr("ROOM NAME", "TÊN PHÒNG"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     HefimerTextField(
                         value = state.chatCreateName,
                         onValueChange = { vm.setChatCreateName(it) },
-                        placeholder = "Quick sync, study group...",
+                        placeholder = tr("Quick sync, study group...", "Trao đổi nhanh, nhóm học..."),
                     )
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("ROOM CODE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                        Text(tr("ROOM CODE", "MÃ PHÒNG"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                         val (stTxt, stCol) = when (state.chatCreateCodeStatus) {
-                            "checking" -> "Checking..." to HefimerColors.White40
+                            "checking" -> tr("Checking...", "Đang kiểm tra...") to HefimerColors.White40
                             "available" -> tr("Available", "Khả dụng") to HefimerColors.White80
-                            "taken" -> "Taken" to HefimerColors.Red400
+                            "taken" -> tr("Taken", "Đã được dùng") to HefimerColors.Red400
                             else -> "" to HefimerColors.White30
                         }
                         if (stTxt.isNotEmpty()) Text(stTxt, color = stCol, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -299,17 +303,24 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(HefimerColors.White08)
                                 .border(1.dp, HefimerColors.White12, RoundedCornerShape(16.dp))
-                                .applePressable { vm.randomizeChatCode() },
+                                .applePressable(pressedScale = 0.90f) { vm.randomizeChatCode() },
                         ) {
-                            Icon(Icons.Rounded.Casino, "Random", tint = HefimerColors.White, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.Casino, tr("Random", "Ngẫu nhiên"), tint = HefimerColors.White, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("ROOM LIFETIME", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(tr("ROOM LIFETIME", "THỜI HẠN PHÒNG"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("15m" to "15 min", "30m" to "30 min", "1h" to "1 hour", "6h" to "6 hours", "12h" to "12 hours", "24h" to "24 hours").forEach { (v, lbl) ->
+                        listOf(
+                            "15m" to tr("15 min", "15 phút"),
+                            "30m" to tr("30 min", "30 phút"),
+                            "1h" to tr("1 hour", "1 giờ"),
+                            "6h" to tr("6 hours", "6 giờ"),
+                            "12h" to tr("12 hours", "12 giờ"),
+                            "24h" to tr("24 hours", "24 giờ"),
+                        ).forEach { (v, lbl) ->
                             val sel = state.chatCreateExpire == v
                             Text(
                                 text = lbl,
@@ -319,7 +330,7 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                                 modifier = Modifier
                                     .clip(CircleShape)
                                     .background(if (sel) HefimerColors.White else HefimerColors.White08)
-                                    .applePressable { vm.setChatCreateExpire(v) }
+                                    .applePressable(pressedScale = 0.94f) { vm.setChatCreateExpire(v) }
                                     .padding(horizontal = 13.dp, vertical = 8.dp),
                             )
                         }
@@ -327,7 +338,7 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                 }
 
                 HefimerPrimaryButton(
-                    text = if (state.chatLoading) "Creating..." else "Create Chat Room",
+                    text = if (state.chatLoading) tr("Creating...", "Đang tạo...") else tr("Create Chat Room", "Tạo phòng chat"),
                     loading = state.chatLoading,
                     enabled = !state.chatLoading && state.chatCreateCodeStatus != "taken",
                     onClick = { vm.createChatRoom() },
@@ -343,12 +354,12 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
     if (state.boardCreatedCode.isNotBlank()) {
         DropResultCard(
             code = state.boardCreatedCode,
-            heading = "Your Board Code",
+            heading = tr("Your Board Code", "Mã bảng trắng của bạn"),
             subtitle = state.boardCreatedName,
             expiresAt = state.boardCreatedExpiresAt,
             shareUrl = "${HefimerApiConfig.SITE_ORIGIN}/board?code=${state.boardCreatedCode}",
-            resetLabel = "New Board",
-            primaryCtaLabel = "Enter Board",
+            resetLabel = tr("New Board", "Bảng mới"),
+            primaryCtaLabel = tr("Enter Board", "Mở bảng"),
             onPrimaryCta = { vm.enterCreatedBoard() },
             onBack = { vm.clearBoardCreatedCard() },
             onReset = { vm.clearBoardCreatedCard() },
@@ -361,7 +372,7 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
         AppleSegmentedControl(
             options = listOf("create", "join"),
             selected = state.boardLobbyMode,
-            label = { if (it == "create") "Create Board" else "Join Board" },
+            label = { if (it == "create") tr("Create Board", "Tạo bảng") else tr("Join Board", "Vào bảng") },
             height = 40.dp,
             outerRadius = 20.dp,
             onSelect = { vm.setBoardLobbyMode(it) },
@@ -371,38 +382,43 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(30.dp))
+                .clip(RoundedCornerShape(32.dp))
                 .background(HefimerColors.SurfaceElevated)
-                .border(1.dp, HefimerColors.White12, RoundedCornerShape(30.dp))
+                .border(1.dp, HefimerColors.White12, RoundedCornerShape(32.dp))
                 .padding(20.dp),
         ) {
             if (state.boardLobbyMode == "join") {
-                Text("5-DIGIT BOARD CODE", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text(tr("5-DIGIT BOARD CODE", "MÃ BẢNG 5 CHỮ SỐ"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 FiveDigitPinSlots(
                     code = state.boardJoinCode,
                     onCodeChange = { vm.setBoardJoinCode(it) },
                     onDone = { vm.joinBoard() },
                 )
                 HefimerPrimaryButton(
-                    text = if (state.boardLoading) "Joining..." else "Join Whiteboard",
+                    text = if (state.boardLoading) tr("Joining...", "Đang tham gia...") else tr("Join Whiteboard", "Tham gia bảng trắng"),
                     loading = state.boardLoading,
                     enabled = state.boardJoinCode.length == 5 && !state.boardLoading,
                     onClick = { vm.joinBoard() },
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("BOARD NAME", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(tr("BOARD NAME", "TÊN BẢNG"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     HefimerTextField(
                         value = state.boardCreateName,
                         onValueChange = { vm.setBoardCreateName(it) },
-                        placeholder = "Architecture sketch, brainstorm...",
+                        placeholder = tr("Architecture sketch, brainstorm...", "Phác thảo kiến trúc, lên ý tưởng..."),
                     )
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("DURATION", color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(tr("DURATION", "THỜI HẠN"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("1h" to "1 hour", "6h" to "6 hours", "12h" to "12 hours", "24h" to "24 hours").forEach { (v, lbl) ->
+                        listOf(
+                            "1h" to tr("1 hour", "1 giờ"),
+                            "6h" to tr("6 hours", "6 giờ"),
+                            "12h" to tr("12 hours", "12 giờ"),
+                            "24h" to tr("24 hours", "24 giờ"),
+                        ).forEach { (v, lbl) ->
                             val sel = state.boardCreateExpire == v
                             Text(
                                 text = lbl,
@@ -412,7 +428,7 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                                 modifier = Modifier
                                     .clip(CircleShape)
                                     .background(if (sel) HefimerColors.White else HefimerColors.White08)
-                                    .applePressable { vm.setBoardCreateExpire(v) }
+                                    .applePressable(pressedScale = 0.94f) { vm.setBoardCreateExpire(v) }
                                     .padding(horizontal = 14.dp, vertical = 8.dp),
                             )
                         }
@@ -420,7 +436,7 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                 }
 
                 HefimerPrimaryButton(
-                    text = if (state.boardLoading) "Creating..." else "Create Whiteboard",
+                    text = if (state.boardLoading) tr("Creating...", "Đang tạo...") else tr("Create Whiteboard", "Tạo bảng trắng"),
                     loading = state.boardLoading,
                     enabled = !state.boardLoading,
                     onClick = { vm.createBoard() },
@@ -454,7 +470,7 @@ fun ChatRoomOverlay(
         while (true) {
             val diff = state.activeChatExpiresAt - System.currentTimeMillis()
             if (diff <= 0L) {
-                vm.showToast("Room has expired", ToastType.ERROR)
+                vm.showToast(tr("Room has expired", "Phòng đã hết hạn"), ToastType.ERROR)
                 onClose()
                 break
             }
@@ -502,13 +518,13 @@ fun ChatRoomOverlay(
                             .clip(CircleShape)
                             .background(HefimerColors.White08)
                             .border(1.dp, HefimerColors.White12, CircleShape)
-                            .applePressable(onClick = onClose),
+                            .applePressable(pressedScale = 0.90f, onClick = onClose),
                     ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Leave", tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = state.activeChatName.ifBlank { "Room #${state.activeChatId}" },
+                            text = state.activeChatName.ifBlank { "${tr("Room", "Phòng")} #${state.activeChatId}" },
                             color = HefimerColors.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -550,9 +566,9 @@ fun ChatRoomOverlay(
                         .clip(CircleShape)
                         .background(HefimerColors.White08)
                         .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable { showQr = true },
+                        .applePressable(pressedScale = 0.90f) { showQr = true },
                 ) {
-                    Icon(Icons.Rounded.QrCode2, "Share QR", tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.QrCode2, tr("Share QR", "Chia sẻ QR"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
             }
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))
@@ -573,7 +589,7 @@ fun ChatRoomOverlay(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 80.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Messages vanish when this room expires.", color = HefimerColors.White30, fontSize = 13.sp)
+                        Text(tr("Messages vanish when this room expires.", "Tin nhắn sẽ tự xóa khi phòng hết hạn."), color = HefimerColors.White30, fontSize = 13.sp)
                     }
                 }
             }
@@ -619,7 +635,7 @@ fun ChatRoomOverlay(
                     cursorBrush = SolidColor(HefimerColors.White),
                     modifier = Modifier.fillMaxWidth(),
                     decorationBox = { inner ->
-                        if (input.isEmpty()) Text("Message room...", color = HefimerColors.White30, fontSize = 14.sp)
+                        if (input.isEmpty()) Text(tr("Message room...", "Nhắn tin vào phòng..."), color = HefimerColors.White30, fontSize = 14.sp)
                         inner()
                     },
                 )
@@ -630,14 +646,14 @@ fun ChatRoomOverlay(
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(if (input.isNotBlank()) HefimerColors.White else HefimerColors.White10)
-                    .applePressable(enabled = input.isNotBlank()) {
+                    .applePressable(enabled = input.isNotBlank(), pressedScale = 0.90f) {
                         vm.sendChatMessage(input)
                         input = ""
                     },
             ) {
                 Icon(
                     Icons.AutoMirrored.Rounded.Send,
-                    "Send",
+                    tr("Send", "Gửi"),
                     tint = if (input.isNotBlank()) HefimerColors.Black else HefimerColors.White30,
                     modifier = Modifier.size(18.dp),
                 )
@@ -647,7 +663,7 @@ fun ChatRoomOverlay(
 
     if (showQr) {
         QrShareModal(
-            title = "Share Room Link",
+            title = tr("Share Room Link", "Chia sẻ liên kết phòng"),
             url = "${HefimerApiConfig.SITE_ORIGIN}/chat-room?code=${state.activeChatId}",
             code = state.activeChatId,
             onDismiss = { showQr = false },
@@ -866,12 +882,12 @@ fun WhiteboardOverlay(
                         .clip(CircleShape)
                         .background(HefimerColors.White08)
                         .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(onClick = onClose),
+                        .applePressable(pressedScale = 0.90f, onClick = onClose),
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Leave", tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
                 Column {
-                    Text(state.activeBoardName.ifBlank { "Board #${state.activeBoardId}" }, color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(state.activeBoardName.ifBlank { "${tr("Board", "Bảng")} #${state.activeBoardId}" }, color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Text("#${state.activeBoardId}", color = HefimerColors.White40, fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
                 }
             }
@@ -884,7 +900,7 @@ fun WhiteboardOverlay(
                         .clip(CircleShape)
                         .background(HefimerColors.White08)
                         .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable {
+                        .applePressable(pressedScale = 0.90f) {
                             scope.launch {
                                 runCatching {
                                     val bmp = Bitmap.createBitmap(
@@ -911,14 +927,14 @@ fun WhiteboardOverlay(
                                     }
                                     DownloadHelper.saveBitmapToGallery(context, bmp, "hefimer_board_${state.activeBoardId}.png")
                                 }.onSuccess {
-                                    vm.showToast("Board saved to Pictures/Hefimer", ToastType.SUCCESS)
+                                    vm.showToast(tr("Board saved to Pictures/Hefimer", "Đã lưu bảng vào Pictures/Hefimer"), ToastType.SUCCESS)
                                 }.onFailure {
-                                    vm.showToast("Failed to export board", ToastType.ERROR)
+                                    vm.showToast(tr("Failed to export board", "Xuất bảng thất bại"), ToastType.ERROR)
                                 }
                             }
                         },
                 ) {
-                    Icon(Icons.Rounded.Download, "Export PNG", tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.Download, tr("Export PNG", "Xuất PNG"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
 
                 Box(
@@ -928,9 +944,9 @@ fun WhiteboardOverlay(
                         .clip(CircleShape)
                         .background(HefimerColors.White08)
                         .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable { showQr = true },
+                        .applePressable(pressedScale = 0.90f) { showQr = true },
                 ) {
-                    Icon(Icons.Rounded.QrCode2, "Share", tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.QrCode2, tr("Share", "Chia sẻ"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -948,9 +964,11 @@ fun WhiteboardOverlay(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color(0xF20B0B0B))
-                        .border(1.dp, HefimerColors.White15, RoundedCornerShape(26.dp))
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(28.dp),
+                            variant = AppleGlassVariant.Elevated,
+                            elevation = 18.dp,
+                        )
                         .padding(14.dp),
                 ) {
                     Row(
@@ -966,7 +984,7 @@ fun WhiteboardOverlay(
                                     .clip(CircleShape)
                                     .background(col)
                                     .border(if (sel) 2.5.dp else 1.dp, if (sel) HefimerColors.White else HefimerColors.White20, CircleShape)
-                                    .applePressable {
+                                    .applePressable(pressedScale = 0.88f) {
                                         currentColorHex = hex
                                         isEraser = false
                                     },
@@ -974,7 +992,7 @@ fun WhiteboardOverlay(
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("SIZE ${strokeSize.toInt()}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
+                        Text("${tr("SIZE", "CỠ NÉT")} ${strokeSize.toInt()}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
                         Slider(
                             value = strokeSize,
                             onValueChange = { strokeSize = it },
@@ -994,21 +1012,28 @@ fun WhiteboardOverlay(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(Color(0xEE0B0B0B))
-                    .border(1.dp, HefimerColors.White15, CircleShape)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 20.dp,
+                    )
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 BoardToolBtn(Icons.Rounded.Brush, active = !isEraser) { isEraser = false }
                 BoardToolBtn(Icons.Rounded.AutoFixHigh, active = isEraser) { isEraser = true }
                 BoardToolBtn(Icons.Rounded.Palette, active = showPalette) { showPalette = !showPalette }
 
+                val clearBg by animateColorAsState(
+                    targetValue = if (confirmClear) HefimerColors.Red500 else HefimerColors.White08,
+                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                    label = "board_clear_bg",
+                )
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(if (confirmClear) HefimerColors.Red500 else HefimerColors.White08)
-                        .applePressable {
+                        .background(clearBg)
+                        .applePressable(pressedScale = 0.94f) {
                             if (!confirmClear) {
                                 confirmClear = true
                                 scope.launch {
@@ -1023,9 +1048,9 @@ fun WhiteboardOverlay(
                         .padding(horizontal = if (confirmClear) 14.dp else 10.dp, vertical = 9.dp),
                 ) {
                     if (confirmClear) {
-                        Text("Tap to Clear", color = HefimerColors.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Tap to Clear", "Chạm để xóa"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(Icons.Rounded.DeleteOutline, "Clear", tint = HefimerColors.Red400, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.DeleteOutline, tr("Clear", "Xóa"), tint = HefimerColors.Red400, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -1034,7 +1059,7 @@ fun WhiteboardOverlay(
 
     if (showQr) {
         QrShareModal(
-            title = "Share Board Link",
+            title = tr("Share Board Link", "Chia sẻ liên kết bảng"),
             url = "${HefimerApiConfig.SITE_ORIGIN}/board?code=${state.activeBoardId}",
             code = state.activeBoardId,
             onDismiss = { showQr = false },

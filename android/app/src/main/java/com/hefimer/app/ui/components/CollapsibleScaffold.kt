@@ -85,9 +85,7 @@ fun HefimerCollapsibleScaffold(
     )
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(HefimerColors.Black),
+        modifier = modifier.fillMaxSize(),
     ) {
         // Scrollable full-bleed content flowing behind transparent status bar & floating bottom dock
         Column(
@@ -161,6 +159,7 @@ fun HefimerCollapsibleScaffold(
         }
 
         // Translucent pinned top chrome extending seamlessly behind transparent status bar
+        // with progressive scroll-edge softness (apple-glass scrollEdgeEffectStyle)
         val logoScope = androidx.compose.runtime.rememberCoroutineScope()
         val tapSpin = remember { androidx.compose.animation.core.Animatable(0f) }
 
@@ -170,9 +169,10 @@ fun HefimerCollapsibleScaffold(
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
-                        0f to HefimerColors.Black.copy(alpha = 0.86f + 0.10f * compactAlpha),
-                        0.72f to HefimerColors.Black.copy(alpha = 0.62f + 0.30f * compactAlpha),
-                        1f to HefimerColors.Black.copy(alpha = 0.0f + 0.84f * compactAlpha),
+                        0.0f to HefimerColors.Black.copy(alpha = 0.80f + 0.14f * compactAlpha),
+                        0.68f to HefimerColors.Black.copy(alpha = 0.42f + 0.42f * compactAlpha),
+                        0.92f to HefimerColors.Black.copy(alpha = 0.08f + 0.60f * compactAlpha),
+                        1.0f to Color.Transparent,
                     ),
                 ),
         ) {
@@ -233,14 +233,23 @@ fun HefimerCollapsibleScaffold(
                 )
             }
 
-            // Crisp hairline border fades in smoothly when collapsed
+            // Crisp Fresnel specular catchlight line fades in smoothly when collapsed
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(0.5.dp)
+                    .height(0.8.dp)
                     .graphicsLayer { alpha = compactAlpha }
-                    .background(HefimerColors.White12),
+                    .background(
+                        Brush.horizontalGradient(
+                            0.0f to Color.Transparent,
+                            0.25f to HefimerColors.White15,
+                            0.50f to HefimerColors.White20,
+                            0.75f to HefimerColors.White15,
+                            1.0f to Color.Transparent,
+                        ),
+                    ),
             )
+            Spacer(Modifier.height(6.dp))
         }
     }
 }
