@@ -2,6 +2,7 @@ package com.hefimer.app.data.local
 
 import android.content.Context
 import android.os.Build
+import com.hefimer.app.data.model.DownloadedFileRecord
 import com.hefimer.app.data.model.HistoryItem
 import com.hefimer.app.data.model.RecentSpaceEntry
 import com.hefimer.app.data.model.UploadStats
@@ -101,6 +102,52 @@ class HefimerStorage(context: Context) {
     fun getAppLanguageCode(): String = prefs.getString("hefimer_app_language", "auto") ?: "auto"
     fun setAppLanguageCode(code: String) {
         prefs.edit().putString("hefimer_app_language", code).apply()
+    }
+
+    fun getDefaultStartTab(): String = prefs.getString("hefimer_default_start_tab", "SEND") ?: "SEND"
+    fun setDefaultStartTab(tabName: String) {
+        prefs.edit().putString("hefimer_default_start_tab", tabName).apply()
+    }
+
+    fun isPromptOpenAfterDownload(): Boolean = prefs.getBoolean("hefimer_prompt_open_after_download", true)
+    fun setPromptOpenAfterDownload(enabled: Boolean) {
+        prefs.edit().putBoolean("hefimer_prompt_open_after_download", enabled).apply()
+    }
+
+    fun isSmartClipboardEnabled(): Boolean = prefs.getBoolean("hefimer_smart_clipboard", true)
+    fun setSmartClipboardEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("hefimer_smart_clipboard", enabled).apply()
+    }
+
+    fun isHapticEnabled(): Boolean = prefs.getBoolean("hefimer_haptic_enabled", true)
+    fun setHapticEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("hefimer_haptic_enabled", enabled).apply()
+    }
+
+    fun isConfirmRedownloadEnabled(): Boolean = prefs.getBoolean("hefimer_confirm_redownload", true)
+    fun setConfirmRedownloadEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("hefimer_confirm_redownload", enabled).apply()
+    }
+
+    fun loadDownloadedFiles(): List<DownloadedFileRecord> {
+        val raw = prefs.getString("hefimer_downloaded_files_v1", null) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<DownloadedFileRecord>>(raw) }.getOrDefault(emptyList())
+    }
+
+    fun findDownloadedFile(key: String, fileName: String, sizeBytes: Long): DownloadedFileRecord? {
+        val list = loadDownloadedFiles()
+        return list.firstOrNull { rec ->
+            (key.isNotBlank() && rec.key == key) ||
+                (rec.fileName.equals(fileName, ignoreCase = true) && (sizeBytes <= 0L || rec.fileSize == sizeBytes))
+        }
+    }
+
+    fun recordDownloadedFile(record: DownloadedFileRecord) {
+        val updated = (listOf(record) + loadDownloadedFiles().filterNot {
+            (record.key.isNotBlank() && it.key == record.key) ||
+                (it.fileName.equals(record.fileName, ignoreCase = true) && it.fileSize == record.fileSize)
+        }).take(100)
+        prefs.edit().putString("hefimer_downloaded_files_v1", json.encodeToString(updated)).apply()
     }
 
     fun getVisitorToken(): String {

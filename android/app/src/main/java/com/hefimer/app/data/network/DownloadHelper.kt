@@ -1,5 +1,6 @@
 package com.hefimer.app.data.network
 
+import android.app.DownloadManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.contentOrNull
@@ -25,6 +28,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 enum class DirectDownloadMode { PROXY, FETCH, TAB }
+
+data class DownloadOutcome(
+    val mode: String, // "download" or "tab"
+    val savedUri: Uri? = null,
+    val fileName: String = "",
+    val mimeType: String = "application/octet-stream",
+    val sizeBytes: Long = 0L,
+)
 
 class DownloadCancellationToken {
     private val cancelled = AtomicBoolean(false)
@@ -126,12 +137,12 @@ object DownloadHelper {
         fileName: String,
         cancelToken: DownloadCancellationToken = DownloadCancellationToken(),
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit = { _, _, _ -> },
-    ): String = withContext(Dispatchers.IO) {
+    ): DownloadOutcome = withContext(Dispatchers.IO) {
         val safeName = safeDownloadName(fileName)
         val mode = getDirectDownloadMode(url)
         if (mode == DirectDownloadMode.TAB) {
             openExternalUrl(context, url)
-            return@withContext "tab"
+            return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
         }
 
         val host = runCatching { URI(url).host?.lowercase().orEmpty() }.getOrDefault("")
@@ -140,20 +151,20 @@ object DownloadHelper {
         if (host == "storage.to") {
             val directResolved = runCatching { resolveStorageToOnDevice(url) }.getOrNull()
             if (!directResolved.isNullOrBlank()) {
-                val ok = runCatching {
+                val res = runCatching {
                     streamToDownloads(context, directResolved, safeName, cancelToken, onProgress)
-                }.isSuccess
-                if (ok) return@withContext "download"
+                }.getOrNull()
+                if (res != null) return@withContext res
             }
             val proxyUrl = buildProxyUrl(url, safeName)
-            val proxyOk = runCatching {
+            val proxyRes = runCatching {
                 streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress)
-            }.isSuccess
-            if (proxyOk) return@withContext "download"
+            }.getOrNull()
+            if (proxyRes != null) return@withContext proxyRes
 
             if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
             openExternalUrl(context, url)
-            return@withContext "tab"
+            return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
         }
 
         // 2. For proxied hosts (sto.care, tmpfile.link, tempfile, temp.sh, tmpfiles, put.icu, litterbox, filebin, uguu):
@@ -161,8 +172,7 @@ object DownloadHelper {
         if (mode == DirectDownloadMode.PROXY) {
             val proxyUrl = buildProxyUrl(url, safeName)
             try {
-                streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress)
-                return@withContext "download"
+                return@withContext streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress)
             } catch (e: Throwable) {
                 if (cancelToken.isCancelled() || e.message == "DOWNLOAD_CANCELED") throw e
                 // Fallback: try direct download from phone's own IP (works great for sto.care, litterbox, tmpfile.link, put.icu)
@@ -174,19 +184,17 @@ object DownloadHelper {
                             url.replaceFirst("tmpfiles.org/", "tmpfiles.org/dl/")
                         else -> url
                     }
-                    streamToDownloads(context, directTarget, safeName, cancelToken, onProgress)
-                    return@withContext "download"
+                    return@withContext streamToDownloads(context, directTarget, safeName, cancelToken, onProgress)
                 } catch (directErr: Throwable) {
                     if (cancelToken.isCancelled() || directErr.message == "DOWNLOAD_CANCELED") throw directErr
                     openExternalUrl(context, url)
-                    return@withContext "tab"
+                    return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
                 }
             }
         }
 
         // 3. Direct URLs (e.g. Cloudflare R2 presigned download URLs or direct hosts)
         streamToDownloads(context, url, safeName, cancelToken, onProgress)
-        "download"
     }
 
     /**
@@ -237,8 +245,21 @@ object DownloadHelper {
         fileName: String,
         cancelToken: DownloadCancellationToken = DownloadCancellationToken(),
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit = { _, _, _ -> },
-    ) = withContext(Dispatchers.IO) {
+    ): DownloadOutcome = withContext(Dispatchers.IO) {
         streamToDownloads(context, url, safeDownloadName(fileName), cancelToken, onProgress)
+    }
+
+    private fun resolveMimeType(fileName: String, serverCt: String): String {
+        val clean = serverCt.substringBefore(';').trim()
+        if (clean.isNotBlank() && !clean.equals("application/octet-stream", ignoreCase = true)) {
+            return clean
+        }
+        val ext = fileName.substringAfterLast('.', "").lowercase()
+        return if (ext.isNotBlank()) {
+            MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+        } else {
+            "application/octet-stream"
+        }
     }
 
     private fun streamToDownloads(
@@ -247,7 +268,7 @@ object DownloadHelper {
         safeName: String,
         cancelToken: DownloadCancellationToken,
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit,
-    ) {
+    ): DownloadOutcome {
         if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
         val req = Request.Builder()
             .url(url)
@@ -268,9 +289,9 @@ object DownloadHelper {
                 val body = resp.body ?: throw IOException(
                     com.hefimer.app.ui.theme.tr("Empty download response", "Phản hồi tải xuống trống"),
                 )
-                val ct = resp.header("Content-Type")?.substringBefore(';')?.trim() ?: "application/octet-stream"
+                val rawCt = resp.header("Content-Type")?.substringBefore(';')?.trim() ?: "application/octet-stream"
                 // Guard against accidentally saving a provider HTML error page as a binary file
-                if (ct.equals("text/html", ignoreCase = true) && !safeName.endsWith(".html", true) && !safeName.endsWith(".htm", true)) {
+                if (rawCt.equals("text/html", ignoreCase = true) && !safeName.endsWith(".html", true) && !safeName.endsWith(".htm", true)) {
                     throw IOException(
                         com.hefimer.app.ui.theme.tr(
                             "Upstream returned an HTML page instead of file bytes",
@@ -278,6 +299,7 @@ object DownloadHelper {
                         ),
                     )
                 }
+                val ct = resolveMimeType(safeName, rawCt)
                 val totalBytes = body.contentLength()
                 onProgress(0L, totalBytes, 0)
 
@@ -296,9 +318,10 @@ object DownloadHelper {
                                 "Không thể tạo tệp trong thư mục Tải xuống",
                             ),
                         )
+                    var written = 0L
                     try {
                         resolver.openOutputStream(uri)?.use { out ->
-                            copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
+                            written = copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
                         } ?: throw IOException(
                             com.hefimer.app.ui.theme.tr(
                                 "Cannot open Downloads output stream",
@@ -307,6 +330,13 @@ object DownloadHelper {
                         )
                         val finish = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
                         resolver.update(uri, finish, null, null)
+                        return DownloadOutcome(
+                            mode = "download",
+                            savedUri = uri,
+                            fileName = safeName,
+                            mimeType = ct,
+                            sizeBytes = written.coerceAtLeast(totalBytes.coerceAtLeast(0L)),
+                        )
                     } catch (e: Throwable) {
                         runCatching { resolver.delete(uri, null, null) }
                         throw e
@@ -315,10 +345,21 @@ object DownloadHelper {
                     val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                     dir.mkdirs()
                     val dest = uniqueFile(dir, safeName)
+                    var written = 0L
                     try {
                         FileOutputStream(dest).use { out ->
-                            copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
+                            written = copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
                         }
+                        val uri = runCatching {
+                            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", dest)
+                        }.getOrElse { Uri.fromFile(dest) }
+                        return DownloadOutcome(
+                            mode = "download",
+                            savedUri = uri,
+                            fileName = dest.name,
+                            mimeType = ct,
+                            sizeBytes = written.coerceAtLeast(dest.length()),
+                        )
                     } catch (e: Throwable) {
                         dest.delete()
                         throw e
@@ -349,7 +390,7 @@ object DownloadHelper {
         totalBytes: Long,
         cancelToken: DownloadCancellationToken,
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit,
-    ) {
+    ): Long {
         val buf = ByteArray(64 * 1024)
         var loaded = 0L
         var lastEmitNs = 0L
@@ -368,6 +409,7 @@ object DownloadHelper {
         }
         output.flush()
         onProgress(loaded, if (totalBytes > 0L) totalBytes else loaded, 100)
+        return loaded
     }
 
     fun openExternalUrl(context: Context, url: String) {
@@ -377,29 +419,101 @@ object DownloadHelper {
         context.startActivity(intent)
     }
 
-    suspend fun saveTextToDownloads(context: Context, fileName: String, content: String): String =
+    fun isUriReadable(context: Context, uriString: String): Boolean {
+        if (uriString.isBlank()) return false
+        return runCatching {
+            val uri = Uri.parse(uriString)
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
+        }.getOrDefault(false)
+    }
+
+    fun openSavedFileWithChooser(context: Context, uriString: String, mimeType: String, fileName: String): Boolean {
+        val uri = runCatching { Uri.parse(uriString) }.getOrNull() ?: return false
+        val resolvedMime = resolveMimeType(fileName, mimeType)
+        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, resolvedMime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val chooser = Intent.createChooser(
+            viewIntent,
+            com.hefimer.app.ui.theme.tr("Open $fileName with", "Mở $fileName bằng"),
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return runCatching {
+            context.startActivity(chooser)
+            true
+        }.getOrElse {
+            // Fallback with wildcard mime type if exact mime has no chooser
+            runCatching {
+                val fallback = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "*/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(
+                    Intent.createChooser(fallback, com.hefimer.app.ui.theme.tr("Open with", "Mở bằng"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+                true
+            }.getOrDefault(false)
+        }
+    }
+
+    fun shareSavedFile(context: Context, uriString: String, mimeType: String, fileName: String): Boolean {
+        val uri = runCatching { Uri.parse(uriString) }.getOrNull() ?: return false
+        val resolvedMime = resolveMimeType(fileName, mimeType)
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = resolvedMime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return runCatching {
+            context.startActivity(
+                Intent.createChooser(shareIntent, fileName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION),
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    fun openDownloadsFolder(context: Context): Boolean = runCatching {
+        val intent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        true
+    }.getOrDefault(false)
+
+    suspend fun saveTextToDownloads(context: Context, fileName: String, content: String): DownloadOutcome =
         withContext(Dispatchers.IO) {
             val safeName = safeDownloadName(fileName.ifBlank { "hefimer_text.txt" })
+            val bytes = content.toByteArray()
+            val mime = resolveMimeType(safeName, "text/plain")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, safeName)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.MIME_TYPE, mime)
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
                 val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                     ?: throw IllegalStateException(
                         com.hefimer.app.ui.theme.tr("Could not create download entry", "Không thể tạo mục tải xuống"),
                     )
-                context.contentResolver.openOutputStream(uri)?.use { it.write(content.toByteArray()) }
+                context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                DownloadOutcome(mode = "download", savedUri = uri, fileName = safeName, mimeType = mime, sizeBytes = bytes.size.toLong())
             } else {
                 val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 dir.mkdirs()
-                File(dir, safeName).writeText(content)
+                val dest = uniqueFile(dir, safeName)
+                dest.writeBytes(bytes)
+                val uri = runCatching {
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", dest)
+                }.getOrElse { Uri.fromFile(dest) }
+                DownloadOutcome(mode = "download", savedUri = uri, fileName = dest.name, mimeType = mime, sizeBytes = bytes.size.toLong())
             }
-            safeName
         }
 
-    suspend fun saveBitmapToGallery(context: Context, bitmap: Bitmap, fileName: String): String =
+    suspend fun saveBitmapToGallery(context: Context, bitmap: Bitmap, fileName: String): DownloadOutcome =
         withContext(Dispatchers.IO) {
             val safeName = safeDownloadName(fileName.ifBlank { "hefimer_${System.currentTimeMillis()}.png" })
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -415,16 +529,21 @@ object DownloadHelper {
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
+                DownloadOutcome(mode = "download", savedUri = uri, fileName = safeName, mimeType = "image/png")
             } else {
                 val dir = File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
                     "Hefimer",
                 )
                 dir.mkdirs()
-                FileOutputStream(File(dir, safeName)).use { out ->
+                val dest = uniqueFile(dir, safeName)
+                FileOutputStream(dest).use { out ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
+                val uri = runCatching {
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", dest)
+                }.getOrElse { Uri.fromFile(dest) }
+                DownloadOutcome(mode = "download", savedUri = uri, fileName = dest.name, mimeType = "image/png", sizeBytes = dest.length())
             }
-            safeName
         }
 }

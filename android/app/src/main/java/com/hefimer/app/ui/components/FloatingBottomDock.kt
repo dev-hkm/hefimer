@@ -10,8 +10,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +28,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Devices
@@ -39,7 +39,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.HefimerHaptics
 import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.appleLiquidRefraction
 import com.hefimer.app.ui.theme.tr
@@ -129,11 +133,24 @@ fun HefimerFloatingBottomDock(
         ) {
             val density = androidx.compose.ui.platform.LocalDensity.current
             val slotWidth = maxWidth / tabs.size
-            val slotWidthPx = with(density) { slotWidth.toPx() }
+            val slotWidthPx = with(density) { slotWidth.toPx() }.coerceAtLeast(1f)
+            var hoveredTabIdx by remember { mutableIntStateOf(-1) }
+            val activeIndex = if (hoveredTabIdx in tabs.indices) hoveredTabIdx else selectedIndex
+
             val thumbOffsetPx by animateFloatAsState(
-                targetValue = slotWidthPx * selectedIndex,
+                targetValue = slotWidthPx * activeIndex,
                 animationSpec = AppMotion.layoutSpring(),
                 label = "pill_thumb_x",
+            )
+            val thumbSquishX by animateFloatAsState(
+                targetValue = if (hoveredTabIdx >= 0) 1.07f else 1f,
+                animationSpec = if (hoveredTabIdx >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+                label = "pill_thumb_sx",
+            )
+            val thumbSquishY by animateFloatAsState(
+                targetValue = if (hoveredTabIdx >= 0) 0.91f else 1f,
+                animationSpec = if (hoveredTabIdx >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+                label = "pill_thumb_sy",
             )
             val thumbColor by animateColorAsState(
                 targetValue = activeAccent,
@@ -141,10 +158,14 @@ fun HefimerFloatingBottomDock(
                 label = "pill_thumb_color",
             )
 
-            // Gliding solid high-contrast capsule inside the glass pill (never stacked glass-on-glass)
+            // Gliding liquid-droplet pill capsule inside the glass dock
             Box(
                 modifier = Modifier
-                    .graphicsLayer { translationX = thumbOffsetPx }
+                    .graphicsLayer {
+                        translationX = thumbOffsetPx
+                        scaleX = thumbSquishX
+                        scaleY = thumbSquishY
+                    }
                     .width(slotWidth)
                     .height(thumbHeight)
                     .clip(CircleShape)
@@ -152,18 +173,53 @@ fun HefimerFloatingBottomDock(
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(tabs.size, slotWidthPx) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            var curIdx = (down.position.x / slotWidthPx).toInt().coerceIn(0, tabs.lastIndex)
+                            hoveredTabIdx = curIdx
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    val releaseIdx = (change.position.x / slotWidthPx).toInt().coerceIn(0, tabs.lastIndex)
+                                    if (HefimerHaptics.enabled) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                    onSelectTab(tabs[releaseIdx])
+                                    hoveredTabIdx = -1
+                                    break
+                                }
+                                change.consume()
+                                val nextIdx = (change.position.x / slotWidthPx).toInt().coerceIn(0, tabs.lastIndex)
+                                if (nextIdx != curIdx) {
+                                    curIdx = nextIdx
+                                    hoveredTabIdx = nextIdx
+                                    if (HefimerHaptics.enabled) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                    onSelectTab(tabs[nextIdx])
+                                }
+                            }
+                        }
+                    },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                tabs.forEach { tab ->
-                    val isSelected = tab == selectedTab
-                    val interactionSource = remember { MutableInteractionSource() }
-                    val isPressed by interactionSource.collectIsPressedAsState()
-                    val pressScale by animateFloatAsState(
-                        targetValue = if (isPressed) 0.88f else 1f,
-                        animationSpec = if (isPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
-                        label = "dock_press",
+                tabs.forEachIndexed { idx, tab ->
+                    val isSelected = idx == activeIndex
+                    val isHovered = idx == hoveredTabIdx
+                    val pressScaleX by animateFloatAsState(
+                        targetValue = if (isHovered) 0.90f else 1f,
+                        animationSpec = if (isHovered) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+                        label = "dock_press_x",
+                    )
+                    val pressScaleY by animateFloatAsState(
+                        targetValue = if (isHovered) 0.84f else 1f,
+                        animationSpec = if (isHovered) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+                        label = "dock_press_y",
                     )
                     val iconTint by animateColorAsState(
                         targetValue = if (isSelected) HefimerColors.Black else HefimerColors.White50,
@@ -177,15 +233,8 @@ fun HefimerFloatingBottomDock(
                             .weight(1f)
                             .height(thumbHeight)
                             .graphicsLayer {
-                                scaleX = pressScale
-                                scaleY = pressScale
-                            }
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null,
-                            ) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelectTab(tab)
+                                scaleX = pressScaleX
+                                scaleY = pressScaleY
                             },
                     ) {
                         Box(contentAlignment = Alignment.Center) {

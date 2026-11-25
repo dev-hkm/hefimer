@@ -11,7 +11,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,15 +49,19 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Casino
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Grid4x4
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PanTool
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -72,22 +79,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.hypot
+import kotlin.math.min
+import kotlin.math.roundToInt
 import com.hefimer.app.data.model.BoardPoint
 import com.hefimer.app.data.model.ChatMessage
 import com.hefimer.app.data.model.ToastType
@@ -863,7 +880,8 @@ private fun ChatBubbleItem(
 }
 
 /**
- * Full-screen live collaborative Whiteboard overlay synced with board_paths/{boardId}.
+ * Full-screen live collaborative Whiteboard overlay synced 1:1 with PC board_paths/{boardId}
+ * using a 1280x720 virtual 16:9 canvas with 1-finger draw/pan, 2-finger pinch-zoom, Undo, and 2x HD export.
  */
 @Composable
 fun WhiteboardOverlay(
@@ -872,6 +890,7 @@ fun WhiteboardOverlay(
 ) {
     val state by vm.roomsState.collectAsState()
     val context = LocalContext.current
+    val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -879,70 +898,235 @@ fun WhiteboardOverlay(
     var currentColorHex by remember { mutableStateOf("#ffffff") }
     var strokeSize by remember { mutableFloatStateOf(4f) }
     var isEraser by remember { mutableStateOf(false) }
+    var isPanTool by remember { mutableStateOf(false) }
+    var showGrid by remember { mutableStateOf(true) }
     var showPalette by remember { mutableStateOf(false) }
-    var confirmClear by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
-    var canvasSize by remember { mutableStateOf(IntSize(1080, 1920)) }
+
+    val boardW = state.boardWidth.coerceAtLeast(320f)
+    val boardH = state.boardHeight.coerceAtLeast(240f)
+    var viewportSize by remember { mutableStateOf(IntSize.Zero) }
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    var hasInitializedFit by remember { mutableStateOf(false) }
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
     val activePoints = remember { mutableStateListOf<BoardPoint>() }
+
+    LaunchedEffect(state.activeBoardId, state.activeBoardExpiresAt) {
+        while (state.activeBoardExpiresAt > 0L) {
+            nowMs = System.currentTimeMillis()
+            delay(1000L)
+        }
+    }
+
+    val marginH = with(density) { 24.dp.toPx() }
+    val topReserve = with(density) { statusTop.toPx() + 92.dp.toPx() }
+    val bottomReserve = with(density) { navBottom.toPx() + 108.dp.toPx() }
+    val fitZoom = remember(viewportSize, boardW, boardH, marginH, topReserve, bottomReserve) {
+        if (viewportSize.width <= 0 || viewportSize.height <= 0) {
+            0.5f
+        } else {
+            val availW = (viewportSize.width - marginH).coerceAtLeast(160f)
+            val availH = (viewportSize.height - topReserve - bottomReserve).coerceAtLeast(160f)
+            min(availW / boardW, availH / boardH).coerceIn(0.16f, 3f)
+        }
+    }
+
+    fun clampBoardPan(rawPan: Offset, targetZoom: Float): Offset {
+        if (viewportSize.width <= 0 || viewportSize.height <= 0) return rawPan
+        val visibleMargin = 80f
+        val minX = visibleMargin - boardW * targetZoom
+        val maxX = (viewportSize.width - visibleMargin).coerceAtLeast(minX)
+        val minY = visibleMargin - boardH * targetZoom
+        val maxY = (viewportSize.height - visibleMargin).coerceAtLeast(minY)
+        return Offset(
+            x = rawPan.x.coerceIn(minX, maxX),
+            y = rawPan.y.coerceIn(minY, maxY),
+        )
+    }
+
+    fun resetFitView() {
+        if (viewportSize.width <= 0 || viewportSize.height <= 0) return
+        zoom = fitZoom
+        val centerOffsetY = (topReserve - bottomReserve) * 0.5f
+        pan = Offset(
+            x = (viewportSize.width - boardW * fitZoom) / 2f,
+            y = (viewportSize.height - boardH * fitZoom) / 2f + centerOffsetY,
+        )
+    }
+
+    LaunchedEffect(viewportSize, boardW, boardH) {
+        if (!hasInitializedFit && viewportSize.width > 0 && viewportSize.height > 0) {
+            resetFitView()
+            hasInitializedFit = true
+        }
+    }
+
+    val gridPoints = remember(boardW, boardH) {
+        val list = ArrayList<Offset>()
+        var gx = 30f
+        while (gx < boardW) {
+            var gy = 30f
+            while (gy < boardH) {
+                list.add(Offset(gx, gy))
+                gy += 30f
+            }
+            gx += 30f
+        }
+        list
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(HefimerColors.Black),
+            .background(Color(0xFF060608))
+            .clipToBounds()
+            .onSizeChanged { viewportSize = it },
     ) {
-        // Real-time collaborative drawing Canvas
+        // Real-time collaborative 1280x720 PC-synced drawing Canvas with 2-finger pinch/pan
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { canvasSize = it }
-                .pointerInput(currentColorHex, strokeSize, isEraser) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            activePoints.clear()
-                            activePoints.add(BoardPoint(offset.x, offset.y))
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            activePoints.add(BoardPoint(change.position.x, change.position.y))
-                        },
-                        onDragEnd = {
-                            if (activePoints.isNotEmpty()) {
-                                val color = if (isEraser) "#000000" else currentColorHex
-                                val w = if (isEraser) strokeSize * 2.5f else strokeSize
-                                vm.pushBoardStroke(color, w, activePoints.toList())
+                .pointerInput(boardW, boardH) {
+                    awaitEachGesture {
+                        val firstEvent = awaitPointerEvent()
+                        val down = firstEvent.changes.firstOrNull { it.pressed } ?: return@awaitEachGesture
+                        var isDrawingStroke = false
+                        var hasMultitouched = firstEvent.changes.count { it.pressed } > 1
+
+                        if (!hasMultitouched && !isPanTool) {
+                            val bx = (down.position.x - pan.x) / zoom
+                            val by = (down.position.y - pan.y) / zoom
+                            if (bx in -36f..(boardW + 36f) && by in -36f..(boardH + 36f)) {
+                                isDrawingStroke = true
                                 activePoints.clear()
+                                activePoints.add(BoardPoint(bx.coerceIn(0f, boardW), by.coerceIn(0f, boardH)))
+                                down.consume()
                             }
-                        },
-                        onDragCancel = { activePoints.clear() },
-                    )
+                        }
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.isEmpty()) break
+
+                            if (pressed.size >= 2) {
+                                if (isDrawingStroke) {
+                                    isDrawingStroke = false
+                                    activePoints.clear()
+                                }
+                                hasMultitouched = true
+                                val zoomChange = event.calculateZoom()
+                                val panChange = event.calculatePan()
+                                val centroid = event.calculateCentroid(useCurrent = false)
+                                val oldZoom = zoom
+                                val minZoom = (fitZoom * 0.65f).coerceAtLeast(0.14f)
+                                val maxZoom = (fitZoom * 6f).coerceAtLeast(4f)
+                                val newZoom = (oldZoom * zoomChange).coerceIn(minZoom, maxZoom)
+                                val scaleFactor = if (oldZoom > 0f) newZoom / oldZoom else 1f
+                                val rawPan = centroid - (centroid - pan) * scaleFactor + panChange
+                                zoom = newZoom
+                                pan = clampBoardPan(rawPan, newZoom)
+                                event.changes.forEach { it.consume() }
+                            } else if (isDrawingStroke && !hasMultitouched) {
+                                val change = pressed.first()
+                                val bx = ((change.position.x - pan.x) / zoom).coerceIn(0f, boardW)
+                                val by = ((change.position.y - pan.y) / zoom).coerceIn(0f, boardH)
+                                val prev = activePoints.lastOrNull()
+                                if (prev == null || hypot(bx - prev.x, by - prev.y) >= 1.2f) {
+                                    activePoints.add(BoardPoint(bx, by))
+                                }
+                                change.consume()
+                            } else if (isPanTool && !hasMultitouched) {
+                                val panChange = event.calculatePan()
+                                if (panChange != Offset.Zero) {
+                                    pan = clampBoardPan(pan + panChange, zoom)
+                                    event.changes.forEach { it.consume() }
+                                }
+                            }
+                        }
+
+                        if (isDrawingStroke && !hasMultitouched && activePoints.isNotEmpty()) {
+                            val color = if (isEraser) "#000000" else currentColorHex
+                            val w = if (isEraser) strokeSize * 2.5f else strokeSize
+                            vm.pushBoardStroke(color, w, activePoints.toList())
+                        }
+                        activePoints.clear()
+                    }
                 },
         ) {
-            fun drawPoints(pts: List<BoardPoint>, hex: String, width: Float) {
-                if (pts.isEmpty()) return
-                val col = runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(Color.White)
-                val path = Path().apply {
-                    moveTo(pts.first().x, pts.first().y)
-                    for (i in 1 until pts.size) {
-                        lineTo(pts[i].x, pts[i].y)
+            withTransform({
+                translate(left = pan.x, top = pan.y)
+                scale(scaleX = zoom, scaleY = zoom, pivot = Offset.Zero)
+            }) {
+                // Virtual PC-matched 1280x720 board surface
+                drawRect(
+                    color = HefimerColors.Black,
+                    topLeft = Offset.Zero,
+                    size = Size(boardW, boardH),
+                )
+                drawRect(
+                    color = HefimerColors.White20,
+                    topLeft = Offset.Zero,
+                    size = Size(boardW, boardH),
+                    style = Stroke(width = (1.5f / zoom).coerceAtLeast(0.8f)),
+                )
+
+                clipRect(0f, 0f, boardW, boardH) {
+                    if (showGrid && gridPoints.isNotEmpty()) {
+                        drawPoints(
+                            points = gridPoints,
+                            pointMode = PointMode.Points,
+                            color = Color.White.copy(alpha = 0.18f),
+                            strokeWidth = (2.2f).coerceAtLeast(1.4f / zoom),
+                            cap = StrokeCap.Round,
+                        )
+                    }
+
+                    fun drawStrokePath(hex: String, width: Float, pts: List<BoardPoint>) {
+                        if (pts.isEmpty()) return
+                        val col = runCatching { Color(android.graphics.Color.parseColor(hex)) }
+                            .getOrDefault(HefimerColors.White)
+                        if (pts.size == 1) {
+                            drawCircle(
+                                color = col,
+                                radius = (width / 2f).coerceAtLeast(0.8f),
+                                center = Offset(pts[0].x, pts[0].y),
+                            )
+                        } else {
+                            val path = Path().apply {
+                                moveTo(pts.first().x, pts.first().y)
+                                for (i in 1 until pts.size) {
+                                    lineTo(pts[i].x, pts[i].y)
+                                }
+                            }
+                            drawPath(
+                                path = path,
+                                color = col,
+                                style = Stroke(width = width, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                            )
+                        }
+                    }
+
+                    state.boardStrokes.forEach { st ->
+                        drawStrokePath(st.color, st.size, st.points)
+                    }
+
+                    if (activePoints.isNotEmpty()) {
+                        val activeCol = if (isEraser) "#000000" else currentColorHex
+                        val activeW = if (isEraser) strokeSize * 2.5f else strokeSize
+                        drawStrokePath(activeCol, activeW, activePoints)
                     }
                 }
-                drawPath(
-                    path = path,
-                    color = col,
-                    style = Stroke(width = width * 2.2f, cap = StrokeCap.Round, join = StrokeJoin.Round),
-                )
-            }
-
-            state.boardStrokes.forEach { s -> drawPoints(s.points, s.color, s.size) }
-            if (activePoints.isNotEmpty()) {
-                drawPoints(activePoints, if (isEraser) "#000000" else currentColorHex, if (isEraser) strokeSize * 2.5f else strokeSize)
             }
         }
 
         // Floating Apple Glass top HUD capsule
+        val zoomPercent = if (fitZoom > 0f) ((zoom / fitZoom) * 100f).roundToInt() else 100
+        val countdownSuffix = if (state.activeBoardExpiresAt > 0L) " • ${formatCountdown(state.activeBoardExpiresAt, nowMs)}" else ""
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
@@ -954,11 +1138,15 @@ fun WhiteboardOverlay(
                 )
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                modifier = Modifier.weight(1f),
+            ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .appleGlassSurface(
                             shape = CircleShape,
                             variant = AppleGlassVariant.Clear,
@@ -968,17 +1156,58 @@ fun WhiteboardOverlay(
                 ) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
-                Column {
-                    Text(state.activeBoardName.ifBlank { "${tr("Board", "Bảng")} #${state.activeBoardId}" }, color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Text("#${state.activeBoardId}", color = HefimerColors.White40, fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = state.activeBoardName.ifBlank { "${tr("Board", "Bảng")} #${state.activeBoardId}" },
+                        color = HefimerColors.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "#${state.activeBoardId} • ${boardW.toInt()}×${boardH.toInt()} • ${state.boardStrokes.size}$countdownSuffix",
+                        color = HefimerColors.White45,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .height(36.dp)
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.90f) { resetFitView() }
+                        .padding(horizontal = 9.dp),
+                ) {
+                    Icon(Icons.Rounded.CenterFocusStrong, tr("Fit Board", "Thu vừa màn hình"), tint = HefimerColors.White80, modifier = Modifier.size(15.dp))
+                    Text(
+                        text = "$zoomPercent%",
+                        color = HefimerColors.White80,
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                // 2x Retina HD Export (2560x1440) synced with PC export
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .appleGlassSurface(
                             shape = CircleShape,
                             variant = AppleGlassVariant.Clear,
@@ -987,44 +1216,63 @@ fun WhiteboardOverlay(
                         .applePressable(pressedScale = 0.89f) {
                             scope.launch {
                                 runCatching {
-                                    val bmp = Bitmap.createBitmap(
-                                        canvasSize.width.coerceAtLeast(1080),
-                                        canvasSize.height.coerceAtLeast(1920),
-                                        Bitmap.Config.ARGB_8888,
-                                    )
+                                    val exportScale = 2f
+                                    val outW = (boardW * exportScale).roundToInt().coerceAtLeast(1280)
+                                    val outH = (boardH * exportScale).roundToInt().coerceAtLeast(720)
+                                    val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
                                     val c = AndroidCanvas(bmp)
                                     c.drawColor(android.graphics.Color.BLACK)
-                                    val p = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                                    c.scale(exportScale, exportScale)
+                                    val strokePaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
                                         style = AndroidPaint.Style.STROKE
                                         strokeCap = AndroidPaint.Cap.ROUND
                                         strokeJoin = AndroidPaint.Join.ROUND
                                     }
+                                    val dotPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                                        style = AndroidPaint.Style.FILL
+                                    }
                                     state.boardStrokes.forEach { st ->
                                         if (st.points.isEmpty()) return@forEach
-                                        p.color = runCatching { android.graphics.Color.parseColor(st.color) }.getOrDefault(android.graphics.Color.WHITE)
-                                        p.strokeWidth = st.size * 2.2f
-                                        val ap = AndroidPath().apply {
-                                            moveTo(st.points.first().x, st.points.first().y)
-                                            for (i in 1 until st.points.size) lineTo(st.points[i].x, st.points[i].y)
+                                        val parsedColor = runCatching { android.graphics.Color.parseColor(st.color) }
+                                            .getOrDefault(android.graphics.Color.WHITE)
+                                        if (st.points.size == 1) {
+                                            dotPaint.color = parsedColor
+                                            val pt = st.points.first()
+                                            c.drawCircle(pt.x, pt.y, (st.size / 2f).coerceAtLeast(0.8f), dotPaint)
+                                        } else {
+                                            strokePaint.color = parsedColor
+                                            strokePaint.strokeWidth = st.size
+                                            val ap = AndroidPath().apply {
+                                                moveTo(st.points.first().x, st.points.first().y)
+                                                for (i in 1 until st.points.size) lineTo(st.points[i].x, st.points[i].y)
+                                            }
+                                            c.drawPath(ap, strokePaint)
                                         }
-                                        c.drawPath(ap, p)
                                     }
-                                    DownloadHelper.saveBitmapToGallery(context, bmp, "hefimer_board_${state.activeBoardId}.png")
-                                }.onSuccess {
-                                    vm.showToast(tr("Board saved to Pictures/Hefimer", "Đã lưu bảng vào Pictures/Hefimer"), ToastType.SUCCESS)
+                                    DownloadHelper.saveBitmapToGallery(
+                                        context,
+                                        bmp,
+                                        "hefimer_board_${state.activeBoardId}_hd.png",
+                                    )
+                                }.onSuccess { outcome ->
+                                    vm.notifyFileSaved(outcome)
+                                    vm.showToast(
+                                        tr("Saved 2x HD Board (${(boardW * 2).toInt()}×${(boardH * 2).toInt()})", "Đã lưu bảng HD 2x (${(boardW * 2).toInt()}×${(boardH * 2).toInt()})"),
+                                        ToastType.SUCCESS,
+                                    )
                                 }.onFailure {
                                     vm.showToast(tr("Failed to export board", "Xuất bảng thất bại"), ToastType.ERROR)
                                 }
                             }
                         },
                 ) {
-                    Icon(Icons.Rounded.Download, tr("Export PNG", "Xuất PNG"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.Download, tr("Export 2x PNG", "Xuất PNG 2x"), tint = HefimerColors.White, modifier = Modifier.size(17.dp))
                 }
 
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .appleGlassSurface(
                             shape = CircleShape,
                             variant = AppleGlassVariant.Clear,
@@ -1032,7 +1280,7 @@ fun WhiteboardOverlay(
                         )
                         .applePressable(pressedScale = 0.89f) { showQr = true },
                 ) {
-                    Icon(Icons.Rounded.QrCode2, tr("Share", "Chia sẻ"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.QrCode2, tr("Share", "Chia sẻ"), tint = HefimerColors.White, modifier = Modifier.size(17.dp))
                 }
             }
         }
@@ -1043,7 +1291,7 @@ fun WhiteboardOverlay(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = navBottom + 14.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = navBottom + 14.dp, start = 14.dp, end = 14.dp),
         ) {
             AnimatedVisibility(visible = showPalette, enter = AppMotion.softExpandEnter, exit = AppMotion.softExpandExit) {
                 Column(
@@ -1063,7 +1311,7 @@ fun WhiteboardOverlay(
                     ) {
                         BOARD_COLORS.forEach { hex ->
                             val col = Color(android.graphics.Color.parseColor(hex))
-                            val sel = !isEraser && currentColorHex == hex
+                            val sel = !isEraser && !isPanTool && currentColorHex == hex
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
@@ -1073,16 +1321,17 @@ fun WhiteboardOverlay(
                                     .applePressable(pressedScale = 0.88f) {
                                         currentColorHex = hex
                                         isEraser = false
+                                        isPanTool = false
                                     },
                             )
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("${tr("SIZE", "CỠ NÉT")} ${strokeSize.toInt()}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
+                        Text("${tr("SIZE", "CỠ NÉT")} ${strokeSize.roundToInt()}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 10.sp)
                         Slider(
                             value = strokeSize,
                             onValueChange = { strokeSize = it },
-                            valueRange = 2f..24f,
+                            valueRange = 1f..20f,
                             colors = SliderDefaults.colors(
                                 thumbColor = HefimerColors.White,
                                 activeTrackColor = HefimerColors.White,
@@ -1095,7 +1344,7 @@ fun WhiteboardOverlay(
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .appleGlassSurface(
@@ -1103,51 +1352,62 @@ fun WhiteboardOverlay(
                         variant = AppleGlassVariant.Elevated,
                         elevation = 20.dp,
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
             ) {
-                BoardToolBtn(Icons.Rounded.Brush, active = !isEraser) { isEraser = false }
-                BoardToolBtn(Icons.Rounded.AutoFixHigh, active = isEraser) { isEraser = true }
+                BoardToolBtn(Icons.Rounded.Brush, active = !isEraser && !isPanTool) {
+                    isEraser = false
+                    isPanTool = false
+                }
+                BoardToolBtn(Icons.Rounded.AutoFixHigh, active = isEraser && !isPanTool) {
+                    isEraser = true
+                    isPanTool = false
+                }
+                BoardToolBtn(Icons.Rounded.PanTool, active = isPanTool) {
+                    isPanTool = !isPanTool
+                }
                 BoardToolBtn(Icons.Rounded.Palette, active = showPalette) { showPalette = !showPalette }
+                BoardToolBtn(Icons.Rounded.Grid4x4, active = showGrid) { showGrid = !showGrid }
+                BoardToolBtn(
+                    icon = Icons.Rounded.Undo,
+                    active = false,
+                    enabled = state.canUndoBoardStroke || state.boardStrokes.isNotEmpty(),
+                ) {
+                    vm.undoLastBoardStroke()
+                }
 
-                val clearFill by animateColorAsState(
-                    targetValue = if (confirmClear) HefimerColors.Red500 else Color.Transparent,
-                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
-                    label = "board_clear_fill",
-                )
-                val clearIconTint by animateColorAsState(
-                    targetValue = if (confirmClear) Color.White else HefimerColors.Red400,
-                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
-                    label = "board_clear_tint",
-                )
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
+                        .size(38.dp)
                         .appleGlassSurface(
                             shape = CircleShape,
                             variant = AppleGlassVariant.Clear,
-                            accentBorderTint = if (confirmClear) HefimerColors.Red400 else null,
-                            accentFillTint = clearFill,
+                            accentBorderTint = if (state.boardStrokes.isNotEmpty()) HefimerColors.Red400.copy(alpha = 0.55f) else null,
                             elevation = 0.dp,
                         )
-                        .applePressable(pressedScale = 0.92f) {
-                            if (!confirmClear) {
-                                confirmClear = true
-                                scope.launch {
-                                    delay(3000L)
-                                    confirmClear = false
-                                }
-                            } else {
-                                confirmClear = false
+                        .applePressable(
+                            pressedScale = 0.88f,
+                            enabled = state.boardStrokes.isNotEmpty(),
+                        ) {
+                            vm.requestConfirm(
+                                title = tr("Clear Whiteboard?", "Xóa toàn bộ bảng vẽ?"),
+                                message = tr(
+                                    "All strokes on Board #${state.activeBoardId} will be erased for everyone.",
+                                    "Tất cả nét vẽ trên Bảng #${state.activeBoardId} sẽ bị xóa khỏi màn hình của mọi người.",
+                                ),
+                                confirmLabel = tr("Clear Board", "Xóa bảng"),
+                                isDestructive = true,
+                            ) {
                                 vm.clearBoard()
                             }
-                        }
-                        .padding(horizontal = if (confirmClear) 14.dp else 10.dp, vertical = 9.dp),
+                        },
                 ) {
-                    if (confirmClear) {
-                        Text(tr("Tap to Clear", "Chạm để xóa"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Rounded.DeleteOutline, tr("Clear", "Xóa"), tint = clearIconTint, modifier = Modifier.size(18.dp))
-                    }
+                    Icon(
+                        Icons.Rounded.DeleteOutline,
+                        tr("Clear", "Xóa"),
+                        tint = if (state.boardStrokes.isNotEmpty()) HefimerColors.Red400 else HefimerColors.White30,
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
             }
         }
@@ -1168,6 +1428,7 @@ fun WhiteboardOverlay(
 private fun BoardToolBtn(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     active: Boolean,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val activeFill by animateColorAsState(
@@ -1176,14 +1437,18 @@ private fun BoardToolBtn(
         label = "board_tool_fill",
     )
     val iconTint by animateColorAsState(
-        targetValue = if (active) HefimerColors.Black else HefimerColors.White80,
+        targetValue = when {
+            !enabled -> HefimerColors.White30
+            active -> HefimerColors.Black
+            else -> HefimerColors.White80
+        },
         animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
         label = "board_tool_tint",
     )
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(40.dp)
+            .size(38.dp)
             .appleGlassSurface(
                 shape = CircleShape,
                 variant = AppleGlassVariant.Clear,
@@ -1191,8 +1456,8 @@ private fun BoardToolBtn(
                 accentFillTint = activeFill,
                 elevation = 0.dp,
             )
-            .applePressable(pressedScale = 0.88f, onClick = onClick),
+            .applePressable(pressedScale = 0.88f, enabled = enabled, onClick = onClick),
     ) {
-        Icon(icon, null, tint = iconTint, modifier = Modifier.size(19.dp))
+        Icon(icon, null, tint = iconTint, modifier = Modifier.size(18.dp))
     }
 }

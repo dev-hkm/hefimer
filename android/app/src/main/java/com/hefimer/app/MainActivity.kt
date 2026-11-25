@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,23 +49,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.hefimer.app.data.model.ToastType
+import com.hefimer.app.data.network.DownloadHelper
 import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.components.FloatingDownloadProgressBanner
+import com.hefimer.app.ui.components.HefimerConfirmDialog
 import com.hefimer.app.ui.components.HefimerFloatingBottomDock
 import com.hefimer.app.ui.components.HefimerLaunchIntro
 import com.hefimer.app.ui.components.HefimerOnboardingOverlay
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerToastHost
 import com.hefimer.app.ui.components.MainTab
+import com.hefimer.app.ui.components.PostSaveBottomSheetContent
 import com.hefimer.app.ui.components.QrScannerOverlay
+import com.hefimer.app.ui.components.RedownloadConfirmDialog
 import com.hefimer.app.ui.components.SettingsSheetContent
 import com.hefimer.app.ui.screens.ChatRoomOverlay
 import com.hefimer.app.ui.screens.FloatingIncomingOfferBanner
@@ -82,7 +89,9 @@ import com.hefimer.app.ui.theme.AppleLayeredNavigationHost
 import com.hefimer.app.ui.theme.AppleMonochromeBackdrop
 import com.hefimer.app.ui.theme.AppleSwipeableSheet
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.HefimerHaptics
 import com.hefimer.app.ui.theme.HefimerTheme
+import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.HeroBoundsRegistry
 import com.hefimer.app.ui.theme.LocalHeroBounds
 import com.hefimer.app.ui.theme.appleGlassSurface
@@ -141,6 +150,13 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         viewModel.handleIncomingIntent(intent)
     }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            viewModel.checkClipboardForHefimer()
+        }
+    }
 }
 
 @Composable
@@ -148,7 +164,9 @@ private fun HefimerRootScreen(
     vm: HefimerViewModel,
     onExitApp: () -> Unit,
 ) {
+    val context = LocalContext.current
     val selectedTab by vm.selectedTab.collectAsState()
+    val defaultStartTab by vm.defaultStartTab.collectAsState()
     val activeOverlay by vm.activeOverlay.collectAsState()
     val activeHeroKey by vm.activeHeroKey.collectAsState()
     val toast by vm.toast.collectAsState()
@@ -162,7 +180,19 @@ private fun HefimerRootScreen(
     val defaultProviderId by vm.defaultProviderId.collectAsState()
     val showSettingsSheet by vm.showSettingsSheet.collectAsState()
     val showOnboarding by vm.showOnboarding.collectAsState()
+    val promptOpenAfterDownload by vm.promptOpenAfterDownload.collectAsState()
+    val confirmRedownload by vm.confirmRedownload.collectAsState()
+    val smartClipboardBanner by vm.smartClipboardBanner.collectAsState()
+    val hapticEnabled by vm.hapticEnabled.collectAsState()
+    val confirmDialog by vm.confirmDialog.collectAsState()
+    val pendingRedownload by vm.pendingRedownload.collectAsState()
+    val savedFilePrompt by vm.savedFilePrompt.collectAsState()
+    val clipboardSuggestion by vm.clipboardSuggestion.collectAsState()
     val history by vm.history.collectAsState()
+
+    LaunchedEffect(hapticEnabled) {
+        HefimerHaptics.enabled = hapticEnabled
+    }
 
     val heroRegistry = remember { HeroBoundsRegistry() }
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -198,6 +228,7 @@ private fun HefimerRootScreen(
                         onExitApp()
                     }
                 },
+                isFastDismissOverlay = { it is AppOverlay.QrScanner },
                 bottomChrome = { overlayReveal ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Global floating incoming Hefimer Link offer banner
@@ -261,7 +292,82 @@ private fun HefimerRootScreen(
                     .padding(bottom = navBottom + if (activeOverlay == null) 78.dp else 20.dp),
             )
 
-            // Settings Sheet (Light/Dark mode, Default Provider, History) with full PredictiveBackHandler
+            // Smart Clipboard Suggestion Banner (detects Hefimer codes/links/tokens automatically)
+            AnimatedVisibility(
+                visible = clipboardSuggestion != null && activeOverlay == null && !showOnboarding,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        bottom = navBottom + if (downloadState != null || floatingOffer != null) 166.dp else 78.dp,
+                        start = 16.dp,
+                        end = 16.dp,
+                    ),
+            ) {
+                clipboardSuggestion?.let { suggestion ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(24.dp),
+                                variant = AppleGlassVariant.Elevated,
+                                elevation = 16.dp,
+                            )
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(HefimerColors.White10),
+                        ) {
+                            Icon(Icons.Rounded.ContentPasteGo, null, tint = HefimerColors.White, modifier = Modifier.size(17.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = suggestion.kindLabel,
+                                color = HefimerColors.White45,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.4.sp,
+                            )
+                            Text(
+                                text = suggestion.displayLabel,
+                                color = HefimerColors.White90,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(HefimerColors.White)
+                                .applePressable(pressedScale = 0.90f) { vm.acceptClipboardSuggestion() }
+                                .padding(horizontal = 12.dp, vertical = 7.dp),
+                        ) {
+                            Text(tr("Open", "Mở"), color = HefimerColors.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = tr("Dismiss", "Đóng"),
+                            tint = HefimerColors.White50,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .applePressable(pressedScale = 0.88f) { vm.dismissClipboardSuggestion() },
+                        )
+                    }
+                }
+            }
+
+            // Settings Sheet (Appearance, Language, Start Tab, UX Toggles, Default Provider, History)
             AppleSwipeableSheet(
                 visible = showSettingsSheet,
                 onDismiss = { vm.closeSettings() },
@@ -269,10 +375,20 @@ private fun HefimerRootScreen(
                 SettingsSheetContent(
                     isLightMode = isLightMode,
                     appLanguage = appLanguage,
+                    defaultStartTab = defaultStartTab,
                     defaultProviderId = defaultProviderId,
+                    promptOpenAfterDownload = promptOpenAfterDownload,
+                    confirmRedownload = confirmRedownload,
+                    smartClipboardBanner = smartClipboardBanner,
+                    hapticEnabled = hapticEnabled,
                     historyCount = history.size,
                     onSetLightMode = { vm.setLightMode(it) },
                     onSetAppLanguage = { vm.setAppLanguage(it) },
+                    onSetDefaultStartTab = { vm.setDefaultStartTab(it) },
+                    onTogglePromptOpenAfterDownload = { vm.togglePromptOpenAfterDownload() },
+                    onToggleConfirmRedownload = { vm.toggleConfirmRedownload() },
+                    onToggleSmartClipboardBanner = { vm.toggleSmartClipboardBanner() },
+                    onToggleHapticEnabled = { vm.toggleHapticEnabled() },
                     onOpenProviderPicker = {
                         dismiss()
                         vm.openSendProviderPicker()
@@ -281,9 +397,63 @@ private fun HefimerRootScreen(
                         dismiss()
                         vm.replayOnboarding()
                     },
-                    onClearHistory = { vm.clearHistory() },
+                    onClearHistory = {
+                        vm.requestConfirm(
+                            title = tr("Clear All History?", "Xóa toàn bộ lịch sử?"),
+                            message = tr(
+                                "All saved transfer codes and shortcuts will be removed from this device.",
+                                "Tất cả mã chia sẻ và lịch sử đã lưu trên thiết bị này sẽ bị xóa.",
+                            ),
+                            confirmLabel = tr("Clear History", "Xóa lịch sử"),
+                            isDestructive = true,
+                        ) {
+                            vm.clearHistory()
+                            dismiss()
+                        }
+                    },
                     onClose = dismiss,
                 )
+            }
+
+            // Post-Save "Open With App" Bottom Sheet
+            AppleSwipeableSheet(
+                visible = savedFilePrompt != null,
+                onDismiss = { vm.dismissSavedFilePrompt() },
+            ) { dismiss ->
+                savedFilePrompt?.let { prompt ->
+                    PostSaveBottomSheetContent(
+                        prompt = prompt,
+                        onOpenWithApp = {
+                            val opened = DownloadHelper.openSavedFileWithChooser(
+                                context = context,
+                                uriString = prompt.uriString,
+                                mimeType = prompt.mimeType,
+                                fileName = prompt.fileName,
+                            )
+                            if (!opened) {
+                                vm.showToast(
+                                    tr("No compatible app found to open this file", "Không tìm thấy ứng dụng phù hợp để mở tệp này"),
+                                    ToastType.ERROR,
+                                )
+                            }
+                            dismiss()
+                        },
+                        onShare = {
+                            DownloadHelper.shareSavedFile(
+                                context = context,
+                                uriString = prompt.uriString,
+                                mimeType = prompt.mimeType,
+                                fileName = prompt.fileName,
+                            )
+                            dismiss()
+                        },
+                        onOpenDownloads = {
+                            DownloadHelper.openDownloadsFolder(context)
+                            dismiss()
+                        },
+                        onClose = dismiss,
+                    )
+                }
             }
 
             // Send Provider Picker Sheet (mounted above bottom nav & Settings so it is NEVER covered)
@@ -445,6 +615,28 @@ private fun HefimerRootScreen(
 
             // Floating Toast Host
             HefimerToastHost(toast = toast, modifier = Modifier.align(Alignment.TopCenter))
+
+            // Duplicate Re-Download Confirmation Modal
+            pendingRedownload?.let { pending ->
+                val readable = remember(pending.matchedRecord.savedUri) {
+                    DownloadHelper.isUriReadable(context, pending.matchedRecord.savedUri)
+                }
+                RedownloadConfirmDialog(
+                    prompt = pending,
+                    hasExistingReadableFile = readable,
+                    onOpenExisting = { vm.openExistingFromRedownload() },
+                    onRedownload = { vm.confirmPendingRedownload() },
+                    onDismiss = { vm.dismissPendingRedownload() },
+                )
+            }
+
+            // Global Destructive Action Confirmation Modal
+            confirmDialog?.let { req ->
+                HefimerConfirmDialog(
+                    request = req,
+                    onDismiss = { vm.dismissConfirm() },
+                )
+            }
 
             // 4-Screen First-Launch Apple Onboarding (emerges directly beneath the logo intro)
             if (showOnboarding) {

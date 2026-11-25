@@ -226,6 +226,36 @@ data class InviteResponse(
     val expiresAt: Long = 0L,
 )
 
+@Serializable
+data class DownloadedFileRecord(
+    val key: String,
+    val fileName: String,
+    val fileSize: Long = 0L,
+    val mimeType: String = "application/octet-stream",
+    val savedUri: String = "",
+    val downloadedAt: Long = System.currentTimeMillis(),
+)
+
+data class SavedFilePrompt(
+    val fileName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val uriString: String,
+)
+
+data class PendingRedownloadPrompt(
+    val files: List<DropFileEntry>,
+    val matchedRecord: DownloadedFileRecord,
+)
+
+data class ConfirmDialogRequest(
+    val title: String,
+    val message: String,
+    val confirmLabel: String,
+    val isDestructive: Boolean = true,
+    val onConfirm: () -> Unit,
+)
+
 data class DropCreatedOffer(
     val kind: String,
     val name: String,

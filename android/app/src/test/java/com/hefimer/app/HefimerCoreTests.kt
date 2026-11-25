@@ -165,4 +165,41 @@ class HefimerCoreTests {
             com.hefimer.app.ui.theme.HefimerLang.update(prev)
         }
     }
+
+    @Test
+    fun computeLineStartOffsetsHandlesLongMultilineDocumentsWithoutTruncation() {
+        assertEquals(listOf(0), com.hefimer.app.ui.components.computeLineStartOffsets(""))
+        assertEquals(listOf(0, 2, 4), com.hefimer.app.ui.components.computeLineStartOffsets("a\nb\n"))
+
+        val lines = (1..420).joinToString("\n") { idx ->
+            if (idx % 25 == 0) "line_$idx " + "wrapped_token_".repeat(12) else "const val line$idx = $idx"
+        }
+        val offsets = com.hefimer.app.ui.components.computeLineStartOffsets(lines)
+        assertEquals(420, offsets.size)
+        assertEquals(0, offsets.first())
+        assertTrue(offsets.last() < lines.length)
+        assertTrue(offsets.zipWithNext().all { (a, b) -> b > a })
+    }
+
+    @Test
+    fun pcSyncedBoardAndReleaseV230ModelsHaveExpectedDefaults() {
+        val rooms = com.hefimer.app.ui.RoomsUiState()
+        assertEquals(1280f, rooms.boardWidth, 0.001f)
+        assertEquals(720f, rooms.boardHeight, 0.001f)
+        assertEquals(16f / 9f, rooms.boardWidth / rooms.boardHeight, 0.001f)
+
+        val link = com.hefimer.app.ui.LinkUiState()
+        assertEquals("", link.inviteShortCode)
+        assertEquals(false, link.showPairModal)
+
+        val outcome = com.hefimer.app.data.network.DownloadOutcome(
+            mode = "download",
+            fileName = "demo.pdf",
+            mimeType = "application/pdf",
+            sizeBytes = 2048L,
+        )
+        assertEquals("demo.pdf", outcome.fileName)
+        assertEquals(2048L, outcome.sizeBytes)
+        assertEquals("application/pdf", outcome.mimeType)
+    }
 }

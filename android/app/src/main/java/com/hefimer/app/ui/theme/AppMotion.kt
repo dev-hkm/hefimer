@@ -30,6 +30,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -88,6 +90,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
+object HefimerHaptics {
+    var enabled by mutableStateOf(true)
+}
+
 object AppMotion {
     // Canonical Apple cubic-bezier deceleration curves
     val AppleSheet = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
@@ -95,29 +101,29 @@ object AppMotion {
     val AppleEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
     val AppleEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
-    // Unhurried, silky Apple-calibrated duration tokens (ms)
-    const val Screen = 680
-    const val ScreenPop = 620
-    const val Tab = 580
-    const val Sheet = 640
-    const val Content = 680
-    const val Fast = 420
-    const val Micro = 320
+    // Apple-calibrated duration tokens (ms) — responsive frame 1 lift-off & unhurried feather settle
+    const val Screen = 460
+    const val ScreenPop = 340
+    const val Tab = 340
+    const val Sheet = 440
+    const val Content = 420
+    const val Fast = 240
+    const val Micro = 180
 
-    // Perceptual springs tuned for calm, silky, unhurried Apple glide (zero wobble on taps)
-    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.95f, stiffness = 125f)
-    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.93f, stiffness = 140f)
-    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.93f, stiffness = 150f)
-    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.96f, stiffness = 105f)
-    fun <T> snappySpring() = spring<T>(dampingRatio = 0.90f, stiffness = 195f)
-    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 300f)
-    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.84f, stiffness = 170f)
-    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 165f)
-    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.82f, stiffness = 175f)
+    // Perceptual springs tuned per Apple WWDC spring specs + soft liquid-droplet tactile rebound
+    fun <T> navigationSpring() = spring<T>(dampingRatio = 0.90f, stiffness = 240f)
+    fun <T> fluidSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 260f)
+    fun <T> layoutSpring() = spring<T>(dampingRatio = 0.88f, stiffness = 270f)
+    fun <T> gentleSpring() = spring<T>(dampingRatio = 0.92f, stiffness = 210f)
+    fun <T> snappySpring() = spring<T>(dampingRatio = 0.80f, stiffness = 360f)
+    fun <T> pressDownSpring() = spring<T>(dampingRatio = 0.84f, stiffness = 430f)
+    fun <T> pressReleaseSpring() = spring<T>(dampingRatio = 0.60f, stiffness = 310f)
+    fun <T> softPopSpring() = spring<T>(dampingRatio = 0.72f, stiffness = 340f)
+    fun <T> bouncySpring() = spring<T>(dampingRatio = 0.65f, stiffness = 300f)
 
-    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.93f, stiffness = 150f)
-    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.93f, stiffness = 140f)
-    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.93f, stiffness = 150f)
+    fun floatLayoutSpring() = spring<Float>(dampingRatio = 0.88f, stiffness = 270f)
+    fun intOffsetFluidSpring() = spring<IntOffset>(dampingRatio = 0.88f, stiffness = 260f)
+    fun intSizeLayoutSpring() = spring<IntSize>(dampingRatio = 0.88f, stiffness = 270f)
 
     // Peer tab switch: unhurried silk cross-dissolve + subtle vertical breath
     fun tabTransform(reduceMotion: Boolean = false): ContentTransform {
@@ -135,16 +141,16 @@ object AppMotion {
         if (reduceMotion) {
             return fadeIn(tween(140, easing = AppleEase)) togetherWith fadeOut(tween(120, easing = AppleEase))
         }
-        val enter = fadeIn(tween(720, easing = AppleSilk)) +
-            slideInVertically(tween(720, easing = AppleSheet)) { (it * 0.036f).toInt() } +
+        val enter = fadeIn(tween(Content, easing = AppleSilk)) +
+            slideInVertically(tween(Content, easing = AppleSheet)) { (it * 0.032f).toInt() } +
             scaleIn(
-                animationSpec = tween(720, easing = AppleSheet),
-                initialScale = 0.945f,
+                animationSpec = tween(Content, easing = AppleSheet),
+                initialScale = 0.955f,
             )
-        val exit = fadeOut(tween(Fast, easing = AppleEase)) +
+        val exit = fadeOut(tween(Micro, easing = AppleEase)) +
             scaleOut(
-                animationSpec = tween(Fast, easing = AppleSilk),
-                targetScale = 0.97f,
+                animationSpec = tween(Micro, easing = AppleSilk),
+                targetScale = 0.975f,
             )
         return enter togetherWith exit
     }
@@ -154,22 +160,22 @@ object AppMotion {
             fadeOut(tween(Fast, easing = AppleEase))
 
     val softExpandEnter: EnterTransition =
-        expandVertically(animationSpec = tween(480, easing = AppleSheet)) +
-            fadeIn(tween(440, easing = AppleSilk))
+        expandVertically(animationSpec = tween(360, easing = AppleSheet)) +
+            fadeIn(tween(300, easing = AppleSilk))
 
     val softExpandExit: ExitTransition =
-        shrinkVertically(animationSpec = tween(360, easing = AppleSilk)) +
-            fadeOut(tween(280, easing = AppleEase))
+        shrinkVertically(animationSpec = tween(260, easing = AppleSilk)) +
+            fadeOut(tween(200, easing = AppleEase))
 
     val floatingBarEnter: EnterTransition =
         slideInVertically(tween(Sheet, easing = AppleSheet)) { it / 2 } +
-            fadeIn(tween(440, easing = AppleSilk)) +
+            fadeIn(tween(320, easing = AppleSilk)) +
             scaleIn(tween(Sheet, easing = AppleSheet), initialScale = 0.94f)
 
     val floatingBarExit: ExitTransition =
-        slideOutVertically(tween(420, easing = AppleSilk)) { it / 2 } +
-            fadeOut(tween(300, easing = AppleEase)) +
-            scaleOut(tween(420, easing = AppleSilk), targetScale = 0.95f)
+        slideOutVertically(tween(280, easing = AppleSilk)) { it / 2 } +
+            fadeOut(tween(220, easing = AppleEase)) +
+            scaleOut(tween(280, easing = AppleSilk), targetScale = 0.95f)
 }
 
 fun projectOffset(velocityPxPerSec: Float, decelerationRate: Float = 0.998f): Float =
@@ -198,12 +204,14 @@ fun rememberReduceMotion(): Boolean {
 }
 
 /**
- * Tactile Apple press feedback: immediate ACTION_DOWN compression + subtle optical press highlight,
- * unhurried release spring, and zero Material ripple.
+ * Tactile Apple liquid-droplet press feedback:
+ * - Immediate ACTION_DOWN compression with subtle anisotropic water-droplet squish (`scaleX`/`scaleY`),
+ * - Silky spring rebound (`dampingRatio = 0.60f`) when releasing or sliding the finger off,
+ * - Zero Material ripple, respects global HefimerHaptics & Reduce Motion settings.
  */
 fun Modifier.applePressable(
     enabled: Boolean = true,
-    pressedScale: Float = 0.965f,
+    pressedScale: Float = 0.955f,
     enableHaptic: Boolean = true,
     onClick: () -> Unit,
 ): Modifier = composed {
@@ -212,21 +220,36 @@ fun Modifier.applePressable(
     val isPressed by interactionSource.collectIsPressedAsState()
     val reduceMotion = rememberReduceMotion()
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed && enabled && !reduceMotion) pressedScale else 1f,
+    val targetScaleX = if (isPressed && enabled && !reduceMotion) {
+        (pressedScale + (1f - pressedScale) * 0.16f).coerceIn(0.84f, 1f)
+    } else {
+        1f
+    }
+    val targetScaleY = if (isPressed && enabled && !reduceMotion) {
+        pressedScale
+    } else {
+        1f
+    }
+    val scaleXAnim by animateFloatAsState(
+        targetValue = targetScaleX,
         animationSpec = if (isPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
-        label = "apple_press_scale",
+        label = "apple_press_sx",
+    )
+    val scaleYAnim by animateFloatAsState(
+        targetValue = targetScaleY,
+        animationSpec = if (isPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+        label = "apple_press_sy",
     )
     val pressAlpha by animateFloatAsState(
-        targetValue = if (isPressed && enabled && !reduceMotion) 0.84f else 1f,
-        animationSpec = tween(if (isPressed) 90 else 220, easing = AppMotion.AppleSilk),
+        targetValue = if (isPressed && enabled && !reduceMotion) 0.85f else 1f,
+        animationSpec = tween(if (isPressed) 85 else 210, easing = AppMotion.AppleSilk),
         label = "apple_press_alpha",
     )
 
     this
         .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
+            scaleX = scaleXAnim
+            scaleY = scaleYAnim
             alpha = pressAlpha
         }
         .clickable(
@@ -234,7 +257,7 @@ fun Modifier.applePressable(
             interactionSource = interactionSource,
             indication = null,
             onClick = {
-                if (enableHaptic) {
+                if (enableHaptic && HefimerHaptics.enabled) {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 }
                 onClick()
@@ -320,6 +343,7 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
     heroKey: String?,
     onDismissOverlay: () -> Unit,
     onRootBack: (() -> Unit)? = null,
+    isFastDismissOverlay: (OverlayT) -> Boolean = { false },
     bottomChrome: @Composable (overlayReveal: Float) -> Unit,
     renderTab: @Composable (TabT) -> Unit,
     renderOverlay: @Composable (OverlayT, dismiss: () -> Unit) -> Unit,
@@ -350,18 +374,24 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
             isDismissing = false
             usedEdgeSwipe = false
             displayedOverlay = overlay
-            displayedHeroRect = heroBounds[heroKey]
+            displayedHeroRect = if (isFastDismissOverlay(overlay)) null else heroBounds[heroKey]
             dismissProgress.snapTo(1f)
             dismissProgress.animateTo(
                 targetValue = 0f,
-                animationSpec = if (reduceMotion) tween(160, easing = AppMotion.AppleEase) else AppMotion.navigationSpring(),
+                animationSpec = when {
+                    reduceMotion -> tween(150, easing = AppMotion.AppleEase)
+                    isFastDismissOverlay(overlay) -> tween(220, easing = AppMotion.AppleSheet)
+                    else -> AppMotion.navigationSpring()
+                },
             )
         } else if (displayedOverlay != null && !isDismissing) {
-            // External dismissal (e.g. QR scan completed): still play the exact same silky exit motion
+            val active = displayedOverlay
+            val fast = active != null && isFastDismissOverlay(active)
             isDismissing = true
             usedEdgeSwipe = false
             val spec: AnimationSpec<Float> = when {
-                reduceMotion -> tween(140, easing = AppMotion.AppleEase)
+                reduceMotion -> tween(130, easing = AppMotion.AppleEase)
+                fast -> tween(200, easing = AppMotion.AppleSheet)
                 displayedHeroRect != null -> AppMotion.navigationSpring()
                 else -> tween(AppMotion.ScreenPop, easing = AppMotion.AppleSheet)
             }
@@ -374,6 +404,8 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
 
     fun requestOverlayDismiss(fromEdgeSwipe: Boolean = false) {
         if (isDismissing || displayedOverlay == null) return
+        val active = displayedOverlay
+        val fast = active != null && isFastDismissOverlay(active)
         isDismissing = true
         usedEdgeSwipe = fromEdgeSwipe
         if (!fromEdgeSwipe) {
@@ -383,7 +415,8 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
         scope.launch {
             try {
                 val spec: AnimationSpec<Float> = when {
-                    reduceMotion -> tween(140, easing = AppMotion.AppleEase)
+                    reduceMotion -> tween(130, easing = AppMotion.AppleEase)
+                    fast -> tween(200, easing = AppMotion.AppleSheet)
                     displayedHeroRect != null -> AppMotion.navigationSpring()
                     else -> tween(AppMotion.ScreenPop, easing = AppMotion.AppleSheet)
                 }
@@ -796,10 +829,25 @@ fun <T> AppleSegmentedControl(
             .padding(padding),
     ) {
         val pillWidth = maxWidth / options.size.coerceAtLeast(1)
+        val density = LocalDensity.current
+        val pillWidthPx = with(density) { pillWidth.toPx() }.coerceAtLeast(1f)
+        var scrubbedIndex by remember { mutableIntStateOf(-1) }
+        val activeIdx = if (scrubbedIndex in options.indices) scrubbedIndex else selectedIndex
+
         val pillOffsetX by animateDpAsState(
-            targetValue = pillWidth * selectedIndex,
+            targetValue = pillWidth * activeIdx,
             animationSpec = AppMotion.layoutSpring(),
             label = "segmented_pill_x",
+        )
+        val thumbScaleX by animateFloatAsState(
+            targetValue = if (scrubbedIndex >= 0) 1.045f else 1f,
+            animationSpec = if (scrubbedIndex >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+            label = "seg_thumb_sx",
+        )
+        val thumbScaleY by animateFloatAsState(
+            targetValue = if (scrubbedIndex >= 0) 0.94f else 1f,
+            animationSpec = if (scrubbedIndex >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+            label = "seg_thumb_sy",
         )
         val thumbTint by animateColorAsState(
             targetValue = accentColor,
@@ -812,23 +860,64 @@ fun <T> AppleSegmentedControl(
                 .offset(x = pillOffsetX)
                 .width(pillWidth)
                 .height(height - padding * 2)
+                .graphicsLayer {
+                    scaleX = thumbScaleX
+                    scaleY = thumbScaleY
+                }
                 .clip(RoundedCornerShape(innerRadius))
                 .background(thumbTint),
         )
 
-        Row(Modifier.fillMaxWidth()) {
-            options.forEach { item ->
-                val isSelected = item == selected
-                val segInteract = remember { MutableInteractionSource() }
-                val segPressed by segInteract.collectIsPressedAsState()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(options.size, pillWidthPx) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var curIdx = (down.position.x / pillWidthPx).toInt().coerceIn(0, options.lastIndex)
+                        scrubbedIndex = curIdx
+                        var moved = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                val finalIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, options.lastIndex)
+                                if (finalIdx != selectedIndex || moved) {
+                                    if (HefimerHaptics.enabled) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                    onSelect(options[finalIdx])
+                                }
+                                scrubbedIndex = -1
+                                break
+                            }
+                            if (kotlin.math.abs(change.position.x - down.position.x) > 8f) {
+                                moved = true
+                                change.consume()
+                            }
+                            val hoverIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, options.lastIndex)
+                            if (hoverIdx != curIdx) {
+                                curIdx = hoverIdx
+                                scrubbedIndex = hoverIdx
+                                if (HefimerHaptics.enabled) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                                onSelect(options[hoverIdx])
+                            }
+                        }
+                    }
+                },
+        ) {
+            options.forEachIndexed { idx, item ->
+                val isSelected = idx == activeIdx
                 val segScale by animateFloatAsState(
-                    targetValue = if (segPressed) 0.94f else 1f,
-                    animationSpec = if (segPressed) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
+                    targetValue = if (scrubbedIndex == idx) 0.93f else 1f,
+                    animationSpec = if (scrubbedIndex == idx) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                     label = "seg_press_scale",
                 )
                 val segTextColor by animateColorAsState(
                     targetValue = if (isSelected) selectedTextColor else HefimerColors.White55,
-                    animationSpec = tween(260, easing = AppMotion.AppleSilk),
+                    animationSpec = tween(220, easing = AppMotion.AppleSilk),
                     label = "seg_text_color",
                 )
                 Box(
@@ -839,13 +928,6 @@ fun <T> AppleSegmentedControl(
                         .graphicsLayer {
                             scaleX = segScale
                             scaleY = segScale
-                        }
-                        .clickable(
-                            interactionSource = segInteract,
-                            indication = null,
-                        ) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelect(item)
                         },
                 ) {
                     Text(

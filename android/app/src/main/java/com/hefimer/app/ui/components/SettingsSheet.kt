@@ -13,14 +13,20 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,10 +51,20 @@ import com.hefimer.app.ui.theme.tr
 fun SettingsSheetContent(
     isLightMode: Boolean,
     appLanguage: AppLanguage,
+    defaultStartTab: MainTab,
     defaultProviderId: String,
+    promptOpenAfterDownload: Boolean,
+    confirmRedownload: Boolean,
+    smartClipboardBanner: Boolean,
+    hapticEnabled: Boolean,
     historyCount: Int,
     onSetLightMode: (Boolean) -> Unit,
     onSetAppLanguage: (AppLanguage) -> Unit,
+    onSetDefaultStartTab: (MainTab) -> Unit,
+    onTogglePromptOpenAfterDownload: () -> Unit,
+    onToggleConfirmRedownload: () -> Unit,
+    onToggleSmartClipboardBanner: () -> Unit,
+    onToggleHapticEnabled: () -> Unit,
     onOpenProviderPicker: () -> Unit,
     onReplayOnboarding: () -> Unit,
     onClearHistory: () -> Unit,
@@ -65,6 +81,7 @@ fun SettingsSheetContent(
                 elevation = 24.dp,
             )
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -155,6 +172,23 @@ fun SettingsSheetContent(
             )
         }
 
+        // Default Startup Screen selector
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = tr("DEFAULT LAUNCH SCREEN", "MÀN HÌNH MẶC ĐỊNH KHI MỞ APP"),
+                color = HefimerColors.White40,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            AppleSegmentedControl(
+                options = MainTab.entries,
+                selected = defaultStartTab,
+                label = { it.localizedLabel() },
+                onSelect = onSetDefaultStartTab,
+            )
+        }
+
         // Default Upload Provider
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -204,6 +238,49 @@ fun SettingsSheetContent(
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White45, modifier = Modifier.size(18.dp))
             }
+        }
+
+        // Smart UX & Safety Toggles
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = tr("EXPERIENCE & SAFETY", "TRẢI NGHIỆM & AN TOÀN"),
+                color = HefimerColors.White40,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            HefimerToggleRow(
+                title = tr("Open file after saving", "Mở tệp sau khi tải xong"),
+                subtitle = tr("Show app chooser sheet right after a download finishes", "Hiện bảng chọn ứng dụng mở ngay sau khi lưu tệp"),
+                checked = promptOpenAfterDownload,
+                onToggle = onTogglePromptOpenAfterDownload,
+                icon = Icons.Rounded.OpenInNew,
+                activeColor = HefimerColors.White,
+            )
+            HefimerToggleRow(
+                title = tr("Warn on duplicate download", "Hỏi khi tải lại tệp cũ"),
+                subtitle = tr("Ask confirmation before downloading the same file twice", "Hiện xác nhận nếu tệp này đã từng được tải trước đó"),
+                checked = confirmRedownload,
+                onToggle = onToggleConfirmRedownload,
+                icon = Icons.Rounded.Refresh,
+                activeColor = HefimerColors.White,
+            )
+            HefimerToggleRow(
+                title = tr("Smart clipboard detector", "Tự nhận diện mã trong Clipboard"),
+                subtitle = tr("Offer 1-tap open when copying a 5-digit code or link", "Hiện nút mở nhanh khi phát hiện mã 5 số hoặc link Hefimer"),
+                checked = smartClipboardBanner,
+                onToggle = onToggleSmartClipboardBanner,
+                icon = Icons.Rounded.ContentPasteGo,
+                activeColor = HefimerColors.White,
+            )
+            HefimerToggleRow(
+                title = tr("Tactile haptics", "Phản hồi xúc giác (Rung nhẹ)"),
+                subtitle = tr("Apple-calibrated gentle vibration on buttons and controls", "Rung phản hồi nhẹ khi chạm nút và điều khiển"),
+                checked = hapticEnabled,
+                onToggle = onToggleHapticEnabled,
+                icon = Icons.Rounded.Vibration,
+                activeColor = HefimerColors.White,
+            )
         }
 
         // Replay Welcome Guide (Onboarding)

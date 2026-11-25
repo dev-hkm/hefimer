@@ -665,7 +665,17 @@ fun SpaceCanvasOverlay(
                             }
                         },
                         onOpenLink = { item.url?.let { DownloadHelper.openExternalUrl(context, it) } },
-                        onDelete = { vm.spaceDeleteItem(item) },
+                        onDelete = {
+                            vm.requestConfirm(
+                                title = tr("Delete Item?", "Xóa mục này khỏi Space?"),
+                                message = tr(
+                                    "Remove \"${item.name}\" from the collaborative canvas?",
+                                    "Xóa \"${item.name}\" khỏi không gian bảng cộng tác?",
+                                ),
+                                confirmLabel = tr("Delete", "Xóa"),
+                                onConfirm = { vm.spaceDeleteItem(item) },
+                            )
+                        },
                     )
                 }
             }
@@ -973,8 +983,18 @@ fun SpaceCanvasOverlay(
                     previewItem = null
                 },
                 onDelete = {
-                    vm.spaceDeleteItem(item)
-                    previewItem = null
+                    vm.requestConfirm(
+                        title = tr("Delete Item?", "Xóa mục này khỏi Space?"),
+                        message = tr(
+                            "Remove \"${item.name}\" from the collaborative canvas?",
+                            "Xóa \"${item.name}\" khỏi không gian bảng cộng tác?",
+                        ),
+                        confirmLabel = tr("Delete", "Xóa"),
+                        onConfirm = {
+                            vm.spaceDeleteItem(item)
+                            previewItem = null
+                        },
+                    )
                 },
                 onDownload = {
                     item.url?.let { u ->

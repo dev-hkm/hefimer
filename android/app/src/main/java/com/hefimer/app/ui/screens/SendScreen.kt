@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.History
@@ -76,7 +78,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -87,6 +91,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import com.hefimer.app.data.model.ToastType
 import com.hefimer.app.data.model.formatBytes
 import com.hefimer.app.data.network.DownloadHelper
@@ -98,6 +103,7 @@ import com.hefimer.app.ui.ScanTarget
 import com.hefimer.app.ui.SendSubMode
 import com.hefimer.app.ui.SendUiState
 import com.hefimer.app.ui.components.CodeHighlighter
+import com.hefimer.app.ui.components.CodeLineNumberGutter
 import com.hefimer.app.ui.components.CodeSyntaxVisualTransformation
 import com.hefimer.app.ui.components.DropResultCard
 import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
@@ -312,17 +318,18 @@ private fun SendFileSection(
             }
         }
 
-        // File Dropzone Card
+        // File Dropzone Card (hugs picked file snugly with zero dead space)
         val dropzoneMode = when {
             state.fileUploading -> "uploading"
             state.pickedFiles.isNotEmpty() -> "picked"
             else -> "empty"
         }
+        var showRenamePickedDialog by remember { mutableStateOf(false) }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 160.dp)
+                .animateContentSize(AppMotion.layoutSpring())
                 .appleGlassSurface(
                     shape = RoundedCornerShape(36.dp),
                     variant = AppleGlassVariant.Regular,
@@ -503,62 +510,156 @@ private fun SendFileSection(
 
                     "picked" -> {
                         val totalSize = state.pickedFiles.sumOf { it.size }
+                        val single = state.pickedFiles.singleOrNull()
                         val label = if (state.pickedFiles.size > 1) {
                             tr("${state.pickedFiles.size} files selected", "Đã chọn ${state.pickedFiles.size} tệp")
                         } else {
-                            state.pickedFiles.firstOrNull()?.name.orEmpty()
+                            single?.name.orEmpty()
                         }
-                        Row(
+
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(22.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .appleGlassSurface(
-                                        shape = CircleShape,
-                                        variant = AppleGlassVariant.Clear,
-                                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
-                                        elevation = 0.dp,
-                                    ),
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
                             ) {
-                                Icon(
-                                    imageVector = if (state.isFolderMode) Icons.Rounded.Folder else Icons.Rounded.Description,
-                                    contentDescription = null,
-                                    tint = accent,
-                                    modifier = Modifier.size(24.dp),
-                                )
+                                if (single != null && single.mimeType.startsWith("image/") && !state.isFolderMode) {
+                                    AsyncImage(
+                                        model = single.uri,
+                                        contentDescription = single.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(54.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(HefimerColors.Black)
+                                            .border(
+                                                1.dp,
+                                                if (isR2) HefimerColors.Emerald400.copy(alpha = 0.5f) else HefimerColors.White15,
+                                                RoundedCornerShape(16.dp),
+                                            ),
+                                    )
+                                } else {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .appleGlassSurface(
+                                                shape = CircleShape,
+                                                variant = AppleGlassVariant.Clear,
+                                                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                                                elevation = 0.dp,
+                                            ),
+                                    ) {
+                                        Icon(
+                                            imageVector = if (state.isFolderMode) Icons.Rounded.Folder else Icons.Rounded.Description,
+                                            contentDescription = null,
+                                            tint = accent,
+                                            modifier = Modifier.size(23.dp),
+                                        )
+                                    }
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = label,
+                                        color = HefimerColors.White,
+                                        fontSize = 14.5.sp,
+                                        lineHeight = 19.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(Modifier.height(3.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Text(
+                                            text = formatBytes(totalSize),
+                                            color = accent.copy(alpha = 0.78f),
+                                            fontFamily = JetBrainsMonoFamily,
+                                            fontSize = 11.5.sp,
+                                        )
+                                        Text("•", color = HefimerColors.White20, fontSize = 10.sp)
+                                        Text(
+                                            text = tr("Tap to change", "Chạm để đổi"),
+                                            color = HefimerColors.White45,
+                                            fontSize = 11.sp,
+                                        )
+                                    }
+                                }
+
+                                if (single != null && !state.isFolderMode) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                            .applePressable(pressedScale = 0.88f) { showRenamePickedDialog = true },
+                                    ) {
+                                        Icon(Icons.Rounded.Edit, tr("Rename", "Đổi tên"), tint = HefimerColors.White80, modifier = Modifier.size(15.dp))
+                                    }
+                                }
+
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(HefimerColors.White)
+                                        .applePressable(pressedScale = 0.88f) {
+                                            vm.requestConfirm(
+                                                title = tr("Remove Selected File(s)?", "Xóa tệp đã chọn?"),
+                                                message = tr(
+                                                    "Clear \"$label\" from the upload queue?",
+                                                    "Bỏ \"$label\" khỏi danh sách chuẩn bị tải lên?",
+                                                ),
+                                                confirmLabel = tr("Remove", "Xóa"),
+                                                onConfirm = { vm.clearPickedFiles() },
+                                            )
+                                        },
+                                ) {
+                                    Icon(Icons.Rounded.Close, tr("Remove", "Xóa"), tint = HefimerColors.Black, modifier = Modifier.size(16.dp))
+                                }
                             }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = label,
-                                    color = HefimerColors.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = formatBytes(totalSize),
-                                    color = accent.copy(alpha = 0.7f),
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 12.sp,
-                                )
-                            }
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(HefimerColors.White)
-                                    .applePressable(pressedScale = 0.88f) { vm.clearPickedFiles() },
-                            ) {
-                                Icon(Icons.Rounded.Close, tr("Remove", "Xóa"), tint = HefimerColors.Black, modifier = Modifier.size(16.dp))
+
+                            if (state.pickedFiles.size > 1) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    state.pickedFiles.forEachIndexed { idx, file ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                            modifier = Modifier
+                                                .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                                .padding(start = 10.dp, end = 6.dp, top = 5.dp, bottom = 5.dp),
+                                        ) {
+                                            Text(
+                                                text = file.name,
+                                                color = HefimerColors.White75,
+                                                fontSize = 10.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.width(120.dp),
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = tr("Remove", "Bỏ"),
+                                                tint = HefimerColors.White50,
+                                                modifier = Modifier
+                                                    .size(14.dp)
+                                                    .applePressable(pressedScale = 0.85f) { vm.removePickedFileAt(idx) },
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -567,7 +668,8 @@ private fun SendFileSection(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 22.dp, vertical = 26.dp),
+                                .heightIn(min = 152.dp)
+                                .padding(horizontal = 22.dp, vertical = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Box(
@@ -908,6 +1010,61 @@ private fun SendFileSection(
             accentColor = accent,
             onClick = { vm.uploadFiles() },
         )
+
+        if (showRenamePickedDialog && state.pickedFiles.size == 1) {
+            RenamePickedFileDialog(
+                initialName = state.pickedFiles.first().name,
+                onDismiss = { showRenamePickedDialog = false },
+                onConfirm = { nextName ->
+                    vm.renamePickedSingleFile(nextName)
+                    showRenamePickedDialog = false
+                },
+            )
+        }
+        }
+    }
+}
+
+@Composable
+private fun RenamePickedFileDialog(
+    initialName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var nameInput by remember(initialName) { mutableStateOf(initialName) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(34.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
+                    .padding(22.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Edit, null, tint = HefimerColors.White, modifier = Modifier.size(16.dp))
+                    Text(tr("RENAME FILE BEFORE UPLOAD", "ĐỔI TÊN TỆP TRƯỚC KHI GỬI"), color = HefimerColors.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp)
+                }
+                HefimerTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    placeholder = tr("filename.ext", "ten_tep.ext"),
+                    mono = true,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    com.hefimer.app.ui.components.HefimerSecondaryButton(tr("Cancel", "Hủy"), height = 48.dp, modifier = Modifier.weight(1f), onClick = onDismiss)
+                    HefimerPrimaryButton(
+                        text = tr("Save Name", "Lưu tên"),
+                        height = 48.dp,
+                        modifier = Modifier.weight(1f),
+                        onClick = { if (nameInput.isNotBlank()) onConfirm(nameInput.trim()) },
+                    )
+                }
+            }
         }
     }
 }
@@ -1014,8 +1171,9 @@ private fun SendTextSection(
                                             "hefimer_snippet.${activeLang.ext}",
                                             state.textContent,
                                         )
-                                    }.onSuccess {
-                                        vm.showToast(tr("Saved $it to Downloads", "Đã lưu $it vào Tải xuống"), ToastType.SUCCESS)
+                                    }.onSuccess { outcome ->
+                                        vm.showToast(tr("Saved ${outcome.fileName} to Downloads", "Đã lưu ${outcome.fileName} vào Tải xuống"), ToastType.SUCCESS)
+                                        vm.notifyFileSaved(outcome)
                                     }.onFailure {
                                         vm.showToast(it.message ?: tr("Save failed", "Lưu thất bại"), ToastType.ERROR)
                                     }
@@ -1026,7 +1184,19 @@ private fun SendTextSection(
                     EditorMiniIcon(
                         icon = Icons.Rounded.DeleteOutline,
                         active = false,
-                        onClick = { vm.setTextContent("") },
+                        onClick = {
+                            if (state.textContent.isNotBlank()) {
+                                vm.requestConfirm(
+                                    title = tr("Clear Editor Text?", "Xóa toàn bộ văn bản?"),
+                                    message = tr(
+                                        "This will erase all ${state.textContent.length} characters currently in the editor.",
+                                        "Thao tác này sẽ xóa toàn bộ ${state.textContent.length} ký tự hiện có trong khung soạn thảo.",
+                                    ),
+                                    confirmLabel = tr("Clear All", "Xóa hết"),
+                                    onConfirm = { vm.setTextContent("") },
+                                )
+                            }
+                        },
                     )
                     EditorMiniIcon(
                         icon = Icons.Rounded.ContentCopy,
@@ -1096,7 +1266,8 @@ private fun SendTextSection(
 
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))
 
-            // Code/Text editing area
+            // Code/Text editing area with exact TextLayoutResult-driven line numbers
+            var editorLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1105,14 +1276,10 @@ private fun SendTextSection(
                     .padding(16.dp),
             ) {
                 if (showLineNumbers) {
-                    Text(
-                        text = (1..lines).joinToString("\n"),
-                        color = HefimerColors.White20,
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 12.sp,
-                        lineHeight = 20.sp,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.padding(end = 12.dp),
+                    CodeLineNumberGutter(
+                        text = state.textContent,
+                        textLayoutResult = editorLayoutResult,
+                        color = HefimerColors.White30,
                     )
                 }
 
@@ -1127,6 +1294,7 @@ private fun SendTextSection(
                     value = state.textContent,
                     onValueChange = { vm.setTextContent(it) },
                     visualTransformation = syntaxTransform,
+                    onTextLayout = { editorLayoutResult = it },
                     textStyle = TextStyle(
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 13.sp,

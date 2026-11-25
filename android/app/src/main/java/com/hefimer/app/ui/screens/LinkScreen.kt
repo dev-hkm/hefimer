@@ -1,15 +1,11 @@
 package com.hefimer.app.ui.screens
 
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +28,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
@@ -47,6 +44,7 @@ import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -62,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -71,6 +68,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.hefimer.app.data.model.DeviceTransfer
 import com.hefimer.app.data.model.GroupMember
 import com.hefimer.app.data.model.ToastType
@@ -167,6 +166,28 @@ fun LinkScreen(vm: HefimerViewModel) {
             }
         }
     }
+
+    if (state.showPairModal) {
+        JoinByCodeOrQrDialog(
+            state = state,
+            onTokenChange = { vm.setLinkPairToken(it) },
+            onScanQr = {
+                vm.closeLinkPairModal()
+                vm.openOverlay(AppOverlay.QrScanner(ScanTarget.PAIR_TOKEN))
+            },
+            onPair = {
+                vm.joinLinkGroup(leaveCurrentFirst = state.sync.group != null)
+            },
+            onDismiss = { vm.closeLinkPairModal() },
+        )
+    }
+}
+
+private fun isValidPairInput(raw: String): Boolean {
+    val trimmed = raw.trim()
+    if (Regex("""hfm-[A-Za-z0-9]{36}""").containsMatchIn(trimmed)) return true
+    val digits = trimmed.filter { it.isDigit() }
+    return digits.length == 5 && trimmed.length <= 8
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -298,6 +319,7 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                         onClick = { vm.createLinkGroup() },
                     )
                 } else {
+                    val context = LocalContext.current
                     Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
@@ -310,24 +332,42 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                             .padding(16.dp),
                     ) {
                         Icon(Icons.Rounded.QrCode2, null, tint = HefimerColors.White, modifier = Modifier.size(22.dp))
-                        Text(tr("Scan a pairing QR or paste the single-use token.", "Quét mã QR ghép nối hoặc dán mã dùng một lần."), color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Text(tr("Every token pairs one device and expires after ten minutes.", "Mỗi mã chỉ ghép nối một thiết bị và hết hạn sau mười phút."), color = HefimerColors.White40, fontSize = 12.sp)
+                        Text(tr("Scan pairing QR or enter 5-digit / token code.", "Quét mã QR ghép nối hoặc nhập mã 5 số / token."), color = HefimerColors.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("Accepts 5-digit Hefimer Link codes, hfm-... tokens, or full ?pair= URLs. Expires in 10 minutes.", "Hỗ trợ nhập mã ghép 5 chữ số, token hfm-... hoặc dán link ?pair=. Hết hạn sau 10 phút."), color = HefimerColors.White40, fontSize = 12.sp)
                     }
 
-                    HefimerSecondaryButton(
-                        text = tr("Scan Pairing QR Code", "Quét mã QR ghép nối"),
-                        icon = Icons.Rounded.QrCodeScanner,
-                        onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.PAIR_TOKEN)) },
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        HefimerSecondaryButton(
+                            text = tr("Scan QR", "Quét mã QR"),
+                            icon = Icons.Rounded.QrCodeScanner,
+                            modifier = Modifier.weight(1f),
+                            onClick = { vm.openOverlay(AppOverlay.QrScanner(ScanTarget.PAIR_TOKEN)) },
+                        )
+                        HefimerSecondaryButton(
+                            text = tr("Paste Code", "Dán mã"),
+                            icon = Icons.Rounded.ContentPaste,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = cm.primaryClip?.getItemAt(0)?.text?.toString()?.trim().orEmpty()
+                                if (clip.isNotBlank()) {
+                                    vm.setLinkPairToken(clip)
+                                    vm.showToast(tr("Pasted pairing code", "Đã dán mã ghép nối"), ToastType.INFO)
+                                } else {
+                                    vm.showToast(tr("Clipboard is empty", "Bộ nhớ tạm đang trống"), ToastType.ERROR)
+                                }
+                            },
+                        )
+                    }
 
                     HefimerTextField(
                         value = state.pairToken,
                         onValueChange = { vm.setLinkPairToken(it) },
-                        placeholder = "hfm-••••••••••••••••••••••••••••••••••••",
+                        placeholder = tr("5-digit code (e.g. 48291) or hfm-...", "Mã 5 số (vd: 48291) hoặc hfm-..."),
                         mono = true,
                     )
 
-                    val validToken = Regex("""^hfm-[A-Za-z0-9]{36}$""").matches(state.pairToken.trim())
+                    val validToken = isValidPairInput(state.pairToken)
                     HefimerPrimaryButton(
                         text = if (state.busyKey == "join") tr("Pairing...", "Đang ghép nối...") else tr("Pair This Device", "Ghép nối thiết bị này"),
                         icon = Icons.Rounded.Link,
@@ -456,7 +496,17 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                 member = member,
                                 isSelf = member.id == state.sync.device.id,
                                 canRemove = isOwner && member.id != state.sync.device.id,
-                                onRemove = { vm.removeLinkDevice(member.id) },
+                                onRemove = {
+                                    vm.requestConfirm(
+                                        title = tr("Remove Device?", "Gỡ thiết bị khỏi nhóm?"),
+                                        message = tr(
+                                            "Unpair \"${member.name}\" from this Hefimer Link group?",
+                                            "Ngắt ghép nối \"${member.name}\" khỏi nhóm Hefimer Link này?",
+                                        ),
+                                        confirmLabel = tr("Remove", "Gỡ thiết bị"),
+                                        onConfirm = { vm.removeLinkDevice(member.id) },
+                                    )
+                                },
                             )
                         }
 
@@ -541,6 +591,30 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                     BeautifulQrCodeView(value = pairUrl, size = 180.dp)
                                 }
+                                if (state.inviteShortCode.length == 5) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .appleGlassSurface(
+                                                shape = RoundedCornerShape(18.dp),
+                                                variant = AppleGlassVariant.Clear,
+                                                elevation = 0.dp,
+                                            )
+                                            .applePressable(pressedScale = 0.96f) {
+                                                copyToClipboard(context, "Pair Code", state.inviteShortCode)
+                                                vm.showToast(tr("5-digit pairing code copied", "Đã sao chép mã ghép 5 số"), ToastType.SUCCESS)
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    ) {
+                                        Column {
+                                            Text(tr("5-DIGIT PAIR CODE", "MÃ GHÉP 5 CHỮ SỐ"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+                                            Text(state.inviteShortCode, color = HefimerColors.White, fontFamily = JetBrainsMonoFamily, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+                                        }
+                                        Icon(Icons.Rounded.ContentCopy, tr("Copy code", "Sao chép mã"), tint = HefimerColors.White75, modifier = Modifier.size(16.dp))
+                                    }
+                                }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -597,11 +671,35 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         activeColor = HefimerColors.White,
                     )
 
-                    // Leave / Delete Group
+                    // Pair with another group via code or QR (always accessible even when in a group)
+                    HefimerSecondaryButton(
+                        text = tr("Enter Code / Pair Another Group", "Nhập mã / Ghép nối nhóm khác"),
+                        icon = Icons.Rounded.SwapHoriz,
+                        onClick = { vm.openLinkPairModal() },
+                    )
+
+                    // Leave / Delete Group (with confirmation modal)
                     HefimerSecondaryButton(
                         text = if (isOwner) tr("Delete Group For Everyone", "Xóa nhóm cho tất cả") else tr("Leave This Group", "Rời khỏi nhóm này"),
                         icon = Icons.Rounded.Logout,
-                        onClick = { vm.leaveLinkGroup() },
+                        onClick = {
+                            vm.requestConfirm(
+                                title = if (isOwner) tr("Delete Device Group?", "Xóa nhóm thiết bị?") else tr("Leave This Group?", "Rời khỏi nhóm ghép nối?"),
+                                message = if (isOwner) {
+                                    tr(
+                                        "This will permanently unpair all ${state.sync.members.size} devices and delete \"${group.name}\".",
+                                        "Thao tác này sẽ ngắt ghép nối toàn bộ ${state.sync.members.size} thiết bị và xóa nhóm \"${group.name}\".",
+                                    )
+                                } else {
+                                    tr(
+                                        "This phone will stop receiving direct drops from \"${group.name}\".",
+                                        "Thiết bị này sẽ ngừng nhận tệp trực tiếp từ nhóm \"${group.name}\".",
+                                    )
+                                },
+                                confirmLabel = if (isOwner) tr("Delete Group", "Xóa nhóm") else tr("Leave Group", "Rời nhóm"),
+                                onConfirm = { vm.leaveLinkGroup() },
+                            )
+                        },
                     )
                 }
             } else {
@@ -677,7 +775,17 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             state.sync.outgoing.forEach { tr ->
                                 OutgoingTransferRow(
                                     transfer = tr,
-                                    onCancel = { vm.cancelLinkTransfer(tr.id) },
+                                    onCancel = {
+                                        vm.requestConfirm(
+                                            title = tr("Cancel Transfer?", "Hủy gửi tệp?"),
+                                            message = tr(
+                                                "Cancel pending delivery of \"${tr.name}\" to paired devices?",
+                                                "Hủy lượt gửi \"${tr.name}\" tới các thiết bị đang ghép nối?",
+                                            ),
+                                            confirmLabel = tr("Cancel Offer", "Hủy gửi"),
+                                            onConfirm = { vm.cancelLinkTransfer(tr.id) },
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -959,6 +1067,99 @@ fun FloatingIncomingOfferBanner(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HefimerSecondaryButton(tr("Decline", "Từ chối"), height = 44.dp, modifier = Modifier.weight(1f), onClick = { onDecline(current) })
                 HefimerPrimaryButton(tr("Approve", "Chấp nhận"), icon = Icons.Rounded.Check, height = 44.dp, modifier = Modifier.weight(1f), onClick = { onApprove(current) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun JoinByCodeOrQrDialog(
+    state: LinkUiState,
+    onTokenChange: (String) -> Unit,
+    onScanQr: () -> Unit,
+    onPair: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(34.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
+                    .padding(22.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(tr("PAIR WITH CODE OR QR", "GHÉP BẰNG MÃ HOẶC QR"), color = HefimerColors.White45, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                        Text(tr("Join another group", "Tham gia nhóm khác"), color = HefimerColors.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                            .applePressable(pressedScale = 0.89f, onClick = onDismiss),
+                    ) {
+                        Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
+                    }
+                }
+
+                if (state.sync.group != null) {
+                    Text(
+                        text = tr(
+                            "Pairing a new code will leave \"${state.sync.group.name}\" automatically.",
+                            "Khi ghép mã mới, thiết bị sẽ tự rời nhóm \"${state.sync.group.name}\".",
+                        ),
+                        color = HefimerColors.Amber400.copy(alpha = 0.85f),
+                        fontSize = 11.5.sp,
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HefimerSecondaryButton(
+                        text = tr("Scan QR", "Quét QR"),
+                        icon = Icons.Rounded.QrCodeScanner,
+                        height = 44.dp,
+                        modifier = Modifier.weight(1f),
+                        onClick = onScanQr,
+                    )
+                    HefimerSecondaryButton(
+                        text = tr("Paste", "Dán mã"),
+                        icon = Icons.Rounded.ContentPaste,
+                        height = 44.dp,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = cm.primaryClip?.getItemAt(0)?.text?.toString()?.trim().orEmpty()
+                            if (clip.isNotBlank()) onTokenChange(clip)
+                        },
+                    )
+                }
+
+                HefimerTextField(
+                    value = state.pairToken,
+                    onValueChange = onTokenChange,
+                    placeholder = tr("5-digit code or hfm-...", "Mã 5 số hoặc hfm-..."),
+                    mono = true,
+                )
+
+                HefimerPrimaryButton(
+                    text = if (state.busyKey == "join") tr("Pairing...", "Đang ghép...") else tr("Pair Now", "Ghép nối ngay"),
+                    icon = Icons.Rounded.Link,
+                    loading = state.busyKey == "join",
+                    enabled = isValidPairInput(state.pairToken) && state.busyKey.isEmpty(),
+                    onClick = onPair,
+                )
             }
         }
     }

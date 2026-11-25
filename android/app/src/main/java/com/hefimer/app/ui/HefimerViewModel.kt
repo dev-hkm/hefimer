@@ -10,8 +10,10 @@ import com.hefimer.app.data.local.HefimerStorage
 import com.hefimer.app.data.model.BoardPoint
 import com.hefimer.app.data.model.BoardStroke
 import com.hefimer.app.data.model.ChatMessage
+import com.hefimer.app.data.model.ConfirmDialogRequest
 import com.hefimer.app.data.model.DeviceSync
 import com.hefimer.app.data.model.DeviceTransfer
+import com.hefimer.app.data.model.DownloadedFileRecord
 import com.hefimer.app.data.model.DropCreatedOffer
 import com.hefimer.app.data.model.DropFileEntry
 import com.hefimer.app.data.model.DropItem
@@ -19,7 +21,9 @@ import com.hefimer.app.data.model.GlobalBroadcast
 import com.hefimer.app.data.model.GlobalStatsState
 import com.hefimer.app.data.model.HistoryItem
 import com.hefimer.app.data.model.InviteResponse
+import com.hefimer.app.data.model.PendingRedownloadPrompt
 import com.hefimer.app.data.model.RecentSpaceEntry
+import com.hefimer.app.data.model.SavedFilePrompt
 import com.hefimer.app.data.model.SpaceCursor
 import com.hefimer.app.data.model.SpaceItem
 import com.hefimer.app.data.model.SpaceMember
@@ -31,6 +35,7 @@ import com.hefimer.app.data.model.parseExpireDurationMs
 import com.hefimer.app.data.network.DeviceApiClient
 import com.hefimer.app.data.network.DownloadCancellationToken
 import com.hefimer.app.data.network.DownloadHelper
+import com.hefimer.app.data.network.DownloadOutcome
 import com.hefimer.app.data.network.FileUploadEngine
 import com.hefimer.app.data.network.FirebaseRtdbClient
 import com.hefimer.app.data.network.HefimerApiConfig
@@ -40,6 +45,7 @@ import com.hefimer.app.data.network.UploadCancellationToken
 import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.components.CodeHighlighter
 import com.hefimer.app.ui.components.MainTab
+import com.hefimer.app.ui.theme.HefimerHaptics
 import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -192,11 +198,20 @@ data class RoomsUiState(
     val boardCreatedName: String = "",
     val boardCreatedExpiresAt: Long? = null,
     val boardLoading: Boolean = false,
-    // Active board
+    // Active board (synced 16:9 / 1280x720 virtual coordinates matching PC canvas)
     val activeBoardId: String = "",
     val activeBoardName: String = "",
     val activeBoardExpiresAt: Long = 0L,
+    val boardWidth: Float = 1280f,
+    val boardHeight: Float = 720f,
     val boardStrokes: List<BoardStroke> = emptyList(),
+    val canUndoBoardStroke: Boolean = false,
+)
+
+data class ClipboardSuggestion(
+    val rawValue: String,
+    val displayLabel: String,
+    val kindLabel: String,
 )
 
 data class LinkUiState(
@@ -209,6 +224,8 @@ data class LinkUiState(
     val duration: String = "7d",
     val pairToken: String = "",
     val invite: InviteResponse? = null,
+    val inviteShortCode: String = "",
+    val showPairModal: Boolean = false,
     val deviceNameInput: String = "",
     val section: String = "devices", // "devices" or "activity"
     val dismissedPromptIds: Set<String> = emptySet(),
@@ -226,7 +243,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private val clientId = storage.getOrCreateClientId()
     private val json = HefimerApiConfig.json
 
-    private val _selectedTab = MutableStateFlow(MainTab.SEND)
+    private val _defaultStartTab = MutableStateFlow(
+        MainTab.entries.firstOrNull { it.name == storage.getDefaultStartTab() } ?: MainTab.SEND,
+    )
+    val defaultStartTab: StateFlow<MainTab> = _defaultStartTab.asStateFlow()
+
+    private val _selectedTab = MutableStateFlow(_defaultStartTab.value)
     val selectedTab: StateFlow<MainTab> = _selectedTab.asStateFlow()
 
     private val _activeOverlay = MutableStateFlow<AppOverlay?>(null)
@@ -264,6 +286,32 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     private val _showOnboarding = MutableStateFlow(!storage.hasCompletedOnboarding())
     val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
+
+    private val _promptOpenAfterDownload = MutableStateFlow(storage.isPromptOpenAfterDownload())
+    val promptOpenAfterDownload: StateFlow<Boolean> = _promptOpenAfterDownload.asStateFlow()
+
+    private val _confirmRedownload = MutableStateFlow(storage.isConfirmRedownloadEnabled())
+    val confirmRedownload: StateFlow<Boolean> = _confirmRedownload.asStateFlow()
+
+    private val _smartClipboardBanner = MutableStateFlow(storage.isSmartClipboardEnabled())
+    val smartClipboardBanner: StateFlow<Boolean> = _smartClipboardBanner.asStateFlow()
+
+    private val _hapticEnabled = MutableStateFlow(
+        storage.isHapticEnabled().also { HefimerHaptics.enabled = it },
+    )
+    val hapticEnabled: StateFlow<Boolean> = _hapticEnabled.asStateFlow()
+
+    private val _confirmDialog = MutableStateFlow<ConfirmDialogRequest?>(null)
+    val confirmDialog: StateFlow<ConfirmDialogRequest?> = _confirmDialog.asStateFlow()
+
+    private val _pendingRedownload = MutableStateFlow<PendingRedownloadPrompt?>(null)
+    val pendingRedownload: StateFlow<PendingRedownloadPrompt?> = _pendingRedownload.asStateFlow()
+
+    private val _savedFilePrompt = MutableStateFlow<SavedFilePrompt?>(null)
+    val savedFilePrompt: StateFlow<SavedFilePrompt?> = _savedFilePrompt.asStateFlow()
+
+    private val _clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
+    val clipboardSuggestion: StateFlow<ClipboardSuggestion?> = _clipboardSuggestion.asStateFlow()
 
     private val _appLanguage = MutableStateFlow(
         com.hefimer.app.ui.theme.AppLanguage.fromCode(storage.getAppLanguageCode()).also {
@@ -323,12 +371,18 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private var fileTabTapCount = 0
     private var lastBroadcastId: String? = null
     private var activeChatMemberKey: String? = null
+    private val myBoardStrokeIds = ArrayDeque<String>()
+    private var lastClipSignature: String = ""
     private val tabBackStack = ArrayDeque<MainTab>()
     private var lastRootBackMs = 0L
 
     init {
         startGlobalObservers()
         startLinkPolling()
+        if (_defaultStartTab.value == MainTab.LINK) {
+            storage.setDeviceLinkEnabled(true)
+            refreshLink(silent = false)
+        }
         checkSpaceCodeAvailability(_spaceState.value.createCode)
         checkChatCodeAvailability(_roomsState.value.chatCreateCode)
     }
@@ -367,6 +421,167 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun replayOnboarding() {
         _showSettingsSheet.value = false
         _showOnboarding.value = true
+    }
+
+    fun togglePromptOpenAfterDownload() {
+        val next = !_promptOpenAfterDownload.value
+        storage.setPromptOpenAfterDownload(next)
+        _promptOpenAfterDownload.value = next
+    }
+
+    fun toggleConfirmRedownload() {
+        val next = !_confirmRedownload.value
+        storage.setConfirmRedownloadEnabled(next)
+        _confirmRedownload.value = next
+    }
+
+    fun toggleSmartClipboardBanner() {
+        val next = !_smartClipboardBanner.value
+        storage.setSmartClipboardEnabled(next)
+        _smartClipboardBanner.value = next
+        if (!next) _clipboardSuggestion.value = null
+    }
+
+    fun toggleHapticEnabled() {
+        val next = !_hapticEnabled.value
+        storage.setHapticEnabled(next)
+        _hapticEnabled.value = next
+        HefimerHaptics.enabled = next
+    }
+
+    fun setDefaultStartTab(tab: MainTab) {
+        storage.setDefaultStartTab(tab.name)
+        _defaultStartTab.value = tab
+        showToast(
+            tr("Launch screen set to ${tab.localizedLabel()}", "Màn hình mở đầu mặc định: ${tab.localizedLabel()}"),
+            ToastType.SUCCESS,
+        )
+    }
+
+    fun requestConfirm(
+        title: String,
+        message: String,
+        confirmLabel: String = tr("Delete", "Xóa"),
+        isDestructive: Boolean = true,
+        onConfirm: () -> Unit,
+    ) {
+        _confirmDialog.value = ConfirmDialogRequest(
+            title = title,
+            message = message,
+            confirmLabel = confirmLabel,
+            isDestructive = isDestructive,
+            onConfirm = onConfirm,
+        )
+    }
+
+    fun dismissConfirm() {
+        _confirmDialog.value = null
+    }
+
+    fun dismissPendingRedownload() {
+        _pendingRedownload.value = null
+    }
+
+    fun confirmPendingRedownload() {
+        val pending = _pendingRedownload.value ?: return
+        _pendingRedownload.value = null
+        viewModelScope.launch {
+            if (pending.files.size == 1) {
+                downloadSingleDropEntry(pending.files.first())
+            } else {
+                showToast(tr("Downloading ${pending.files.size} files...", "Đang tải ${pending.files.size} tệp..."), ToastType.INFO)
+                pending.files.forEachIndexed { idx, entry ->
+                    downloadSingleDropEntry(entry)
+                    if (idx < pending.files.lastIndex) delay(250L)
+                }
+            }
+        }
+    }
+
+    fun openExistingFromRedownload() {
+        val pending = _pendingRedownload.value ?: return
+        val rec = pending.matchedRecord
+        _pendingRedownload.value = null
+        val opened = DownloadHelper.openSavedFileWithChooser(
+            context = getApplication(),
+            uriString = rec.savedUri,
+            mimeType = rec.mimeType,
+            fileName = rec.fileName,
+        )
+        if (!opened) {
+            showToast(tr("Saved file was moved or deleted", "Tệp đã lưu trước đó không còn tồn tại"), ToastType.ERROR)
+        }
+    }
+
+    fun notifyFileSaved(outcome: DownloadOutcome) {
+        if (outcome.mode == "download" && outcome.savedUri != null && _promptOpenAfterDownload.value) {
+            _savedFilePrompt.value = SavedFilePrompt(
+                fileName = outcome.fileName,
+                mimeType = outcome.mimeType,
+                sizeBytes = outcome.sizeBytes,
+                uriString = outcome.savedUri.toString(),
+            )
+        }
+    }
+
+    fun dismissSavedFilePrompt() {
+        _savedFilePrompt.value = null
+    }
+
+    fun checkClipboardForHefimer() {
+        if (!_smartClipboardBanner.value) return
+        val cm = getApplication<Application>().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager ?: return
+        val clip = cm.primaryClip?.getItemAt(0)?.text?.toString()?.trim().orEmpty()
+        if (clip.isBlank() || clip == lastClipSignature || clip.length > 240) return
+
+        val pairMatch = Regex("""hfm-[A-Za-z0-9]{36}""").find(clip)
+        if (pairMatch != null) {
+            _clipboardSuggestion.value = ClipboardSuggestion(
+                rawValue = pairMatch.value,
+                displayLabel = tr("Pair device token detected", "Phát hiện mã ghép nối thiết bị"),
+                kindLabel = "HEFIMER LINK",
+            )
+            return
+        }
+        val uri = runCatching { Uri.parse(clip) }.getOrNull()
+        val isHefimerUrl = uri?.host?.contains("hefimer", ignoreCase = true) == true
+        val urlCode = if (isHefimerUrl) uri?.getQueryParameter("code")?.filter { it.isDigit() }?.take(5) else null
+        if (urlCode != null && urlCode.length == 5) {
+            val path = uri?.path.orEmpty()
+            val kind = when {
+                path.contains("/space") -> "SPACE #$urlCode"
+                path.contains("/chat-room") -> "CHAT #$urlCode"
+                path.contains("/board") -> "BOARD #$urlCode"
+                else -> "DROP #$urlCode"
+            }
+            _clipboardSuggestion.value = ClipboardSuggestion(
+                rawValue = clip,
+                displayLabel = tr("Open $kind from clipboard", "Mở $kind từ bộ nhớ tạm"),
+                kindLabel = kind,
+            )
+            return
+        }
+        if (clip.length == 5 && clip.all { it.isDigit() }) {
+            // Skip if user already just received this exact code
+            if (_receiveState.value.result?.code == clip) return
+            _clipboardSuggestion.value = ClipboardSuggestion(
+                rawValue = clip,
+                displayLabel = tr("Retrieve Drop #$clip from clipboard", "Mở nhanh Drop #$clip từ clipboard"),
+                kindLabel = "DROP #$clip",
+            )
+        }
+    }
+
+    fun acceptClipboardSuggestion() {
+        val sug = _clipboardSuggestion.value ?: return
+        lastClipSignature = sug.rawValue
+        _clipboardSuggestion.value = null
+        handleScannedOrDeepLink(sug.rawValue, ScanTarget.AUTO)
+    }
+
+    fun dismissClipboardSuggestion() {
+        _clipboardSuggestion.value?.let { lastClipSignature = it.rawValue }
+        _clipboardSuggestion.value = null
     }
 
     fun setAppLanguage(language: com.hefimer.app.ui.theme.AppLanguage) {
@@ -411,6 +626,22 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
      */
     fun handleBackNavigation(): Boolean {
         // 1. Dismiss in-app modals/prompts first
+        if (_confirmDialog.value != null) {
+            dismissConfirm()
+            return true
+        }
+        if (_pendingRedownload.value != null) {
+            dismissPendingRedownload()
+            return true
+        }
+        if (_savedFilePrompt.value != null) {
+            dismissSavedFilePrompt()
+            return true
+        }
+        if (_linkState.value.showPairModal) {
+            closeLinkPairModal()
+            return true
+        }
         if (_showSettingsSheet.value) {
             closeSettings()
             return true
@@ -679,19 +910,40 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             _activeOverlay.value = null
         }
 
-        // Direct pairing token (hfm-...)
-        val pairMatch = Regex("""hfm-[A-Za-z0-9]{36}""").find(value)
-        if (pairMatch != null || target == ScanTarget.PAIR_TOKEN) {
-            val token = pairMatch?.value ?: value
+        val uri = runCatching { Uri.parse(value) }.getOrNull()
+        val pairFromQuery = uri?.getQueryParameter("pair")?.trim()
+        val pairMatch = Regex("""hfm-[A-Za-z0-9]{36}""").find(pairFromQuery ?: value)
+        val shortPairDigits = if (target == ScanTarget.PAIR_TOKEN) {
+            value.filter { it.isDigit() }.takeIf { it.length == 5 }
+        } else null
+
+        if (pairMatch != null || shortPairDigits != null || target == ScanTarget.PAIR_TOKEN) {
+            val tokenOrCode = pairMatch?.value ?: shortPairDigits ?: value
             storage.setDeviceLinkEnabled(true)
-            _linkState.update { it.copy(pairToken = token, setupMode = "join") }
+            _linkState.update { it.copy(pairToken = tokenOrCode, setupMode = "join", showPairModal = false) }
             _selectedTab.value = MainTab.LINK
-            refreshLink(silent = true)
-            showToast(tr("Pairing token captured", "Đã nhận mã ghép nối"), ToastType.SUCCESS)
+
+            val existingGroup = _linkState.value.sync.group
+            if (existingGroup != null) {
+                requestConfirm(
+                    title = tr("Switch Link Group?", "Chuyển sang nhóm ghép nối mới?"),
+                    message = tr(
+                        "This device is currently in \"${existingGroup.name}\". Leave it and pair with the scanned device?",
+                        "Thiết bị đang nằm trong nhóm \"${existingGroup.name}\". Rời nhóm hiện tại để ghép nối với mã QR vừa quét?",
+                    ),
+                    confirmLabel = tr("Switch & Pair", "Chuyển & Ghép nối"),
+                    isDestructive = false,
+                    onConfirm = { joinLinkGroup(overrideToken = tokenOrCode, leaveCurrentFirst = true) },
+                )
+            } else if (pairMatch != null || shortPairDigits != null) {
+                joinLinkGroup(overrideToken = tokenOrCode)
+            } else {
+                refreshLink(silent = true)
+                showToast(tr("Pairing token captured", "Đã nhận mã ghép nối"), ToastType.SUCCESS)
+            }
             return
         }
 
-        val uri = runCatching { Uri.parse(value) }.getOrNull()
         val path = uri?.path.orEmpty()
         val codeParam = uri?.getQueryParameter("code")?.filter { it.isDigit() }?.take(5)
             ?: value.filter { it.isDigit() }.takeIf { it.length == 5 }
@@ -838,6 +1090,24 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun clearPickedFiles() {
         _sendState.value.pickedFiles.forEach { it.tempFile?.delete() }
         _sendState.update { it.copy(pickedFiles = emptyList()) }
+    }
+
+    fun removePickedFileAt(index: Int) {
+        _sendState.update { st ->
+            if (index !in st.pickedFiles.indices) return@update st
+            st.pickedFiles[index].tempFile?.delete()
+            st.copy(pickedFiles = st.pickedFiles.filterIndexed { i, _ -> i != index })
+        }
+    }
+
+    fun renamePickedSingleFile(newName: String) {
+        val clean = newName.trim()
+        if (clean.isBlank()) return
+        _sendState.update { st ->
+            if (st.pickedFiles.size != 1) return@update st
+            val first = st.pickedFiles.first()
+            st.copy(pickedFiles = listOf(first.copy(name = clean)))
+        }
     }
 
     fun selectUploadProvider(providerId: String) {
@@ -1449,7 +1719,17 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         showToast(tr("Download canceled", "Đã hủy tải xuống"), ToastType.INFO)
     }
 
+    private fun entryDownloadKey(entry: DropFileEntry): String =
+        entry.objectKey.ifBlank { entry.resolvedUrl }
+
     fun downloadDropFile(entry: DropFileEntry) {
+        if (_confirmRedownload.value) {
+            val prev = storage.findDownloadedFile(entryDownloadKey(entry), entry.resolvedName, entry.resolvedSize)
+            if (prev != null) {
+                _pendingRedownload.value = PendingRedownloadPrompt(files = listOf(entry), matchedRecord = prev)
+                return
+            }
+        }
         viewModelScope.launch {
             downloadSingleDropEntry(entry)
         }
@@ -1466,7 +1746,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             percent = 0,
         )
         try {
-            if (entry.objectKey.isNotBlank()) {
+            val outcome = if (entry.objectKey.isNotBlank()) {
                 val url = r2Service.getDownloadUrl(entry.objectKey)
                 DownloadHelper.streamDirectUrlToDownloads(
                     context = getApplication(),
@@ -1488,14 +1768,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         )
                     },
                 )
-                showToast(tr("Saved ${entry.resolvedName} to Downloads", "Đã lưu ${entry.resolvedName} vào Tải xuống"), ToastType.SUCCESS)
             } else {
                 val url = entry.resolvedUrl
                 if (!url.startsWith("http", ignoreCase = true)) {
                     showToast(tr("Invalid or missing file link", "Liên kết tệp không hợp lệ hoặc bị thiếu"), ToastType.ERROR)
                     return
                 }
-                val mode = DownloadHelper.downloadFile(
+                DownloadHelper.downloadFile(
                     context = getApplication(),
                     url = url,
                     fileName = entry.resolvedName,
@@ -1515,10 +1794,25 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         )
                     },
                 )
+            }
+
+            if (outcome.mode == "tab") {
+                showToast(tr("Opening in browser...", "Đang mở trong trình duyệt..."), ToastType.SUCCESS)
+            } else {
+                storage.recordDownloadedFile(
+                    DownloadedFileRecord(
+                        key = entryDownloadKey(entry),
+                        fileName = outcome.fileName.ifBlank { entry.resolvedName },
+                        fileSize = outcome.sizeBytes.takeIf { it > 0L } ?: entry.resolvedSize,
+                        mimeType = outcome.mimeType,
+                        savedUri = outcome.savedUri?.toString().orEmpty(),
+                    ),
+                )
                 showToast(
-                    if (mode == "tab") tr("Opening in browser...", "Đang mở trong trình duyệt...") else tr("Saved ${entry.resolvedName} to Downloads", "Đã lưu ${entry.resolvedName} vào Tải xuống"),
+                    tr("Saved ${outcome.fileName.ifBlank { entry.resolvedName }} to Downloads", "Đã lưu ${outcome.fileName.ifBlank { entry.resolvedName }} vào Tải xuống"),
                     ToastType.SUCCESS,
                 )
+                notifyFileSaved(outcome)
             }
         } catch (e: Throwable) {
             if (!token.isCancelled() && e.message != "DOWNLOAD_CANCELED") {
@@ -1533,6 +1827,16 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun downloadAllDropFiles(files: List<DropFileEntry>) {
+        if (files.isEmpty()) return
+        if (_confirmRedownload.value) {
+            val prev = files.firstNotNullOfOrNull { entry ->
+                storage.findDownloadedFile(entryDownloadKey(entry), entry.resolvedName, entry.resolvedSize)
+            }
+            if (prev != null) {
+                _pendingRedownload.value = PendingRedownloadPrompt(files = files, matchedRecord = prev)
+                return
+            }
+        }
         viewModelScope.launch {
             showToast(tr("Downloading ${files.size} files...", "Đang tải ${files.size} tệp..."), ToastType.INFO)
             files.forEachIndexed { idx, entry ->
@@ -2258,6 +2562,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         put("name", JsonPrimitive(name))
                         put("creator", JsonPrimitive(user))
                         put("expiresAt", JsonPrimitive(expiresAt))
+                        put("width", JsonPrimitive(1280))
+                        put("height", JsonPrimitive(720))
                         put("createdAt", FirebaseRtdbClient.serverTimestamp())
                     },
                 )
@@ -2327,16 +2633,33 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     private fun startBoardSession(boardId: String, boardName: String, expiresAt: Long) {
         boardObserverJob?.cancel()
+        myBoardStrokeIds.clear()
         _roomsState.update {
-            it.copy(activeBoardId = boardId, activeBoardName = boardName, activeBoardExpiresAt = expiresAt, boardStrokes = emptyList())
+            it.copy(
+                activeBoardId = boardId,
+                activeBoardName = boardName,
+                activeBoardExpiresAt = expiresAt,
+                boardWidth = 1280f,
+                boardHeight = 720f,
+                boardStrokes = emptyList(),
+                canUndoBoardStroke = false,
+            )
         }
         openOverlay(AppOverlay.Whiteboard(boardId, boardName))
 
         boardObserverJob = viewModelScope.launch {
+            runCatching {
+                val meta = rtdb.get("boards/$boardId") as? JsonObject
+                val bw = meta?.get("width")?.jsonPrimitive?.floatOrNull?.takeIf { it >= 320f } ?: 1280f
+                val bh = meta?.get("height")?.jsonPrimitive?.floatOrNull?.takeIf { it >= 240f } ?: 720f
+                _roomsState.update { it.copy(boardWidth = bw, boardHeight = bh) }
+            }
+
             rtdb.observe("board_paths/$boardId").collect { elem ->
                 val obj = elem as? JsonObject
                 if (obj == null) {
-                    _roomsState.update { it.copy(boardStrokes = emptyList()) }
+                    myBoardStrokeIds.clear()
+                    _roomsState.update { it.copy(boardStrokes = emptyList(), canUndoBoardStroke = false) }
                     return@collect
                 }
                 val strokes = obj.mapNotNull { (id, v) ->
@@ -2356,7 +2679,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         timestamp = vo["timestamp"]?.jsonPrimitive?.longOrNull ?: 0L,
                     )
                 }.sortedBy { it.timestamp }
-                _roomsState.update { it.copy(boardStrokes = strokes) }
+                _roomsState.update {
+                    it.copy(
+                        boardStrokes = strokes,
+                        canUndoBoardStroke = myBoardStrokeIds.any { id -> strokes.any { s -> s.id == id } },
+                    )
+                }
             }
         }
     }
@@ -2364,14 +2692,20 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun pushBoardStroke(colorHex: String, strokeWidth: Float, points: List<BoardPoint>) {
         val boardId = _roomsState.value.activeBoardId
         if (boardId.isBlank() || points.isEmpty()) return
+        val localTempId = "local_${System.currentTimeMillis()}_${points.size}"
         val localStroke = BoardStroke(
-            id = "local_${System.currentTimeMillis()}",
+            id = localTempId,
             color = colorHex,
             size = strokeWidth,
             points = points,
             timestamp = System.currentTimeMillis(),
         )
-        _roomsState.update { it.copy(boardStrokes = it.boardStrokes + localStroke) }
+        _roomsState.update {
+            it.copy(
+                boardStrokes = it.boardStrokes + localStroke,
+                canUndoBoardStroke = true,
+            )
+        }
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 rtdb.push(
@@ -2393,16 +2727,56 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         put("timestamp", FirebaseRtdbClient.serverTimestamp())
                     },
                 )
+            }.onSuccess { pushedKey ->
+                if (pushedKey.isNotBlank()) {
+                    myBoardStrokeIds.addLast(pushedKey)
+                    while (myBoardStrokeIds.size > 40) myBoardStrokeIds.removeFirst()
+                    _roomsState.update { st ->
+                        st.copy(
+                            boardStrokes = st.boardStrokes.map { if (it.id == localTempId) it.copy(id = pushedKey) else it },
+                            canUndoBoardStroke = true,
+                        )
+                    }
+                }
             }
+        }
+    }
+
+    fun undoLastBoardStroke() {
+        val boardId = _roomsState.value.activeBoardId
+        if (boardId.isBlank()) return
+        val existingIds = _roomsState.value.boardStrokes.map { it.id }.toSet()
+        var targetId: String? = null
+        while (myBoardStrokeIds.isNotEmpty()) {
+            val cand = myBoardStrokeIds.removeLast()
+            if (cand in existingIds) {
+                targetId = cand
+                break
+            }
+        }
+        val finalTarget = targetId ?: _roomsState.value.boardStrokes.lastOrNull()?.id ?: return
+        _roomsState.update { st ->
+            val next = st.boardStrokes.filterNot { it.id == finalTarget }
+            st.copy(
+                boardStrokes = next,
+                canUndoBoardStroke = myBoardStrokeIds.any { id -> next.any { s -> s.id == id } },
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { rtdb.remove("board_paths/$boardId/$finalTarget") }
         }
     }
 
     fun clearBoard() {
         val boardId = _roomsState.value.activeBoardId
         if (boardId.isBlank()) return
+        myBoardStrokeIds.clear()
         viewModelScope.launch {
             runCatching { rtdb.remove("board_paths/$boardId") }
-                .onSuccess { showToast(tr("Board cleared", "Đã xóa bảng"), ToastType.SUCCESS) }
+                .onSuccess {
+                    _roomsState.update { it.copy(boardStrokes = emptyList(), canUndoBoardStroke = false) }
+                    showToast(tr("Board cleared", "Đã xóa bảng"), ToastType.SUCCESS)
+                }
                 .onFailure { showToast(tr("Failed to clear board", "Xóa bảng thất bại"), ToastType.ERROR) }
         }
     }
@@ -2410,7 +2784,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun leaveBoard() {
         boardObserverJob?.cancel()
         boardObserverJob = null
-        _roomsState.update { it.copy(activeBoardId = "", boardStrokes = emptyList()) }
+        myBoardStrokeIds.clear()
+        _roomsState.update { it.copy(activeBoardId = "", boardStrokes = emptyList(), canUndoBoardStroke = false) }
     }
     // endregion
 
@@ -2560,6 +2935,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun setLinkPairToken(v: String) = _linkState.update { it.copy(pairToken = v.trim()) }
     fun setLinkDeviceNameInput(v: String) = _linkState.update { it.copy(deviceNameInput = v) }
     fun setLinkSection(s: String) = _linkState.update { it.copy(section = s) }
+    fun openLinkPairModal() = _linkState.update { it.copy(showPairModal = true) }
+    fun closeLinkPairModal() = _linkState.update { it.copy(showPairModal = false) }
 
     fun dismissIncomingPrompt(id: String) {
         _linkState.update { it.copy(dismissedPromptIds = it.dismissedPromptIds + id) }
@@ -2581,26 +2958,86 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private suspend fun publishShortPairCode(invite: InviteResponse): String {
+        val code = random5Digit()
+        runCatching {
+            rtdb.set(
+                "link_codes/$code",
+                buildJsonObject {
+                    put("token", JsonPrimitive(invite.token))
+                    put("expiresAt", JsonPrimitive(invite.expiresAt))
+                },
+            )
+        }
+        return code
+    }
+
     fun createLinkGroup() {
         val st = _linkState.value
         runLinkAction("create", tr("Device group created", "Đã tạo nhóm thiết bị")) {
             deviceApi.createGroup(st.groupName.ifBlank { tr("My Hefimer Group", "Nhóm Hefimer của tôi") }, st.duration)
             val invite = deviceApi.createInvite()
-            _linkState.update { it.copy(invite = invite) }
+            val shortCode = publishShortPairCode(invite)
+            _linkState.update { it.copy(invite = invite, inviteShortCode = shortCode) }
         }
     }
 
-    fun joinLinkGroup() {
-        val token = _linkState.value.pairToken.trim()
+    fun joinLinkGroup(overrideToken: String? = null, leaveCurrentFirst: Boolean = false) {
+        val raw = (overrideToken ?: _linkState.value.pairToken).trim()
+        if (raw.isBlank()) return
         runLinkAction("join", tr("Devices paired successfully", "Đã ghép nối thiết bị thành công")) {
-            deviceApi.joinGroup(token)
-            _linkState.update { it.copy(pairToken = "") }
+            val resolvedToken = resolvePairingTokenInput(raw)
+            if (leaveCurrentFirst || _linkState.value.sync.group != null) {
+                runCatching { deviceApi.leaveGroup() }
+            }
+            deviceApi.joinGroup(resolvedToken)
+            val cleanDigits = raw.filter { it.isDigit() }
+            if (cleanDigits.length == 5) {
+                runCatching { rtdb.remove("link_codes/$cleanDigits") }
+            }
+            _linkState.update { it.copy(pairToken = "", showPairModal = false, invite = null, inviteShortCode = "") }
         }
+    }
+
+    private suspend fun resolvePairingTokenInput(raw: String): String {
+        val directMatch = Regex("""hfm-[A-Za-z0-9]{36}""").find(raw)
+        if (directMatch != null) return directMatch.value
+
+        val parsedUri = runCatching { Uri.parse(raw) }.getOrNull()
+        val queryPair = parsedUri?.getQueryParameter("pair")?.trim()
+        if (!queryPair.isNullOrBlank()) {
+            val m = Regex("""hfm-[A-Za-z0-9]{36}""").find(queryPair)
+            if (m != null) return m.value
+        }
+
+        val digits = raw.filter { it.isDigit() }
+        if (digits.length == 5) {
+            val obj = rtdb.get("link_codes/$digits") as? JsonObject
+                ?: throw IllegalStateException(tr("Pairing code not found or expired", "Không tìm thấy hoặc mã ghép nối đã hết hạn"))
+            val exp = obj["expiresAt"]?.jsonPrimitive?.longOrNull ?: 0L
+            if (exp in 1 until System.currentTimeMillis()) {
+                runCatching { rtdb.remove("link_codes/$digits") }
+                throw IllegalStateException(tr("Pairing code has expired", "Mã ghép nối đã hết hạn"))
+            }
+            val tok = obj["token"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            if (!Regex("""^hfm-[A-Za-z0-9]{36}$""").matches(tok)) {
+                throw IllegalStateException(tr("Invalid pairing code", "Mã ghép nối không hợp lệ"))
+            }
+            return tok
+        }
+
+        throw IllegalArgumentException(
+            tr(
+                "Enter a 5-digit pairing code, hfm-... token, or scan QR",
+                "Nhập mã ghép 5 số, token hfm-... hoặc quét mã QR",
+            ),
+        )
     }
 
     fun createLinkInvite() = runLinkAction("invite") {
         val invite = deviceApi.createInvite()
-        _linkState.update { it.copy(invite = invite) }
+        val shortCode = publishShortPairCode(invite)
+        _linkState.update { it.copy(invite = invite, inviteShortCode = shortCode) }
     }
 
     fun renameLinkDevice() {
@@ -2626,7 +3063,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val isOwner = _linkState.value.sync.group?.ownerDeviceId == _linkState.value.sync.device.id
         runLinkAction("leave", if (isOwner) tr("Group deleted", "Đã xóa nhóm") else tr("Device unpaired", "Đã ngắt ghép nối thiết bị")) {
             deviceApi.leaveGroup()
-            _linkState.update { it.copy(invite = null) }
+            _linkState.update { it.copy(invite = null, inviteShortCode = "") }
         }
     }
 

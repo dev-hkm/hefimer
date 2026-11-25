@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.UploadFile
@@ -69,7 +70,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -81,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import com.hefimer.app.data.model.DropFileEntry
 import com.hefimer.app.data.model.DropItem
 import com.hefimer.app.data.model.ToastType
@@ -93,10 +97,12 @@ import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.ScanTarget
 import com.hefimer.app.ui.components.CodeHighlighter
+import com.hefimer.app.ui.components.CodeLineNumberGutter
 import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
 import com.hefimer.app.ui.components.HefimerHeaderIconButton
 import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerSecondaryButton
+import com.hefimer.app.ui.components.QrShareModal
 import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.AppleGlassVariant
@@ -253,7 +259,7 @@ fun FiveDigitPinSlots(
             .height(78.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Visual 5 Apple Glass slots
+        // Visual 5 Apple Glass slots (clean borderless-bottom slots without inner underline)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -261,55 +267,40 @@ fun FiveDigitPinSlots(
             for (i in 0 until 5) {
                 val ch = code.getOrNull(i)?.toString().orEmpty()
                 val isCursorSlot = focused && code.length == i
-                val filledOrActive = ch.isNotEmpty() || isCursorSlot
-                val lineColor by animateColorAsState(
-                    targetValue = if (filledOrActive) HefimerColors.White else HefimerColors.White15,
-                    animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
-                    label = "pin_line_$i",
-                )
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween,
+                val borderTint = when {
+                    isCursorSlot -> HefimerColors.White
+                    ch.isNotEmpty() -> HefimerColors.White20
+                    else -> null
+                }
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .width(54.dp)
                         .height(70.dp)
                         .appleGlassSurface(
                             shape = RoundedCornerShape(18.dp),
                             variant = AppleGlassVariant.Clear,
-                            accentBorderTint = if (isCursorSlot) HefimerColors.White else null,
+                            accentBorderTint = borderTint,
                             elevation = 0.dp,
-                        )
-                        .padding(vertical = 8.dp, horizontal = 8.dp),
+                        ),
                 ) {
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (ch.isNotEmpty()) {
-                            Text(
-                                text = ch,
-                                fontFamily = UbuntuFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 32.sp,
-                                color = HefimerColors.White,
-                            )
-                        } else if (isCursorSlot) {
-                            Box(
-                                modifier = Modifier
-                                    .width(2.dp)
-                                    .height(26.dp)
-                                    .alpha(blink.value)
-                                    .background(HefimerColors.White),
-                            )
-                        }
+                    if (ch.isNotEmpty()) {
+                        Text(
+                            text = ch,
+                            fontFamily = UbuntuFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 32.sp,
+                            color = HefimerColors.White,
+                        )
+                    } else if (isCursorSlot) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .height(26.dp)
+                                .alpha(blink.value)
+                                .background(HefimerColors.White),
+                        )
                     }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.5.dp)
-                            .clip(CircleShape)
-                            .background(lineColor),
-                    )
                 }
             }
         }
@@ -582,10 +573,20 @@ private fun ReceivedDropView(
                 },
             )
         } else if (item.type == "file" || (item.type.isBlank() && item.resolvedUrl.isNotBlank())) {
-            // Case 3: Standard Single File
+            // Case 3: Standard Single File + inline image preview & lightbox
             val downloadUrl = item.resolvedUrl
             val isTab = DownloadHelper.getDirectDownloadMode(downloadUrl) == DirectDownloadMode.TAB
             val providerName = UploadProviders.getProviderNameFromUrl(downloadUrl, false)
+            val previewUrl = remember(downloadUrl, item.mimeType, item.fileName) {
+                val guessedMime = item.mimeType ?: when (item.fileName.orEmpty().substringAfterLast('.', "").lowercase()) {
+                    "jpg", "jpeg", "png", "gif", "webp" -> "image/*"
+                    else -> null
+                }
+                if (guessedMime?.startsWith("image/") == true) {
+                    DownloadHelper.getMediaPreviewUrl(downloadUrl, guessedMime)
+                } else null
+            }
+            var showFullImage by remember { mutableStateOf(false) }
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -597,19 +598,33 @@ private fun ReceivedDropView(
                         variant = AppleGlassVariant.Regular,
                         elevation = 14.dp,
                     )
-                    .padding(28.dp),
+                    .padding(24.dp),
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .appleGlassSurface(
-                            shape = CircleShape,
-                            variant = AppleGlassVariant.Clear,
-                            elevation = 0.dp,
-                        ),
-                ) {
-                    Icon(Icons.Rounded.UploadFile, null, tint = HefimerColors.White, modifier = Modifier.size(30.dp))
+                if (previewUrl != null) {
+                    AsyncImage(
+                        model = previewUrl,
+                        contentDescription = item.fileName,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(HefimerColors.Black)
+                            .applePressable(pressedScale = 0.98f) { showFullImage = true },
+                    )
+                } else {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            ),
+                    ) {
+                        Icon(Icons.Rounded.UploadFile, null, tint = HefimerColors.White, modifier = Modifier.size(30.dp))
+                    }
                 }
                 Text(
                     text = item.fileName ?: tr("Unknown File", "Tệp không rõ tên"),
@@ -625,6 +640,37 @@ private fun ReceivedDropView(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
                 )
+            }
+
+            if (showFullImage && previewUrl != null) {
+                Dialog(
+                    onDismissRequest = { showFullImage = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(30.dp),
+                                variant = AppleGlassVariant.Elevated,
+                                elevation = 24.dp,
+                            )
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AsyncImage(
+                            model = previewUrl,
+                            contentDescription = item.fileName,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 520.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .applePressable(pressedScale = 0.99f) { showFullImage = false },
+                        )
+                    }
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -774,6 +820,7 @@ private fun ReceivedDropView(
 
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))
 
+                var textLayoutResult by remember(textBody) { mutableStateOf<TextLayoutResult?>(null) }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -783,14 +830,10 @@ private fun ReceivedDropView(
                         .padding(18.dp),
                 ) {
                     if (showLineNumbers) {
-                        Text(
-                            text = (1..lineCount).joinToString("\n"),
+                        CodeLineNumberGutter(
+                            text = textBody,
+                            textLayoutResult = textLayoutResult,
                             color = HefimerColors.White20,
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 12.sp,
-                            lineHeight = 20.sp,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.padding(end = 14.dp),
                         )
                     }
                     Text(
@@ -799,6 +842,7 @@ private fun ReceivedDropView(
                         fontSize = 13.5.sp,
                         lineHeight = 20.sp,
                         color = HefimerColors.White,
+                        onTextLayout = { textLayoutResult = it },
                     )
                 }
 
@@ -859,8 +903,9 @@ private fun ReceivedDropView(
                         scope.launch {
                             runCatching {
                                 DownloadHelper.saveTextToDownloads(context, name, textBody)
-                            }.onSuccess {
-                                vm.showToast(tr("Saved $it to Downloads", "Đã lưu $it vào Tải xuống"), ToastType.SUCCESS)
+                            }.onSuccess { outcome ->
+                                vm.showToast(tr("Saved ${outcome.fileName} to Downloads", "Đã lưu ${outcome.fileName} vào Tải xuống"), ToastType.SUCCESS)
+                                vm.notifyFileSaved(outcome)
                             }.onFailure {
                                 vm.showToast(it.message ?: tr("Failed to save file", "Không thể lưu tệp"), ToastType.ERROR)
                             }

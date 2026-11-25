@@ -87,7 +87,17 @@ fun HistoryOverlayScreen(
                 HefimerHeaderIconButton(
                     icon = Icons.Rounded.DeleteOutline,
                     contentDescription = tr("Clear history", "Xóa lịch sử"),
-                    onClick = { vm.clearHistory() },
+                    onClick = {
+                        vm.requestConfirm(
+                            title = tr("Clear Recent History?", "Xóa lịch sử gần đây?"),
+                            message = tr(
+                                "This removes all ${history.size} saved items from local history.",
+                                "Thao tác này sẽ xóa toàn bộ ${history.size} mục khỏi lịch sử trên thiết bị.",
+                            ),
+                            confirmLabel = tr("Clear History", "Xóa lịch sử"),
+                            onConfirm = { vm.clearHistory() },
+                        )
+                    },
                 )
             }
             HefimerHeaderIconButton(
