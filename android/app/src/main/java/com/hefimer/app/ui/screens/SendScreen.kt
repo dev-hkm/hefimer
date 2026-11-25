@@ -1689,18 +1689,26 @@ private fun ProviderRowCard(
             }
 
             if (onSetDefault != null) {
+                val starBg = if (isDefault) fg else Color.Transparent
+                val starBorder = if (isDefault) fg else fg.copy(alpha = 0.14f)
+                val starTint = if (isDefault) {
+                    if (selected) HefimerColors.White else HefimerColors.Black
+                } else {
+                    fg.copy(alpha = 0.55f)
+                }
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(34.dp)
                         .clip(RoundedCornerShape(11.dp))
-                        .border(1.dp, if (selected) HefimerColors.Black.copy(alpha = 0.14f) else HefimerColors.White12, RoundedCornerShape(11.dp))
+                        .background(starBg)
+                        .border(1.dp, starBorder, RoundedCornerShape(11.dp))
                         .applePressable(pressedScale = 0.90f, onClick = onSetDefault),
                 ) {
                     Icon(
                         imageVector = if (isDefault) Icons.Rounded.Star else Icons.Rounded.StarOutline,
                         contentDescription = tr("Set as default", "Đặt làm mặc định"),
-                        tint = if (isDefault) HefimerColors.Amber400 else fg.copy(alpha = 0.55f),
+                        tint = starTint,
                         modifier = Modifier.size(16.dp),
                     )
                 }

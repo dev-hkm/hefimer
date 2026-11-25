@@ -158,7 +158,7 @@ data class SpaceUiState(
     val createdExpiresAt: Long? = null,
     val loading: Boolean = false,
     val recentSpaces: List<RecentSpaceEntry> = emptyList(),
-    val selectedProviderId: String = "stocare",
+    val selectedProviderId: String = "storageto",
     // Active canvas state
     val activeSpaceId: String = "",
     val activeSpaceName: String = "",
@@ -576,6 +576,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val sug = _clipboardSuggestion.value ?: return
         lastClipSignature = sug.rawValue
         _clipboardSuggestion.value = null
+        _showSettingsSheet.value = false
         handleScannedOrDeepLink(sug.rawValue, ScanTarget.AUTO)
     }
 
@@ -1025,7 +1026,15 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun onFilesPicked(uris: List<Uri>) {
         if (uris.isEmpty()) return
+        val previous = _sendState.value.pickedFiles
         val resolved = uris.map { uploader.resolvePickedFile(it) }
+        val keptPaths = resolved.mapNotNull { it.tempFile?.absolutePath }.toSet()
+        previous.forEach { old ->
+            val f = old.tempFile
+            if (f != null && f.absolutePath !in keptPaths) {
+                runCatching { f.delete() }
+            }
+        }
         _sendState.update { it.copy(pickedFiles = resolved, isFolderMode = false) }
     }
 
@@ -3093,4 +3102,11 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         deviceApi.cancelTransfer(transferId)
     }
     // endregion
+
+    override fun onCleared() {
+        _sendState.value.pickedFiles.forEach { file ->
+            file.tempFile?.let { temp -> runCatching { temp.delete() } }
+        }
+        super.onCleared()
+    }
 }

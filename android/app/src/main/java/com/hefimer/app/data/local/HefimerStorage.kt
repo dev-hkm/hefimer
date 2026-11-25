@@ -17,6 +17,21 @@ class HefimerStorage(context: Context) {
         encodeDefaults = true
     }
 
+    init {
+        // Ensure v2.4.0 upgrade sets storage.to as default for users who previously had the old stocare default
+        if (!prefs.getBoolean("hefimer_migrated_default_storageto_v1", false)) {
+            prefs.edit().apply {
+                if (prefs.getString("hefimer_default_provider", null) == "stocare") {
+                    putString("hefimer_default_provider", "storageto")
+                }
+                if (prefs.getString("hefimer_space_provider", null) == "stocare") {
+                    putString("hefimer_space_provider", "storageto")
+                }
+                putBoolean("hefimer_migrated_default_storageto_v1", true)
+            }.apply()
+        }
+    }
+
     fun loadHistory(): List<HistoryItem> {
         val raw = prefs.getString("hefimer_history", null) ?: return emptyList()
         return runCatching { json.decodeFromString<List<HistoryItem>>(raw) }.getOrDefault(emptyList())
@@ -79,12 +94,12 @@ class HefimerStorage(context: Context) {
         prefs.edit().putString("hefimer_username", name.trim()).apply()
     }
 
-    fun getSpaceProvider(): String = prefs.getString("hefimer_space_provider", "stocare") ?: "stocare"
+    fun getSpaceProvider(): String = prefs.getString("hefimer_space_provider", "storageto") ?: "storageto"
     fun setSpaceProvider(id: String) {
         prefs.edit().putString("hefimer_space_provider", id).apply()
     }
 
-    fun getDefaultUploadProvider(): String = prefs.getString("hefimer_default_provider", "stocare") ?: "stocare"
+    fun getDefaultUploadProvider(): String = prefs.getString("hefimer_default_provider", "storageto") ?: "storageto"
     fun setDefaultUploadProvider(id: String) {
         prefs.edit().putString("hefimer_default_provider", id).apply()
     }

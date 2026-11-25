@@ -67,13 +67,22 @@ class HefimerCoreTests {
     }
 
     @Test
-    fun uploadProvidersHaveAll12UniqueIdsAndValidFallback() {
-        assertEquals(12, UploadProviders.ALL.size)
-        assertEquals(12, UploadProviders.ALL.map { it.id }.toSet().size)
+    fun uploadProvidersHaveAll18UniqueIdsAndValidFallback() {
+        assertEquals(18, UploadProviders.ALL.size)
+        assertEquals(18, UploadProviders.ALL.map { it.id }.toSet().size)
+        assertEquals("storageto", UploadProviders.ALL.first().id)
+        assertEquals("storageto", UploadProviders.FALLBACK_PRIORITY.first())
+        assertEquals(18, UploadProviders.FALLBACK_PRIORITY.toSet().size)
         assertEquals("72h", UploadProviders.normalizeExpire("storageto", "invalid"))
         assertEquals("24h", UploadProviders.normalizeExpire("storageto", "24h"))
         assertEquals("storage.to", UploadProviders.getProviderNameFromUrl("https://storage.to/f/abc"))
         assertEquals("sto.care", UploadProviders.getProviderNameFromUrl("https://trystocare.com/f/abc"))
+        assertEquals("x0.at", UploadProviders.getProviderNameFromUrl("https://x0.at/abc.png"))
+        assertEquals("pomf.lain.la", UploadProviders.getProviderNameFromUrl("https://pomf2.lain.la/f/abc.bin"))
+        assertEquals("qu.ax", UploadProviders.getProviderNameFromUrl("https://qu.ax/abc.png"))
+        assertEquals("Catbox", UploadProviders.getProviderNameFromUrl("https://files.catbox.moe/abc.png"))
+        assertEquals("Buzzheavier", UploadProviders.getProviderNameFromUrl("https://buzzheavier.com/abc"))
+        assertEquals("Fileditch", UploadProviders.getProviderNameFromUrl("https://itsfileditchfiles.st/f/abc"))
         assertEquals("Cloudflare R2", UploadProviders.getProviderNameFromUrl("https://example.com", hasObjectKey = true))
     }
 
@@ -83,10 +92,25 @@ class HefimerCoreTests {
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://trystocare.com/abc"))
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://h.uguu.se/abc.txt"))
         assertEquals(DirectDownloadMode.PROXY, DownloadHelper.getDirectDownloadMode("https://litter.catbox.moe/abc.txt"))
+        assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://files.catbox.moe/abc.txt"))
+        assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://x0.at/abc.txt"))
+        assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://pomf2.lain.la/f/abc.txt"))
+        assertEquals(DirectDownloadMode.FETCH, DownloadHelper.getDirectDownloadMode("https://qu.ax/abc.txt"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://gofile.io/d/xyz"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://vikingfile.com/f/xyz"))
+        assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://buzzheavier.com/xyz"))
+        assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://itsfileditchfiles.st/f/xyz"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://storage.to/a.png", "image/png"))
+        assertNull(DownloadHelper.getMediaPreviewUrl("https://buzzheavier.com/a.png", "image/png"))
         assertNotNull(DownloadHelper.getMediaPreviewUrl("https://trystocare.com/a.png", "image/png"))
+        assertEquals(
+            "https://files.catbox.moe/a.png",
+            DownloadHelper.getMediaPreviewUrl("https://files.catbox.moe/a.png", "image/png"),
+        )
+        assertEquals(
+            "https://x0.at/a.png",
+            DownloadHelper.getMediaPreviewUrl("https://x0.at/a.png", "image/png"),
+        )
     }
 
     @Test

@@ -51,6 +51,7 @@ class DeviceApiClient(private val storage: HefimerStorage) {
         path: String,
         body: String = "",
         signed: Boolean = true,
+        allowAuthRetry: Boolean = true,
     ): String = withContext(Dispatchers.IO) {
         val fullUrl = "$apiRoot$path"
         val reqBuilder = Request.Builder().url(fullUrl)
@@ -80,21 +81,35 @@ class DeviceApiClient(private val storage: HefimerStorage) {
         val reqBody = if (method == "GET") null else body.toRequestBody(jsonMedia)
         reqBuilder.method(method, reqBody)
 
-        client.newCall(reqBuilder.build()).execute().use { resp ->
+        var shouldRetryAuth = false
+        val responseText = client.newCall(reqBuilder.build()).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
-                val msg = runCatching {
-                    json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.contentOrNull
-                }.getOrNull()
-                if (resp.code == 401) registered = false
-                throw IOException(
-                    msg ?: com.hefimer.app.ui.theme.tr(
-                        "Device service returned ${resp.code}",
-                        "Dịch vụ thiết bị phản hồi mã ${resp.code}",
-                    ),
-                )
+                if (resp.code == 401 && signed && allowAuthRetry) {
+                    registered = false
+                    shouldRetryAuth = true
+                    ""
+                } else {
+                    val msg = runCatching {
+                        json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.contentOrNull
+                    }.getOrNull()
+                    if (resp.code == 401) registered = false
+                    throw IOException(
+                        msg ?: com.hefimer.app.ui.theme.tr(
+                            "Device service returned ${resp.code}",
+                            "Dịch vụ thiết bị phản hồi mã ${resp.code}",
+                        ),
+                    )
+                }
+            } else {
+                text
             }
-            text
+        }
+        if (shouldRetryAuth) {
+            ensureRegistered()
+            requestRaw(method, path, body, signed = true, allowAuthRetry = false)
+        } else {
+            responseText
         }
     }
 

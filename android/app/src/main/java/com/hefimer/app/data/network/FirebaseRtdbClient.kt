@@ -162,10 +162,12 @@ class FirebaseRtdbClient(
         val factory = EventSources.createFactory(sseClient)
         var currentTree: JsonElement? = null
         var activeSource: EventSource? = null
+        var reconnectDelayMs = 2_000L
         var closed = false
 
         fun startStream() {
             if (closed || !isActive) return
+            activeSource?.cancel()
             val request = Request.Builder()
                 .url(pathUrl(path))
                 .header("Accept", "text/event-stream")
@@ -175,6 +177,12 @@ class FirebaseRtdbClient(
             activeSource = factory.newEventSource(
                 request,
                 object : EventSourceListener() {
+                    override fun onOpen(eventSource: EventSource, response: Response) {
+                        if (eventSource === activeSource) {
+                            reconnectDelayMs = 2_000L
+                        }
+                    }
+
                     override fun onEvent(
                         eventSource: EventSource,
                         id: String?,
@@ -208,9 +216,11 @@ class FirebaseRtdbClient(
                     }
 
                     override fun onClosed(eventSource: EventSource) {
-                        if (!closed && isActive) {
+                        if (!closed && isActive && eventSource === activeSource) {
+                            val waitMs = reconnectDelayMs
+                            reconnectDelayMs = (reconnectDelayMs * 2L).coerceAtMost(16_000L)
                             launch(Dispatchers.IO) {
-                                delay(2_000L)
+                                delay(waitMs)
                                 startStream()
                             }
                         }
@@ -221,9 +231,11 @@ class FirebaseRtdbClient(
                         t: Throwable?,
                         response: Response?,
                     ) {
-                        if (!closed && isActive) {
+                        if (!closed && isActive && eventSource === activeSource) {
+                            val waitMs = reconnectDelayMs
+                            reconnectDelayMs = (reconnectDelayMs * 2L).coerceAtMost(16_000L)
                             launch(Dispatchers.IO) {
-                                delay(2_500L)
+                                delay(waitMs)
                                 startStream()
                             }
                         }

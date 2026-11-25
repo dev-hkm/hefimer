@@ -75,18 +75,37 @@ object DownloadHelper {
     private val TAB_HOSTS = setOf(
         "gofile.io",
         "vikingfile.com",
+        "buzzheavier.com",
+        "fileditch.com",
+        "new.fileditch.com",
+        "itsfileditchfiles.st",
     )
 
     private val SKIP_INLINE_PREVIEW_HOSTS = setOf(
         "gofile.io",
         "vikingfile.com",
         "storage.to",
+        "buzzheavier.com",
+        "fileditch.com",
+        "new.fileditch.com",
+        "itsfileditchfiles.st",
+        "qu.ax",
+        "temp.sh",
+    )
+
+    private val DIRECT_INLINE_PREVIEW_HOSTS = setOf(
+        "x0.at",
+        "pomf2.lain.la",
+        "pomf.lain.la",
+        "files.catbox.moe",
+        "d.tmpfile.link",
+        "n.uguu.se",
     )
 
     fun getDirectDownloadMode(url: String): DirectDownloadMode {
         val host = runCatching { URI(url).host?.lowercase().orEmpty() }.getOrDefault("")
         return when {
-            host in PROXIED_HOSTS || host.endsWith(".uguu.se") || host.endsWith(".catbox.moe") -> DirectDownloadMode.PROXY
+            host in PROXIED_HOSTS || host.endsWith(".uguu.se") -> DirectDownloadMode.PROXY
             host in TAB_HOSTS -> DirectDownloadMode.TAB
             else -> DirectDownloadMode.FETCH
         }
@@ -108,6 +127,7 @@ object DownloadHelper {
         if (parsed.scheme?.lowercase() != "https") return null
         val host = parsed.host?.lowercase().orEmpty()
         if (host in SKIP_INLINE_PREVIEW_HOSTS) return null
+        if (host in DIRECT_INLINE_PREVIEW_HOSTS) return url
         return buildProxyUrl(url, "preview", inline = true)
     }
 
@@ -167,7 +187,21 @@ object DownloadHelper {
             return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
         }
 
-        // 2. For proxied hosts (sto.care, tmpfile.link, tempfile, temp.sh, tmpfiles, put.icu, litterbox, filebin, uguu):
+        // 2. For qu.ax: resolve /x/<file> raw link from page HTML and stream directly with Referer
+        if (host == "qu.ax" || host.endsWith(".qu.ax")) {
+            val resolved = runCatching { resolveQuAxOnDevice(url) }.getOrNull()
+            if (!resolved.isNullOrBlank()) {
+                val res = runCatching {
+                    streamToDownloads(context, resolved, safeName, cancelToken, onProgress, referer = url)
+                }.getOrNull()
+                if (res != null) return@withContext res
+            }
+            if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
+            openExternalUrl(context, url)
+            return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
+        }
+
+        // 3. For proxied hosts (sto.care, tmpfile.link, tempfile, temp.sh, tmpfiles, put.icu, litterbox, filebin, uguu):
         //    Stream through /api/download with trusted same-origin headers, with direct fallback if proxy fails.
         if (mode == DirectDownloadMode.PROXY) {
             val proxyUrl = buildProxyUrl(url, safeName)
@@ -175,13 +209,13 @@ object DownloadHelper {
                 return@withContext streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress)
             } catch (e: Throwable) {
                 if (cancelToken.isCancelled() || e.message == "DOWNLOAD_CANCELED") throw e
-                // Fallback: try direct download from phone's own IP (works great for sto.care, litterbox, tmpfile.link, put.icu)
+                // Fallback: try direct download from phone's own IP
                 try {
                     val directTarget = when {
                         host == "put.icu" && !url.contains("/s/") ->
                             url.replaceFirst("put.icu/", "put.icu/s/")
-                        host == "tmpfiles.org" && !url.contains("/dl/") ->
-                            url.replaceFirst("tmpfiles.org/", "tmpfiles.org/dl/")
+                        host == "tmpfiles.org" ->
+                            resolveTmpfilesDirectUrl(url) ?: url.replaceFirst("tmpfiles.org/", "tmpfiles.org/dl/")
                         else -> url
                     }
                     return@withContext streamToDownloads(context, directTarget, safeName, cancelToken, onProgress)
@@ -193,8 +227,34 @@ object DownloadHelper {
             }
         }
 
-        // 3. Direct URLs (e.g. Cloudflare R2 presigned download URLs or direct hosts)
+        // 4. Direct URLs (x0.at, pomf2.lain.la, files.catbox.moe, Cloudflare R2 presigned URLs)
         streamToDownloads(context, url, safeName, cancelToken, onProgress)
+    }
+
+    private fun resolveQuAxOnDevice(shareUrl: String): String? {
+        val req = Request.Builder().url(shareUrl).get().build()
+        val html = HefimerApiConfig.apiClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return null
+            val ct = resp.header("Content-Type").orEmpty()
+            if (!ct.contains("text/html", ignoreCase = true)) return shareUrl
+            resp.body?.string().orEmpty()
+        }
+        val rel = Regex("""href=["'](/x/[^"']+)["']""", RegexOption.IGNORE_CASE).find(html)?.groupValues?.get(1)
+            ?: return null
+        return "https://qu.ax$rel"
+    }
+
+    private fun resolveTmpfilesDirectUrl(url: String): String? {
+        val dlPage = if (url.contains("/dl/")) url else url.replaceFirst("tmpfiles.org/", "tmpfiles.org/dl/")
+        val req = Request.Builder().url(dlPage).get().build()
+        val body = HefimerApiConfig.apiClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return null
+            val ct = resp.header("Content-Type").orEmpty()
+            if (!ct.contains("text/html", ignoreCase = true)) return dlPage
+            resp.body?.string().orEmpty()
+        }
+        return Regex("""https?://tmpfiles\.org/dl/[0-9]+(?:\.[0-9a-f]+)+/[^"'\s<>]+""")
+            .find(body)?.value
     }
 
     /**
@@ -268,12 +328,16 @@ object DownloadHelper {
         safeName: String,
         cancelToken: DownloadCancellationToken,
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit,
+        referer: String? = null,
     ): DownloadOutcome {
         if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
-        val req = Request.Builder()
+        val reqBuilder = Request.Builder()
             .url(url)
             .get()
-            .build()
+        if (!referer.isNullOrBlank()) {
+            reqBuilder.header("Referer", referer)
+        }
+        val req = reqBuilder.build()
         val call = HefimerApiConfig.uploadClient.newCall(req)
         cancelToken.bindCall(call)
         try {

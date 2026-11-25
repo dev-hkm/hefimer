@@ -113,12 +113,12 @@ private val ONBOARDING_SLIDES = listOf(
         subtitleVi = "Gửi tệp, thư mục hoặc code tô màu trực tiếp. Không cần đăng nhập — tự hủy khi hết hạn.",
     ),
     OnboardingSlide(
-        kickerEn = "MULTI-HOST ENGINE",
-        kickerVi = "HỆ THỐNG 12 MÁY CHỦ",
-        titleEn = "12 storage hosts. Smart auto-routing.",
-        titleVi = "12 máy chủ lưu trữ. Tự động chuyển tuyến.",
-        subtitleEn = "Defaults to lightning-fast sto.care and automatically routes huge files to high-capacity hosts.",
-        subtitleVi = "Mặc định sto.care siêu nhanh và tự động điều hướng tệp dung lượng lớn sang máy chủ phù hợp.",
+        kickerEn = "18-HOST ENGINE",
+        kickerVi = "HỆ THỐNG 18 MÁY CHỦ",
+        titleEn = "18 storage hosts. Smart auto-routing.",
+        titleVi = "18 máy chủ lưu trữ. Tự động chuyển tuyến.",
+        subtitleEn = "Defaults to high-speed storage.to (25 GB) with 17 fallback hosts for resilient delivery.",
+        subtitleVi = "Mặc định storage.to tốc độ cao (25 GB) cùng 17 máy chủ dự phòng tự động chuyển tuyến mượt mà.",
         emeraldAccent = true,
     ),
     OnboardingSlide(
@@ -697,7 +697,7 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
             Icon(Icons.Rounded.CloudUpload, null, tint = HefimerColors.White, modifier = Modifier.size(24.dp))
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "sto.care",
+                text = "storage.to",
                 color = HefimerColors.White,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -712,11 +712,11 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
         }
 
         // Satellite Apple Glass provider chips around orbit (Secret R2 keeps subtle emerald!)
-        HostSatelliteChip("storage.to • 10 GB", Modifier.align(Alignment.TopCenter).offset(y = 4.dp))
+        HostSatelliteChip("sto.care • 100 MB", Modifier.align(Alignment.TopCenter).offset(y = 4.dp))
         HostSatelliteChip("Gofile • ∞", Modifier.align(Alignment.CenterStart).offset(x = (-4).dp, y = (-26).dp))
-        HostSatelliteChip("Viking • 15 GB", Modifier.align(Alignment.CenterEnd).offset(x = 4.dp, y = (-26).dp))
+        HostSatelliteChip("Pomf • 1 GB", Modifier.align(Alignment.CenterEnd).offset(x = 4.dp, y = (-26).dp))
         HostSatelliteChip("Secret R2", Modifier.align(Alignment.BottomStart).offset(x = 14.dp, y = (-20).dp), emerald = true)
-        HostSatelliteChip("Uguu • Put.icu", Modifier.align(Alignment.BottomEnd).offset(x = (-10).dp, y = (-20).dp))
+        HostSatelliteChip("x0.at • qu.ax", Modifier.align(Alignment.BottomEnd).offset(x = (-10).dp, y = (-20).dp))
     }
 }
 

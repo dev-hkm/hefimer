@@ -405,8 +405,8 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 val center = Offset(size.width - 10.dp.toPx(), 10.dp.toPx())
-                drawCircle(Color.White.copy(alpha = 0.08f), radius = 92.dp.toPx(), center = center, style = Stroke(1.dp.toPx()))
-                drawCircle(Color.White.copy(alpha = 0.05f), radius = 56.dp.toPx(), center = center, style = Stroke(1.dp.toPx()))
+                drawCircle(HefimerColors.White.copy(alpha = 0.08f), radius = 92.dp.toPx(), center = center, style = Stroke(1.dp.toPx()))
+                drawCircle(HefimerColors.White.copy(alpha = 0.05f), radius = 56.dp.toPx(), center = center, style = Stroke(1.dp.toPx()))
             }
 
             Column(modifier = Modifier.padding(22.dp)) {
@@ -1120,7 +1120,7 @@ private fun JoinByCodeOrQrDialog(
                             "Pairing a new code will leave \"${state.sync.group.name}\" automatically.",
                             "Khi ghép mã mới, thiết bị sẽ tự rời nhóm \"${state.sync.group.name}\".",
                         ),
-                        color = HefimerColors.Amber400.copy(alpha = 0.85f),
+                        color = HefimerColors.White60,
                         fontSize = 11.5.sp,
                     )
                 }

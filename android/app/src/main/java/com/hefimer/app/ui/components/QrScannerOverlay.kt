@@ -69,7 +69,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -130,6 +130,8 @@ fun QrScannerOverlay(
 
     fun releaseCameraImmediately() {
         scanned.set(true)
+        torchOn = false
+        runCatching { boundCamera?.cameraControl?.enableTorch(false) }
         runCatching { analysisRef.getAndSet(null)?.clearAnalyzer() }
         runCatching { providerRef.getAndSet(null)?.unbindAll() }
     }

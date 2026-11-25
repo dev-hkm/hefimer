@@ -117,21 +117,6 @@ object UploadProviders {
 
     val ALL: List<UploadProviderConfig> = listOf(
         UploadProviderConfig(
-            id = "stocare",
-            name = "sto.care",
-            maxSizeBytes = 99L * MB,
-            maxSizeLabel = "100 MB",
-            expiry = "Deletes after 72 hours (fixed)",
-            expiryVi = "Tự xóa sau 72 giờ (cố định)",
-            speed = "Very fast direct stream upload & clean raw download",
-            speedVi = "Tải lên trực tiếp siêu nhanh & tải xuống nguyên gốc",
-            features = "Default fast route up to 100 MB via trystocare.com. Files > 100 MB auto-route to storage.to / Gofile.",
-            featuresVi = "Tuyến mặc định tốc độ cao tối đa 100 MB qua trystocare.com. Tệp > 100 MB tự chuyển sang storage.to / Gofile.",
-            isLargeFile = false,
-            defaultExpire = "72h",
-            expireOptions = listOf(ExpireOption("72 hours (Fixed)", "72 giờ (Cố định)", "72h")),
-        ),
-        UploadProviderConfig(
             id = "storageto",
             name = "storage.to",
             maxSizeBytes = 25L * GB,
@@ -140,8 +125,8 @@ object UploadProviders {
             expiryVi = "Tự xóa sau 3 ngày (chọn 1-7 ngày)",
             speed = "Fast, powered by Cloudflare R2 multipart",
             speedVi = "Nhanh, chạy trên hạ tầng Cloudflare R2 đa luồng",
-            features = "Direct R2 presigned multipart upload up to 25 GB. Falls back automatically if blocked.",
-            featuresVi = "Tải lên đa phần R2 tối đa 25 GB. Tự động dự phòng nếu mạng bị chặn.",
+            features = "Default route up to 25 GB via Cloudflare R2 presigned multipart. Auto-falls back across 17 backup hosts if needed.",
+            featuresVi = "Tuyến mặc định tối đa 25 GB trên Cloudflare R2 đa luồng. Tự động chuyển sang 17 máy chủ dự phòng nếu mạng bị chặn.",
             isLargeFile = true,
             defaultExpire = "72h",
             expireOptions = listOf(
@@ -153,18 +138,77 @@ object UploadProviders {
             ),
         ),
         UploadProviderConfig(
-            id = "gofile",
-            name = "Gofile",
-            maxSizeBytes = Long.MAX_VALUE,
-            maxSizeLabel = "No limit",
-            maxSizeLabelVi = "Không giới hạn",
-            expiry = "Deletes after 10 days of inactivity",
-            expiryVi = "Xóa sau 10 ngày không có lượt truy cập",
-            speed = "Fast multi-server direct upload",
-            speedVi = "Tải trực tiếp đa máy chủ tốc độ cao",
-            features = "Large-file external route with multi-server retry. Downloads open Gofile page.",
-            featuresVi = "Tuyến tệp lớn kèm tự động đổi máy chủ. Khi tải sẽ mở trang Gofile.",
+            id = "stocare",
+            name = "sto.care",
+            maxSizeBytes = 99L * MB,
+            maxSizeLabel = "100 MB",
+            expiry = "Deletes after 72 hours (fixed)",
+            expiryVi = "Tự xóa sau 72 giờ (cố định)",
+            speed = "Very fast direct stream upload & clean raw download",
+            speedVi = "Tải lên trực tiếp siêu nhanh & tải xuống nguyên gốc",
+            features = "High-speed direct route up to 100 MB via trystocare.com with clean raw downloads.",
+            featuresVi = "Tuyến tốc độ cao tối đa 100 MB qua trystocare.com kèm tải thẳng tệp gốc.",
+            isLargeFile = false,
+            defaultExpire = "72h",
+            expireOptions = listOf(ExpireOption("72 hours (Fixed)", "72 giờ (Cố định)", "72h")),
+        ),
+        UploadProviderConfig(
+            id = "x0at",
+            name = "x0.at",
+            maxSizeBytes = 512L * MB,
+            maxSizeLabel = "512 MB",
+            expiry = "Deletes after 3-100 days (size-scaled)",
+            expiryVi = "Lưu 3-100 ngày (tùy dung lượng)",
+            speed = "Ultra-lightweight direct stream & zero-redirect raw download",
+            speedVi = "Siêu nhẹ, tải thẳng không chuyển hướng",
+            features = "Anonymous 512 MB host returning direct raw binary URLs with fast mobile downloads.",
+            featuresVi = "Máy chủ ẩn danh tối đa 512 MB trả về liên kết tải thẳng trực tiếp siêu nhanh.",
             isLargeFile = true,
+            defaultExpire = "48h",
+            expireOptions = STANDARD_EXPIRE_OPTIONS,
+        ),
+        UploadProviderConfig(
+            id = "pomf",
+            name = "pomf.lain.la",
+            maxSizeBytes = 1L * GB,
+            maxSizeLabel = "1 GB",
+            expiry = "Permanent / long-term CDN retention",
+            expiryVi = "Lưu trữ lâu dài trên CDN",
+            speed = "Fast direct upload & raw pomf2.lain.la CDN download",
+            speedVi = "Tải lên nhanh & tải thẳng từ CDN pomf2.lain.la",
+            features = "Reliable 1 GB host serving direct raw bytes on pomf2.lain.la with range request support.",
+            featuresVi = "Máy chủ ổn định tới 1 GB, tải xuống trực tiếp từ CDN pomf2.lain.la không qua trang trung gian.",
+            isLargeFile = true,
+            defaultExpire = "48h",
+            expireOptions = STANDARD_EXPIRE_OPTIONS,
+        ),
+        UploadProviderConfig(
+            id = "quax",
+            name = "qu.ax",
+            maxSizeBytes = 256L * MB,
+            maxSizeLabel = "256 MB",
+            expiry = "Deletes after 30 days",
+            expiryVi = "Tự xóa sau 30 ngày",
+            speed = "Fast global nginx edge with direct byte resolution",
+            speedVi = "Edge nginx nhanh kèm giải mã tải trực tiếp",
+            features = "256 MB anonymous host with automatic on-device direct file stream extraction.",
+            featuresVi = "Máy chủ 256 MB tự động tách luồng tải tệp trực tiếp ngay trên điện thoại.",
+            isLargeFile = true,
+            defaultExpire = "48h",
+            expireOptions = STANDARD_EXPIRE_OPTIONS,
+        ),
+        UploadProviderConfig(
+            id = "catbox",
+            name = "Catbox",
+            maxSizeBytes = 200L * MB,
+            maxSizeLabel = "200 MB",
+            expiry = "Permanent / long-term CDN retention",
+            expiryVi = "Lưu trữ lâu dài trên CDN Catbox",
+            speed = "Fast direct files.catbox.moe raw download",
+            speedVi = "Tải thẳng tốc độ cao qua files.catbox.moe",
+            features = "Dedicated 200 MB Catbox host with instant direct CDN links and high reliability.",
+            featuresVi = "Máy chủ Catbox 200 MB phản hồi nhanh, tải thẳng qua files.catbox.moe siêu ổn định.",
+            isLargeFile = false,
             defaultExpire = "48h",
             expireOptions = STANDARD_EXPIRE_OPTIONS,
         ),
@@ -187,6 +231,53 @@ object UploadProviders {
                 ExpireOption("24 hours", "24 giờ", "24h"),
                 ExpireOption("72 hours", "72 giờ", "72h"),
             ),
+        ),
+        UploadProviderConfig(
+            id = "buzzheavier",
+            name = "Buzzheavier",
+            maxSizeBytes = Long.MAX_VALUE,
+            maxSizeLabel = "No limit",
+            maxSizeLabelVi = "Không giới hạn",
+            expiry = "8 days (+2d per download, max 60d)",
+            expiryVi = "8 ngày (+2 ngày mỗi lượt tải, tối đa 60 ngày)",
+            speed = "High-throughput raw PUT upload",
+            speedVi = "Tải lên PUT trực tiếp băng thông rộng",
+            features = "No-limit anonymous large-file host with fast PUT streaming. Downloads open Buzzheavier page.",
+            featuresVi = "Lưu trữ tệp không giới hạn dung lượng, truyền tải PUT nhanh. Khi tải sẽ mở trang Buzzheavier.",
+            isLargeFile = true,
+            defaultExpire = "48h",
+            expireOptions = STANDARD_EXPIRE_OPTIONS,
+        ),
+        UploadProviderConfig(
+            id = "fileditch",
+            name = "Fileditch",
+            maxSizeBytes = 150L * GB,
+            maxSizeLabel = "150 GB",
+            expiry = "Retained while actively downloaded",
+            expiryVi = "Giữ lâu dài khi còn lượt truy cập",
+            speed = "High-capacity edge upload up to 150 GB",
+            speedVi = "Tải lên dung lượng cực lớn tới 150 GB",
+            features = "High-capacity anonymous host up to 150 GB. Downloads open Fileditch page.",
+            featuresVi = "Máy chủ dung lượng lớn tới 150 GB làm tuyến dự phòng mạnh. Khi tải sẽ mở trang Fileditch.",
+            isLargeFile = true,
+            defaultExpire = "48h",
+            expireOptions = STANDARD_EXPIRE_OPTIONS,
+        ),
+        UploadProviderConfig(
+            id = "gofile",
+            name = "Gofile",
+            maxSizeBytes = Long.MAX_VALUE,
+            maxSizeLabel = "No limit",
+            maxSizeLabelVi = "Không giới hạn",
+            expiry = "Deletes after 10 days of inactivity",
+            expiryVi = "Xóa sau 10 ngày không có lượt truy cập",
+            speed = "Fast multi-server direct upload",
+            speedVi = "Tải trực tiếp đa máy chủ tốc độ cao",
+            features = "Large-file external route with multi-server retry. Downloads open Gofile page.",
+            featuresVi = "Tuyến tệp lớn kèm tự động đổi máy chủ. Khi tải sẽ mở trang Gofile.",
+            isLargeFile = true,
+            defaultExpire = "48h",
+            expireOptions = STANDARD_EXPIRE_OPTIONS,
         ),
         UploadProviderConfig(
             id = "vikingfile",
@@ -322,16 +413,22 @@ object UploadProviders {
     )
 
     val FALLBACK_PRIORITY = listOf(
-        "stocare",
         "storageto",
-        "litterbox",
+        "stocare",
+        "x0at",
+        "pomf",
+        "quax",
+        "catbox",
         "tmpfilelink",
         "tempfile",
-        "tmpfiles",
+        "uguu",
         "tempsh",
         "filebin",
-        "uguu",
         "puticu",
+        "tmpfiles",
+        "litterbox",
+        "buzzheavier",
+        "fileditch",
         "gofile",
         "vikingfile",
     )
@@ -347,11 +444,18 @@ object UploadProviders {
         if (url.isBlank()) return "File"
         if (hasObjectKey) return "Cloudflare R2"
         return when {
-            url.contains("gofile.io") -> "Gofile"
-            url.contains("catbox.moe") -> "Litterbox"
-            url.contains("pixeldrain.com") -> "Pixeldrain"
             url.contains("storage.to") -> "storage.to"
             url.contains("trystocare.com") || url.contains("sto.care") -> "sto.care"
+            url.contains("x0.at") -> "x0.at"
+            url.contains("pomf2.lain.la") || url.contains("pomf.lain.la") -> "pomf.lain.la"
+            url.contains("qu.ax") -> "qu.ax"
+            url.contains("files.catbox.moe") -> "Catbox"
+            url.contains("catbox.moe") -> "Litterbox"
+            url.contains("buzzheavier.com") -> "Buzzheavier"
+            url.contains("itsfileditchfiles.st") || url.contains("fileditch.com") -> "Fileditch"
+            url.contains("gofile.io") -> "Gofile"
+            url.contains("vikingfile.com") -> "VikingFile"
+            url.contains("pixeldrain.com") -> "Pixeldrain"
             url.contains("tmpfile.link") -> "tfLink"
             url.contains("tmpfiles.org") -> "tmpfiles.org"
             url.contains("filebin.net") -> "Filebin"
@@ -359,7 +463,6 @@ object UploadProviders {
             url.contains("temp.sh") -> "temp.sh"
             url.contains("uguu.se") -> "Uguu.se"
             url.contains("put.icu") -> "Put.icu"
-            url.contains("vikingfile.com") -> "VikingFile"
             else -> runCatching {
                 java.net.URI(url).host.orEmpty().removePrefix("www.").substringBefore(".")
                     .replaceFirstChar { it.uppercase() }
@@ -484,6 +587,14 @@ class FileUploadEngine(
         onStatus: (String) -> Unit,
         onFallback: (String, String) -> Unit,
     ): FallbackUploadResult = withContext(Dispatchers.IO) {
+        if (picked.size <= 0L) {
+            throw IOException(
+                com.hefimer.app.ui.theme.tr(
+                    "Cannot upload an empty 0-byte file (${picked.name})",
+                    "Không thể tải lên tệp rỗng 0 byte (${picked.name})",
+                ),
+            )
+        }
         val orderedIds = listOf(primaryProviderId) +
             UploadProviders.FALLBACK_PRIORITY.filter { it != primaryProviderId }
         val eligibleIds = orderedIds.filter { id ->
@@ -547,8 +658,14 @@ class FileUploadEngine(
         onBytesProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit,
     ): String = when (providerId) {
-        "stocare" -> uploadStoCare(picked, cancelToken, onProgress, onBytesProgress, onStatus)
         "storageto" -> uploadStorageTo(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
+        "stocare" -> uploadStoCare(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "x0at" -> uploadX0At(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "pomf" -> uploadPomf(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "quax" -> uploadQuAx(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "catbox" -> uploadCatbox(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "buzzheavier" -> uploadBuzzheavier(picked, cancelToken, onProgress, onBytesProgress, onStatus)
+        "fileditch" -> uploadFileditch(picked, cancelToken, onProgress, onBytesProgress, onStatus)
         "gofile" -> uploadGofile(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
         "litterbox" -> uploadLitterbox(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
         "vikingfile" -> uploadVikingFile(picked, cancelToken, onProgress, onBytesProgress, onStatus)
@@ -565,6 +682,21 @@ class FileUploadEngine(
                 "Máy chủ tải lên không được hỗ trợ: $providerId",
             ),
         )
+    }
+
+    private fun <T> withPartRetry(cancelToken: UploadCancellationToken, block: () -> T): T {
+        var last: Throwable? = null
+        for (attempt in 0..1) {
+            if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
+            try {
+                return block()
+            } catch (e: Throwable) {
+                if (cancelToken.isCancelled() || e.message == "UPLOAD_CANCELED") throw e
+                last = e
+                if (attempt == 0) runCatching { Thread.sleep(600L) }
+            }
+        }
+        throw last ?: IOException("Multipart part upload failed")
     }
 
     private fun openStream(picked: LocalPickedFile): InputStream {
@@ -773,24 +905,26 @@ class FileUploadEngine(
 
                 val start = (partNum - 1L) * partSize
                 val len = minOf(partSize, picked.size - start).coerceAtLeast(0L)
-                val putPartReq = Request.Builder()
-                    .url(partUrl)
-                    .put(
-                        streamingBody(
-                            picked = picked,
-                            onProgress = { pct ->
-                                val overall = (((partNum - 1.0) / totalParts) * 100.0 + pct.toDouble() / totalParts).toInt()
-                                onProgress(overall.coerceIn(0, 100))
-                            },
-                            cancelToken = cancelToken,
-                            onBytesProgress = onBytesProgress,
-                            rangeStart = start,
-                            rangeLength = len,
-                            omitContentType = true,
-                        ),
-                    )
-                    .build()
-                val (_, _, headers) = execute(putPartReq, cancelToken)
+                val (_, _, headers) = withPartRetry(cancelToken) {
+                    val putPartReq = Request.Builder()
+                        .url(partUrl)
+                        .put(
+                            streamingBody(
+                                picked = picked,
+                                onProgress = { pct ->
+                                    val overall = (((partNum - 1.0) / totalParts) * 100.0 + pct.toDouble() / totalParts).toInt()
+                                    onProgress(overall.coerceIn(0, 100))
+                                },
+                                cancelToken = cancelToken,
+                                onBytesProgress = onBytesProgress,
+                                rangeStart = start,
+                                rangeLength = len,
+                                omitContentType = true,
+                            ),
+                        )
+                        .build()
+                    execute(putPartReq, cancelToken)
+                }
                 val etag = headers["ETag"] ?: headers["etag"]
                     ?: throw IOException(com.hefimer.app.ui.theme.tr("Missing ETag for part $partNum", "Thiếu ETag cho phần $partNum"))
                 completedParts.add(partNum to etag)
@@ -1029,24 +1163,26 @@ class FileUploadEngine(
             val partNum = idx + 1
             val start = idx.toLong() * partSize
             val len = minOf(partSize, picked.size - start).coerceAtLeast(0L)
-            val putReq = Request.Builder()
-                .url(partUrl)
-                .put(
-                    streamingBody(
-                        picked = picked,
-                        onProgress = { pct ->
-                            val overall = (((idx.toDouble()) / urls.size) * 100.0 + pct.toDouble() / urls.size).toInt()
-                            onProgress(overall.coerceIn(0, 100))
-                        },
-                        cancelToken = cancelToken,
-                        onBytesProgress = onBytesProgress,
-                        rangeStart = start,
-                        rangeLength = len,
-                        omitContentType = true,
-                    ),
-                )
-                .build()
-            val (_, _, headers) = execute(putReq, cancelToken)
+            val (_, _, headers) = withPartRetry(cancelToken) {
+                val putReq = Request.Builder()
+                    .url(partUrl)
+                    .put(
+                        streamingBody(
+                            picked = picked,
+                            onProgress = { pct ->
+                                val overall = (((idx.toDouble()) / urls.size) * 100.0 + pct.toDouble() / urls.size).toInt()
+                                onProgress(overall.coerceIn(0, 100))
+                            },
+                            cancelToken = cancelToken,
+                            onBytesProgress = onBytesProgress,
+                            rangeStart = start,
+                            rangeLength = len,
+                            omitContentType = true,
+                        ),
+                    )
+                    .build()
+                execute(putReq, cancelToken)
+            }
             val etag = (headers["ETag"] ?: headers["etag"])?.replace("\"", "")
                 ?: throw IOException(
                     com.hefimer.app.ui.theme.tr(
@@ -1272,5 +1408,152 @@ class FileUploadEngine(
         return obj["direct_url"]?.jsonPrimitive?.contentOrNull
             ?: obj["url"]?.jsonPrimitive?.contentOrNull
             ?: throw IOException(com.hefimer.app.ui.theme.tr("Put.icu upload failed", "Tải lên Put.icu thất bại"))
+    }
+
+    private fun uploadX0At(
+        picked: LocalPickedFile,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via x0.at...", "Đang tải lên qua x0.at..."))
+        val safeName = asciiSafeWireName(picked.name)
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .build()
+        val req = Request.Builder().url("https://x0.at").post(body).build()
+        val url = execute(req, cancelToken).second.trim()
+        if (!url.startsWith("https://")) {
+            throw IOException(url.ifBlank { com.hefimer.app.ui.theme.tr("x0.at upload failed", "Tải lên x0.at thất bại") })
+        }
+        return url
+    }
+
+    private fun uploadPomf(
+        picked: LocalPickedFile,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via pomf.lain.la...", "Đang tải lên qua pomf.lain.la..."))
+        val safeName = asciiSafeWireName(picked.name)
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("files[]", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .build()
+        val req = Request.Builder().url("https://pomf.lain.la/upload.php").post(body).build()
+        val text = execute(req, cancelToken).second
+        val obj = json.parseToJsonElement(text).jsonObject
+        val fileUrl = obj["files"]?.jsonArray?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+        if (obj["success"]?.jsonPrimitive?.content == "true" && !fileUrl.isNullOrBlank()) {
+            return fileUrl
+        }
+        throw IOException(
+            obj["description"]?.jsonPrimitive?.contentOrNull
+                ?: com.hefimer.app.ui.theme.tr("pomf.lain.la upload failed", "Tải lên pomf.lain.la thất bại"),
+        )
+    }
+
+    private fun uploadQuAx(
+        picked: LocalPickedFile,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via qu.ax...", "Đang tải lên qua qu.ax..."))
+        val safeName = asciiSafeWireName(picked.name)
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("files[]", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .build()
+        val req = Request.Builder().url("https://qu.ax/upload.php").post(body).build()
+        val text = execute(req, cancelToken).second
+        val obj = json.parseToJsonElement(text).jsonObject
+        val fileUrl = obj["files"]?.jsonArray?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+        if (obj["success"]?.jsonPrimitive?.content == "true" && !fileUrl.isNullOrBlank()) {
+            return fileUrl
+        }
+        throw IOException(com.hefimer.app.ui.theme.tr("qu.ax upload failed", "Tải lên qu.ax thất bại"))
+    }
+
+    private fun uploadCatbox(
+        picked: LocalPickedFile,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Catbox...", "Đang tải lên qua Catbox..."))
+        val safeName = asciiSafeWireName(picked.name)
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("reqtype", "fileupload")
+            .addFormDataPart("fileToUpload", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .build()
+        val req = Request.Builder()
+            .url("https://catbox.moe/user/api.php")
+            .header("Accept", "*/*")
+            .post(body)
+            .build()
+        val url = execute(req, cancelToken).second.trim()
+        if (!url.startsWith("https://")) {
+            throw IOException(url.ifBlank { com.hefimer.app.ui.theme.tr("Catbox upload failed", "Tải lên Catbox thất bại") })
+        }
+        return url
+    }
+
+    private fun uploadBuzzheavier(
+        picked: LocalPickedFile,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Buzzheavier...", "Đang tải lên qua Buzzheavier..."))
+        val safeWireName = asciiSafeWireName(picked.name)
+        val req = Request.Builder()
+            .url("https://w.buzzheavier.com/${encodePathSeg(safeWireName)}")
+            .put(streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .build()
+        val text = execute(req, cancelToken).second
+        val obj = json.parseToJsonElement(text).jsonObject
+        val id = obj["data"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
+        if (!id.isNullOrBlank()) {
+            return "https://buzzheavier.com/$id"
+        }
+        throw IOException(com.hefimer.app.ui.theme.tr("Buzzheavier upload failed", "Tải lên Buzzheavier thất bại"))
+    }
+
+    private fun uploadFileditch(
+        picked: LocalPickedFile,
+        cancelToken: UploadCancellationToken,
+        onProgress: (Int) -> Unit,
+        onBytesProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit,
+    ): String {
+        onStatus(com.hefimer.app.ui.theme.tr("Uploading via Fileditch...", "Đang tải lên qua Fileditch..."))
+        val safeName = asciiSafeWireName(picked.name)
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", safeName, streamingBody(picked, onProgress, cancelToken, onBytesProgress))
+            .build()
+        val req = Request.Builder()
+            .url("https://new.fileditch.com/upload.php")
+            .post(body)
+            .build()
+        val text = execute(req, cancelToken).second
+        val obj = json.parseToJsonElement(text).jsonObject
+        val fileUrl = obj["url"]?.jsonPrimitive?.contentOrNull
+        if (obj["success"]?.jsonPrimitive?.content == "true" && !fileUrl.isNullOrBlank()) {
+            return fileUrl
+        }
+        throw IOException(
+            obj["message"]?.jsonPrimitive?.contentOrNull
+                ?: com.hefimer.app.ui.theme.tr("Fileditch upload failed", "Tải lên Fileditch thất bại"),
+        )
     }
 }
