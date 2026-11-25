@@ -22,7 +22,10 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.appleGlassSurface
+import com.hefimer.app.ui.theme.tr
 
 /**
  * Exact native port of web's BeautifulQRCode:
@@ -106,14 +109,16 @@ fun BeautifulQrCodeView(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(28.dp))
-            .background(HefimerColors.Black.copy(alpha = 0.55f))
-            .border(1.dp, HefimerColors.White10, RoundedCornerShape(28.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(28.dp),
+                variant = AppleGlassVariant.Clear,
+                elevation = 4.dp,
+            )
             .padding(8.dp),
     ) {
         Image(
             bitmap = bitmap.asImageBitmap(),
-            contentDescription = "QR Code",
+            contentDescription = tr("QR Code", "Mã QR"),
             modifier = Modifier
                 .size(size)
                 .clip(RoundedCornerShape(20.dp)),

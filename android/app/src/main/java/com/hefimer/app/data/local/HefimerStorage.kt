@@ -121,7 +121,7 @@ class HefimerStorage(context: Context) {
         } else {
             model
         }
-        return "$combined (App)"
+        return if (com.hefimer.app.ui.theme.HefimerLang.isVi) "$combined (Ứng dụng)" else "$combined (App)"
     }
 
     fun setDeviceName(name: String) {

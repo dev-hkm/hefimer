@@ -68,13 +68,18 @@ class R2Service(private val context: Context) {
                 val msg = runCatching {
                     json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.contentOrNull
                 }.getOrNull()
-                throw IOException(msg ?: "Failed to prepare Secret R2 upload (${resp.code})")
+                throw IOException(
+                    msg ?: com.hefimer.app.ui.theme.tr(
+                        "Failed to prepare Secret R2 upload (${resp.code})",
+                        "Không thể chuẩn bị tải lên Secret R2 (${resp.code})",
+                    ),
+                )
             }
             val obj = json.parseToJsonElement(text).jsonObject
             val url = obj["url"]?.jsonPrimitive?.contentOrNull
-                ?: throw IOException("Missing presigned R2 URL")
+                ?: throw IOException(com.hefimer.app.ui.theme.tr("Missing presigned R2 URL", "Thiếu liên kết tải lên R2"))
             val key = obj["objectKey"]?.jsonPrimitive?.contentOrNull
-                ?: throw IOException("Missing R2 objectKey")
+                ?: throw IOException(com.hefimer.app.ui.theme.tr("Missing R2 objectKey", "Thiếu khóa đối tượng R2"))
             url to key
         }
 
@@ -92,7 +97,7 @@ class R2Service(private val context: Context) {
                     picked.tempFile.inputStream()
                 } else {
                     context.contentResolver.openInputStream(picked.uri)
-                        ?: throw IOException("Cannot read selected file")
+                        ?: throw IOException(com.hefimer.app.ui.theme.tr("Cannot read selected file", "Không thể đọc tệp đã chọn"))
                 }
                 stream.use { input ->
                     val buf = ByteArray(64 * 1024)
@@ -123,7 +128,12 @@ class R2Service(private val context: Context) {
             call.execute().use { resp ->
                 if (!resp.isSuccessful) {
                     val err = resp.body?.string().orEmpty().take(160)
-                    throw IOException("R2 returned status ${resp.code}${if (err.isNotBlank()) ": $err" else ""}")
+                    throw IOException(
+                        com.hefimer.app.ui.theme.tr(
+                            "R2 returned status ${resp.code}${if (err.isNotBlank()) ": $err" else ""}",
+                            "Máy chủ R2 báo lỗi ${resp.code}${if (err.isNotBlank()) ": $err" else ""}",
+                        ),
+                    )
                 }
             }
         } finally {
@@ -143,12 +153,24 @@ class R2Service(private val context: Context) {
                 val text = resp.body?.string().orEmpty()
                 val obj = json.parseToJsonElement(text).jsonObject
                 if (!resp.isSuccessful) {
-                    throw IOException(obj["error"]?.jsonPrimitive?.contentOrNull ?: "Server returned ${resp.code}")
+                    throw IOException(
+                        obj["error"]?.jsonPrimitive?.contentOrNull ?: com.hefimer.app.ui.theme.tr(
+                            "Server returned ${resp.code}",
+                            "Máy chủ phản hồi mã ${resp.code}",
+                        ),
+                    )
                 }
                 obj["url"]?.jsonPrimitive?.contentOrNull
-                    ?: throw IOException("No R2 download URL returned")
+                    ?: throw IOException(com.hefimer.app.ui.theme.tr("No R2 download URL returned", "Không nhận được liên kết tải R2"))
             } else {
-                if (!resp.isSuccessful) throw IOException("Server returned ${resp.code}")
+                if (!resp.isSuccessful) {
+                    throw IOException(
+                        com.hefimer.app.ui.theme.tr(
+                            "Server returned ${resp.code}",
+                            "Máy chủ phản hồi mã ${resp.code}",
+                        ),
+                    )
+                }
                 apiUrl
             }
         }

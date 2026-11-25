@@ -788,9 +788,11 @@ fun <T> AppleSegmentedControl(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(outerRadius))
-            .background(HefimerColors.White04)
-            .border(1.dp, HefimerColors.White10, RoundedCornerShape(outerRadius))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(outerRadius),
+                variant = AppleGlassVariant.Regular,
+                elevation = 6.dp,
+            )
             .padding(padding),
     ) {
         val pillWidth = maxWidth / options.size.coerceAtLeast(1)
@@ -799,6 +801,11 @@ fun <T> AppleSegmentedControl(
             animationSpec = AppMotion.layoutSpring(),
             label = "segmented_pill_x",
         )
+        val thumbTint by animateColorAsState(
+            targetValue = accentColor,
+            animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+            label = "segmented_thumb_color",
+        )
 
         Box(
             modifier = Modifier
@@ -806,7 +813,7 @@ fun <T> AppleSegmentedControl(
                 .width(pillWidth)
                 .height(height - padding * 2)
                 .clip(RoundedCornerShape(innerRadius))
-                .background(accentColor),
+                .background(thumbTint),
         )
 
         Row(Modifier.fillMaxWidth()) {
@@ -820,7 +827,7 @@ fun <T> AppleSegmentedControl(
                     label = "seg_press_scale",
                 )
                 val segTextColor by animateColorAsState(
-                    targetValue = if (isSelected) selectedTextColor else HefimerColors.White50,
+                    targetValue = if (isSelected) selectedTextColor else HefimerColors.White55,
                     animationSpec = tween(260, easing = AppMotion.AppleSilk),
                     label = "seg_text_color",
                 )

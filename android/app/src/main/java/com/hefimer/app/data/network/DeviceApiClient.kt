@@ -87,7 +87,12 @@ class DeviceApiClient(private val storage: HefimerStorage) {
                     json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.contentOrNull
                 }.getOrNull()
                 if (resp.code == 401) registered = false
-                throw IOException(msg ?: "Device service returned ${resp.code}")
+                throw IOException(
+                    msg ?: com.hefimer.app.ui.theme.tr(
+                        "Device service returned ${resp.code}",
+                        "Dịch vụ thiết bị phản hồi mã ${resp.code}",
+                    ),
+                )
             }
             text
         }

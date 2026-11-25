@@ -75,10 +75,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hefimer.app.ui.theme.AppLanguage
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleGlassVariant
+import com.hefimer.app.ui.theme.AppleMonochromeBackdrop
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.UbuntuFontFamily
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.tr
@@ -140,7 +143,7 @@ private val ONBOARDING_SLIDES = listOf(
 /**
  * 4-screen Apple-grade first-launch Onboarding flow with:
  * - Real-time HorizontalPager parallax (hero visual + typography depth separation)
- * - 4 bespoke animated hero canvases (5-Digit Drop, Orbital Multi-Host, Spatial Canvas, Live Theme & Language)
+ * - 4 bespoke animated Apple Glass hero canvases
  * - Morphing pill page indicator & adaptive Continue / Get Started CTA
  * - PredictiveBackHandler (steps back through pages, or dismisses on page 0)
  * - Silky scale + fade exit into SendScreen
@@ -222,7 +225,6 @@ fun HefimerOnboardingOverlay(
 
     val currentPage = pagerState.currentPage
     val isLastPage = currentPage == ONBOARDING_SLIDES.lastIndex
-    val slide = ONBOARDING_SLIDES[currentPage]
     val pExit = exitProgress.value
 
     Box(
@@ -233,23 +235,9 @@ fun HefimerOnboardingOverlay(
                 val s = if (reduceMotion) 1f else 1f + 0.045f * pExit
                 scaleX = s
                 scaleY = s
-            }
-            .background(HefimerColors.Black),
+            },
     ) {
-        // Subtle monochrome ambient radial halo
-        val haloColor = HefimerColors.White.copy(alpha = if (isLightMode) 0.05f else 0.06f)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(420.dp)
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(haloColor, Color.Transparent),
-                        radius = 640f,
-                    ),
-                ),
-        )
+        AppleMonochromeBackdrop()
 
         Column(
             modifier = Modifier
@@ -257,7 +245,7 @@ fun HefimerOnboardingOverlay(
                 .padding(top = statusTop + 14.dp, bottom = navBottom + 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Top Brand Bar + Skip Pill
+            // Top Brand Bar + Glass Skip Pill
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -283,15 +271,17 @@ fun HefimerOnboardingOverlay(
                 Box(
                     modifier = Modifier
                         .graphicsLayer { alpha = if (isLastPage) 0f else 1f }
-                        .clip(CircleShape)
-                        .background(HefimerColors.White06)
-                        .border(1.dp, HefimerColors.White10, CircleShape)
-                        .applePressable(enabled = !isLastPage) { finishOnboarding() }
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 4.dp,
+                        )
+                        .applePressable(enabled = !isLastPage, pressedScale = 0.94f) { finishOnboarding() }
                         .padding(horizontal = 14.dp, vertical = 7.dp),
                 ) {
                     Text(
                         text = tr("Skip", "Bỏ qua"),
-                        color = HefimerColors.White60,
+                        color = HefimerColors.White75,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -442,7 +432,7 @@ fun HefimerOnboardingOverlay(
                         .height(56.dp)
                         .clip(CircleShape)
                         .background(ctaBg)
-                        .applePressable(pressedScale = 0.97f) {
+                        .applePressable(pressedScale = 0.96f) {
                             if (isLastPage) {
                                 finishOnboarding()
                             } else {
@@ -495,7 +485,7 @@ fun HefimerOnboardingOverlay(
 }
 
 // =========================================================================
-// PAGE 1 HERO: Live 5-Digit Ephemeral Drop Card with staggered tile glide
+// PAGE 1 HERO: Live 5-Digit Ephemeral Drop Card with Apple Glass Crystal Tiles
 // =========================================================================
 @Composable
 private fun EphemeralDropHero(
@@ -520,32 +510,36 @@ private fun EphemeralDropHero(
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { if (!reduceMotion) translationY = floatY }
-            .clip(RoundedCornerShape(36.dp))
-            .background(HefimerColors.SurfaceElevated)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(36.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(36.dp),
+                variant = AppleGlassVariant.Elevated,
+                elevation = 18.dp,
+            )
             .padding(horizontal = 20.dp, vertical = 22.dp),
     ) {
-        // Floating file chip
+        // Floating glass file chip
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
-                .clip(CircleShape)
-                .background(HefimerColors.White06)
-                .border(1.dp, HefimerColors.White10, CircleShape)
+                .appleGlassSurface(
+                    shape = CircleShape,
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                )
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
-            Icon(Icons.Rounded.Description, null, tint = HefimerColors.White80, modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.Description, null, tint = HefimerColors.White85, modifier = Modifier.size(14.dp))
             Text(
-                text = "launch_deck.pdf",
-                color = HefimerColors.White85,
+                text = tr("launch_deck.pdf", "ho_so_ra_mat.pdf"),
+                color = HefimerColors.White90,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
             )
             Text(
                 text = "24 MB",
-                color = HefimerColors.White40,
+                color = HefimerColors.White45,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
             )
@@ -553,7 +547,7 @@ private fun EphemeralDropHero(
 
         Spacer(Modifier.height(18.dp))
 
-        // 5-digit staggered tiles (calm, unhurried Apple glide)
+        // 5-digit staggered crystal glass tiles
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             digits.forEachIndexed { idx, ch ->
                 val p = remember(isActive) { Animatable(if (reduceMotion) 1f else 0f) }
@@ -579,13 +573,11 @@ private fun EphemeralDropHero(
                             scaleX = s
                             scaleY = s
                         }
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(HefimerColors.White08, HefimerColors.White03),
-                            ),
-                        )
-                        .border(1.dp, HefimerColors.White15, RoundedCornerShape(20.dp)),
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(20.dp),
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 2.dp,
+                        ),
                 ) {
                     Text(
                         text = ch.toString(),
@@ -605,15 +597,17 @@ private fun EphemeralDropHero(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
-                .clip(CircleShape)
-                .background(HefimerColors.White06)
-                .border(1.dp, HefimerColors.White12, CircleShape)
+                .appleGlassSurface(
+                    shape = CircleShape,
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                )
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
             Icon(Icons.Rounded.Schedule, null, tint = HefimerColors.White60, modifier = Modifier.size(13.dp))
             Text(
                 text = tr("SELF-DESTRUCTS IN 01:00:00", "TỰ HỦY SAU 01:00:00"),
-                color = HefimerColors.White70,
+                color = HefimerColors.White75,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -648,7 +642,7 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
         label = "center_pulse",
     )
 
-    val ringColor = HefimerColors.White12
+    val ringColor = HefimerColors.White15
     val orbitAccent = HefimerColors.White
 
     Box(
@@ -668,7 +662,7 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
                 ),
             )
             drawCircle(
-                color = orbitAccent.copy(alpha = 0.20f),
+                color = orbitAccent.copy(alpha = 0.24f),
                 radius = size.minDimension * 0.26f,
                 center = c,
                 style = Stroke(width = 1.2.dp.toPx()),
@@ -682,7 +676,7 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
             drawCircle(color = orbitAccent, radius = 4.dp.toPx(), center = Offset(dotX, dotY))
         }
 
-        // Center default host badge (sto.care)
+        // Center glass lens orb (sto.care)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -694,9 +688,11 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
                         scaleY = pulse
                     }
                 }
-                .clip(CircleShape)
-                .background(HefimerColors.SurfaceElevated)
-                .border(1.5.dp, HefimerColors.White30, CircleShape),
+                .appleGlassSurface(
+                    shape = CircleShape,
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 20.dp,
+                ),
         ) {
             Icon(Icons.Rounded.CloudUpload, null, tint = HefimerColors.White, modifier = Modifier.size(24.dp))
             Spacer(Modifier.height(4.dp))
@@ -715,7 +711,7 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
             )
         }
 
-        // Satellite provider pills placed cleanly around orbit (Secret R2 keeps subtle emerald!)
+        // Satellite Apple Glass provider chips around orbit (Secret R2 keeps subtle emerald!)
         HostSatelliteChip("storage.to • 10 GB", Modifier.align(Alignment.TopCenter).offset(y = 4.dp))
         HostSatelliteChip("Gofile • ∞", Modifier.align(Alignment.CenterStart).offset(x = (-4).dp, y = (-26).dp))
         HostSatelliteChip("Viking • 15 GB", Modifier.align(Alignment.CenterEnd).offset(x = 4.dp, y = (-26).dp))
@@ -734,12 +730,12 @@ private fun HostSatelliteChip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         modifier = modifier
-            .clip(CircleShape)
-            .background(HefimerColors.SurfaceCard)
-            .border(
-                1.dp,
-                if (emerald) HefimerColors.EmeraldBorder else HefimerColors.White15,
-                CircleShape,
+            .appleGlassSurface(
+                shape = CircleShape,
+                variant = AppleGlassVariant.Regular,
+                accentBorderTint = if (emerald) HefimerColors.Emerald400 else null,
+                accentFillTint = if (emerald) HefimerColors.EmeraldBg.copy(alpha = 0.25f) else null,
+                elevation = 8.dp,
             )
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
@@ -747,11 +743,11 @@ private fun HostSatelliteChip(
             modifier = Modifier
                 .size(5.dp)
                 .clip(CircleShape)
-                .background(if (emerald) HefimerColors.Emerald400 else HefimerColors.White60),
+                .background(if (emerald) HefimerColors.Emerald400 else HefimerColors.White70),
         )
         Text(
             text = label,
-            color = if (emerald) HefimerColors.Emerald400 else HefimerColors.White80,
+            color = if (emerald) HefimerColors.Emerald400 else HefimerColors.White85,
             fontFamily = JetBrainsMonoFamily,
             fontSize = 9.5.sp,
             fontWeight = FontWeight.SemiBold,
@@ -760,7 +756,7 @@ private fun HostSatelliteChip(
 }
 
 // =========================================================================
-// PAGE 3 HERO: Spatial Canvas + Rooms + Link Live Preview
+// PAGE 3 HERO: Spatial Canvas + Rooms + Link Live Apple Glass Preview
 // =========================================================================
 @Composable
 private fun SpatialCanvasHero(reduceMotion: Boolean) {
@@ -778,15 +774,17 @@ private fun SpatialCanvasHero(reduceMotion: Boolean) {
         label = "drift_b",
     )
 
-    val gridColor = HefimerColors.White10
+    val gridColor = HefimerColors.White12
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(264.dp)
-            .clip(RoundedCornerShape(36.dp))
-            .background(HefimerColors.SurfaceElevated)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(36.dp)),
+            .appleGlassSurface(
+                shape = RoundedCornerShape(36.dp),
+                variant = AppleGlassVariant.Regular,
+                elevation = 12.dp,
+            ),
     ) {
         // Architectural dot grid
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -802,38 +800,42 @@ private fun SpatialCanvasHero(reduceMotion: Boolean) {
             }
         }
 
-        // Live sync pill top-left (monochrome)
+        // Live sync pill top-left (monochrome glass)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(14.dp)
-                .clip(CircleShape)
-                .background(HefimerColors.White08)
-                .border(1.dp, HefimerColors.White15, CircleShape)
+                .appleGlassSurface(
+                    shape = CircleShape,
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                )
                 .padding(horizontal = 10.dp, vertical = 5.dp),
         ) {
             Box(Modifier.size(6.dp).clip(CircleShape).background(HefimerColors.White))
             Text(
                 text = tr("REAL-TIME SYNC", "ĐỒNG BỘ TRỰC TIẾP"),
-                color = HefimerColors.White80,
+                color = HefimerColors.White85,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.4.sp,
             )
         }
 
-        // Floating Code Snippet Card (Dracula colors!)
+        // Floating Glass Code Snippet Card (Dracula colors)
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 48.dp, end = 16.dp)
                 .width(164.dp)
                 .graphicsLayer { if (!reduceMotion) translationY = driftA }
-                .clip(RoundedCornerShape(22.dp))
-                .background(HefimerColors.Black)
-                .border(1.dp, HefimerColors.White15, RoundedCornerShape(22.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(22.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 14.dp,
+                )
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
@@ -842,7 +844,7 @@ private fun SpatialCanvasHero(reduceMotion: Boolean) {
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Icon(Icons.Rounded.Code, null, tint = HefimerColors.SyntaxKeyword, modifier = Modifier.size(12.dp))
-                Text("snippet.kt", color = HefimerColors.White60, fontFamily = JetBrainsMonoFamily, fontSize = 9.sp)
+                Text(tr("snippet.kt", "doan_ma.kt"), color = HefimerColors.White70, fontFamily = JetBrainsMonoFamily, fontSize = 9.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.width(22.dp).height(4.dp).clip(CircleShape).background(HefimerColors.SyntaxKeyword))
@@ -860,7 +862,7 @@ private fun SpatialCanvasHero(reduceMotion: Boolean) {
             }
         }
 
-        // Floating Chat Room Card
+        // Floating Glass Chat Room Card
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -868,27 +870,32 @@ private fun SpatialCanvasHero(reduceMotion: Boolean) {
                 .align(Alignment.CenterStart)
                 .padding(start = 16.dp, top = 26.dp)
                 .graphicsLayer { if (!reduceMotion) translationY = driftB }
-                .clip(RoundedCornerShape(22.dp))
-                .background(HefimerColors.SurfaceCard)
-                .border(1.dp, HefimerColors.White15, RoundedCornerShape(22.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(22.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 14.dp,
+                )
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(28.dp)
-                    .clip(CircleShape)
-                    .background(HefimerColors.White08),
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    ),
             ) {
                 Icon(Icons.Rounded.Forum, null, tint = HefimerColors.White, modifier = Modifier.size(14.dp))
             }
             Column {
                 Text(tr("Room #84210", "Phòng #84210"), color = HefimerColors.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(tr("Ready to ship? ✨", "Sẵn sàng gửi chưa? ✨"), color = HefimerColors.White50, fontSize = 10.sp)
+                Text(tr("Ready to ship? ✨", "Sẵn sàng gửi chưa? ✨"), color = HefimerColors.White55, fontSize = 10.sp)
             }
         }
 
-        // Floating Device Link Pill bottom-right
+        // Floating Glass Device Link Pill bottom-right
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -896,20 +903,22 @@ private fun SpatialCanvasHero(reduceMotion: Boolean) {
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
                 .graphicsLayer { if (!reduceMotion) translationY = driftA * 0.7f }
-                .clip(CircleShape)
-                .background(HefimerColors.SurfaceCard)
-                .border(1.dp, HefimerColors.White15, CircleShape)
+                .appleGlassSurface(
+                    shape = CircleShape,
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 12.dp,
+                )
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            Icon(Icons.Rounded.Devices, null, tint = HefimerColors.White80, modifier = Modifier.size(14.dp))
-            Text(tr("MacBook Pro linked", "Đã kết nối MacBook"), color = HefimerColors.White80, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            Icon(Icons.Rounded.Devices, null, tint = HefimerColors.White85, modifier = Modifier.size(14.dp))
+            Text(tr("MacBook Pro linked", "Đã kết nối MacBook"), color = HefimerColors.White85, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
             Icon(Icons.Rounded.Check, null, tint = HefimerColors.White, modifier = Modifier.size(13.dp))
         }
     }
 }
 
 // =========================================================================
-// PAGE 4 HERO: Interactive Live Appearance & Language Card
+// PAGE 4 HERO: Interactive Live Appearance & Language Apple Glass Card
 // =========================================================================
 @Composable
 private fun PersonalizeThemeHero(
@@ -922,9 +931,11 @@ private fun PersonalizeThemeHero(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(36.dp))
-            .background(HefimerColors.SurfaceElevated)
-            .border(1.dp, HefimerColors.White12, RoundedCornerShape(36.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(36.dp),
+                variant = AppleGlassVariant.Elevated,
+                elevation = 18.dp,
+            )
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -942,7 +953,7 @@ private fun PersonalizeThemeHero(
             )
             Text(
                 text = if (isLightMode) tr("Apple Light", "Sáng tinh gọn") else tr("OLED Dark", "Tối OLED"),
-                color = HefimerColors.White70,
+                color = HefimerColors.White75,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -977,7 +988,7 @@ private fun PersonalizeThemeHero(
                     AppLanguage.VI -> "Tiếng Việt"
                     AppLanguage.EN -> "English"
                 },
-                color = HefimerColors.White70,
+                color = HefimerColors.White75,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -1025,9 +1036,11 @@ private fun ReadyCheckRow(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(34.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(HefimerColors.White08)
-                .border(1.dp, HefimerColors.White15, RoundedCornerShape(13.dp)),
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(13.dp),
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                ),
         ) {
             Icon(icon, null, tint = HefimerColors.White, modifier = Modifier.size(16.dp))
         }
@@ -1035,6 +1048,6 @@ private fun ReadyCheckRow(
             Text(title, color = HefimerColors.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(subtitle, color = HefimerColors.White45, fontSize = 11.sp)
         }
-        Icon(Icons.Rounded.Check, null, tint = HefimerColors.White80, modifier = Modifier.size(16.dp))
+        Icon(Icons.Rounded.Check, null, tint = HefimerColors.White85, modifier = Modifier.size(16.dp))
     }
 }

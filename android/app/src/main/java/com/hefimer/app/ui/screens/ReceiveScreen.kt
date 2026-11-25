@@ -3,6 +3,7 @@ package com.hefimer.app.ui.screens
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -98,11 +99,13 @@ import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.HefimerSecondaryButton
 import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
+import com.hefimer.app.ui.theme.AppleGlassVariant
 import com.hefimer.app.ui.theme.HefimerColors
 import com.hefimer.app.ui.theme.JetBrainsMonoFamily
 import com.hefimer.app.ui.theme.LocalHeroBounds
 import com.hefimer.app.ui.theme.UbuntuFontFamily
 import com.hefimer.app.ui.theme.appleEntrance
+import com.hefimer.app.ui.theme.appleGlassSurface
 import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
@@ -158,14 +161,16 @@ fun ReceiveScreen(vm: HefimerViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .appleEntrance(0)
-                        .clip(RoundedCornerShape(38.dp))
-                        .background(HefimerColors.SurfaceElevated)
-                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(38.dp))
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(38.dp),
+                            variant = AppleGlassVariant.Regular,
+                            elevation = 14.dp,
+                        )
                         .padding(horizontal = 22.dp, vertical = 30.dp),
                 ) {
                     Text(
                         text = tr("ENTER 5-DIGIT CODE", "NHẬP MÃ 5 CHỮ SỐ"),
-                        color = HefimerColors.White30,
+                        color = HefimerColors.White40,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.4.sp,
@@ -248,7 +253,7 @@ fun FiveDigitPinSlots(
             .height(78.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Visual 5 slots
+        // Visual 5 Apple Glass slots
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -256,17 +261,25 @@ fun FiveDigitPinSlots(
             for (i in 0 until 5) {
                 val ch = code.getOrNull(i)?.toString().orEmpty()
                 val isCursorSlot = focused && code.length == i
-                val lineColor = when {
-                    ch.isNotEmpty() -> HefimerColors.White
-                    isCursorSlot -> HefimerColors.White
-                    else -> HefimerColors.White15
-                }
+                val filledOrActive = ch.isNotEmpty() || isCursorSlot
+                val lineColor by animateColorAsState(
+                    targetValue = if (filledOrActive) HefimerColors.White else HefimerColors.White15,
+                    animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                    label = "pin_line_$i",
+                )
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier
                         .width(54.dp)
-                        .height(68.dp),
+                        .height(70.dp)
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(18.dp),
+                            variant = AppleGlassVariant.Clear,
+                            accentBorderTint = if (isCursorSlot) HefimerColors.White else null,
+                            elevation = 0.dp,
+                        )
+                        .padding(vertical = 8.dp, horizontal = 8.dp),
                 ) {
                     Box(
                         modifier = Modifier.weight(1f),
@@ -277,14 +290,14 @@ fun FiveDigitPinSlots(
                                 text = ch,
                                 fontFamily = UbuntuFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 36.sp,
+                                fontSize = 32.sp,
                                 color = HefimerColors.White,
                             )
                         } else if (isCursorSlot) {
                             Box(
                                 modifier = Modifier
                                     .width(2.dp)
-                                    .height(28.dp)
+                                    .height(26.dp)
                                     .alpha(blink.value)
                                     .background(HefimerColors.White),
                             )
@@ -293,7 +306,7 @@ fun FiveDigitPinSlots(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(3.dp)
+                            .height(2.5.dp)
                             .clip(CircleShape)
                             .background(lineColor),
                     )
@@ -346,7 +359,7 @@ private fun ReceivedDropView(
         ) {
             Column {
                 Text(
-                    text = "DROP #${item.code}",
+                    text = tr("DROP #${item.code}", "MÃ NHẬN #${item.code}"),
                     color = accent.copy(alpha = 0.55f),
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 11.sp,
@@ -363,14 +376,16 @@ private fun ReceivedDropView(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(HefimerColors.White08)
-                    .border(1.dp, HefimerColors.White12, CircleShape)
-                    .applePressable(pressedScale = 0.94f, onClick = onBack)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 4.dp,
+                    )
+                    .applePressable(pressedScale = 0.92f, onClick = onBack)
                     .padding(horizontal = 14.dp, vertical = 9.dp),
             ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = HefimerColors.White80, modifier = Modifier.size(15.dp))
-                Text(tr("Back", "Quay lại"), color = HefimerColors.White80, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = HefimerColors.White85, modifier = Modifier.size(15.dp))
+                Text(tr("Back", "Quay lại"), color = HefimerColors.White85, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -381,9 +396,13 @@ private fun ReceivedDropView(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
-                    .background(HefimerColors.White04)
-                    .border(1.dp, if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White15, RoundedCornerShape(34.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(34.dp),
+                        variant = AppleGlassVariant.Regular,
+                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                        accentFillTint = if (isR2) HefimerColors.EmeraldBg.copy(alpha = 0.22f) else null,
+                        elevation = 12.dp,
+                    )
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -395,9 +414,12 @@ private fun ReceivedDropView(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(46.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(accent.copy(alpha = 0.12f))
-                            .border(1.dp, accent.copy(alpha = 0.25f), RoundedCornerShape(14.dp)),
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(14.dp),
+                                variant = AppleGlassVariant.Clear,
+                                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                                elevation = 0.dp,
+                            ),
                     ) {
                         Icon(Icons.Rounded.FolderCopy, null, tint = accent, modifier = Modifier.size(22.dp))
                     }
@@ -405,7 +427,7 @@ private fun ReceivedDropView(
                         Text(tr("Shared Files", "Tệp được chia sẻ"), color = HefimerColors.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Text(
                             text = "${multiFiles.size} ${tr("items", "mục")} • ${formatBytes(totalSize)}",
-                            color = HefimerColors.White40,
+                            color = HefimerColors.White45,
                             fontSize = 12.sp,
                         )
                     }
@@ -418,9 +440,11 @@ private fun ReceivedDropView(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(HefimerColors.Black.copy(alpha = 0.45f))
-                            .border(1.dp, HefimerColors.White08, RoundedCornerShape(20.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(22.dp),
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .padding(12.dp),
                     ) {
                         val (icon, iconTint) = fileIconForName(fileEntry.resolvedName, isR2)
@@ -428,8 +452,11 @@ private fun ReceivedDropView(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(HefimerColors.White06),
+                                .appleGlassSurface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    variant = AppleGlassVariant.Clear,
+                                    elevation = 0.dp,
+                                ),
                         ) {
                             Icon(icon, null, tint = iconTint, modifier = Modifier.size(18.dp))
                         }
@@ -492,18 +519,26 @@ private fun ReceivedDropView(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(36.dp))
-                    .background(HefimerColors.EmeraldBg)
-                    .border(1.dp, HefimerColors.EmeraldBorder, RoundedCornerShape(36.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Regular,
+                        accentBorderTint = HefimerColors.Emerald400,
+                        accentFillTint = HefimerColors.EmeraldBg.copy(alpha = 0.28f),
+                        elevation = 14.dp,
+                    )
                     .padding(28.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(64.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.Emerald400.copy(alpha = 0.16f))
-                        .border(1.dp, HefimerColors.EmeraldBorder, CircleShape),
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            accentBorderTint = HefimerColors.Emerald400,
+                            accentFillTint = HefimerColors.Emerald400.copy(alpha = 0.14f),
+                            elevation = 0.dp,
+                        ),
                 ) {
                     Icon(Icons.Rounded.Shield, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(30.dp))
                 }
@@ -516,7 +551,7 @@ private fun ReceivedDropView(
                 )
                 Text(
                     text = tr("SECRET CLOUDFLARE R2 STORAGE", "LƯU TRỮ CLOUDFLARE R2 BÍ MẬT"),
-                    color = HefimerColors.Emerald400.copy(alpha = 0.6f),
+                    color = HefimerColors.Emerald400.copy(alpha = 0.68f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
@@ -557,18 +592,22 @@ private fun ReceivedDropView(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(36.dp))
-                    .background(HefimerColors.White04)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(36.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 14.dp,
+                    )
                     .padding(28.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(64.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White10)
-                        .border(1.dp, HefimerColors.White15, CircleShape),
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        ),
                 ) {
                     Icon(Icons.Rounded.UploadFile, null, tint = HefimerColors.White, modifier = Modifier.size(30.dp))
                 }
@@ -581,7 +620,7 @@ private fun ReceivedDropView(
                 )
                 Text(
                     text = "${tr("HOSTED ON", "LƯU TRỮ TRÊN")} ${providerName.uppercase()}",
-                    color = HefimerColors.White40,
+                    color = HefimerColors.White45,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
@@ -627,42 +666,62 @@ private fun ReceivedDropView(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
-                    .background(HefimerColors.Black)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(34.dp)),
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(34.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 12.dp,
+                    ),
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(HefimerColors.SurfaceCard)
+                        .background(HefimerColors.White04)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = lang.localizedLabel().uppercase(),
-                        color = HefimerColors.White70,
+                        color = HefimerColors.White75,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.8.sp,
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .background(HefimerColors.White10)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .padding(horizontal = 12.dp, vertical = 5.dp),
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val lineBtnBg by animateColorAsState(
+                            targetValue = if (showLineNumbers) HefimerColors.White else Color.Transparent,
+                            animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                            label = "rx_lines_bg",
+                        )
+                        val lineBtnTint by animateColorAsState(
+                            targetValue = if (showLineNumbers) HefimerColors.Black else HefimerColors.White70,
+                            animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                            label = "rx_lines_tint",
+                        )
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(34.dp)
-                                .clip(CircleShape)
-                                .background(if (showLineNumbers) HefimerColors.White else HefimerColors.White06)
-                                .applePressable { showLineNumbers = !showLineNumbers },
+                                .then(
+                                    if (showLineNumbers) {
+                                        Modifier.clip(CircleShape).background(lineBtnBg)
+                                    } else {
+                                        Modifier.appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                    },
+                                )
+                                .applePressable(pressedScale = 0.89f) { showLineNumbers = !showLineNumbers },
                         ) {
                             Icon(
                                 if (showLineNumbers) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                                null,
-                                tint = if (showLineNumbers) HefimerColors.Black else HefimerColors.White60,
+                                tr("Line numbers", "Số dòng"),
+                                tint = lineBtnTint,
                                 modifier = Modifier.size(15.dp),
                             )
                         }
@@ -670,19 +729,33 @@ private fun ReceivedDropView(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(34.dp)
-                                .clip(CircleShape)
-                                .background(HefimerColors.White06)
-                                .applePressable { showRenameDialog = true },
+                                .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                .applePressable(pressedScale = 0.89f) { showRenameDialog = true },
                         ) {
-                            Icon(Icons.Rounded.Download, null, tint = HefimerColors.White60, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Rounded.Download, tr("Save file", "Lưu tệp"), tint = HefimerColors.White70, modifier = Modifier.size(15.dp))
                         }
+                        val copyBtnBg by animateColorAsState(
+                            targetValue = if (copiedText) HefimerColors.White else Color.Transparent,
+                            animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                            label = "rx_copy_bg",
+                        )
+                        val copyBtnTint by animateColorAsState(
+                            targetValue = if (copiedText) HefimerColors.Black else HefimerColors.White70,
+                            animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                            label = "rx_copy_tint",
+                        )
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(34.dp)
-                                .clip(CircleShape)
-                                .background(if (copiedText) HefimerColors.White else HefimerColors.White06)
-                                .applePressable {
+                                .then(
+                                    if (copiedText) {
+                                        Modifier.clip(CircleShape).background(copyBtnBg)
+                                    } else {
+                                        Modifier.appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                    },
+                                )
+                                .applePressable(pressedScale = 0.89f) {
                                     copyToClipboard(context, "Hefimer Text", textBody)
                                     copiedText = true
                                     vm.showToast(tr("Text copied", "Đã sao chép văn bản"), ToastType.SUCCESS)
@@ -691,8 +764,8 @@ private fun ReceivedDropView(
                         ) {
                             Icon(
                                 if (copiedText) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                                null,
-                                tint = if (copiedText) HefimerColors.Black else HefimerColors.White60,
+                                tr("Copy", "Sao chép"),
+                                tint = copyBtnTint,
                                 modifier = Modifier.size(15.dp),
                             )
                         }
@@ -733,13 +806,13 @@ private fun ReceivedDropView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(HefimerColors.SurfaceCard)
+                        .background(HefimerColors.White04)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Text("$lineCount ${tr("Lines", "Dòng")}", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("${textBody.length} ${tr("Chars", "Ký tự")}", color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text(formatBytes(textBody.toByteArray().size.toLong()), color = HefimerColors.White30, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("$lineCount ${tr("Lines", "Dòng")}", color = HefimerColors.White40, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("${textBody.length} ${tr("Chars", "Ký tự")}", color = HefimerColors.White40, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(formatBytes(textBody.toByteArray().size.toLong()), color = HefimerColors.White40, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -824,25 +897,29 @@ private fun UnlockPasswordDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(36.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(36.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
                     .padding(24.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(56.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White06)
-                        .border(1.dp, HefimerColors.White12, CircleShape),
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        ),
                 ) {
                     Icon(Icons.Rounded.Lock, null, tint = HefimerColors.White, modifier = Modifier.size(24.dp))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(tr("PROTECTED DROP", "NỘI DUNG CÓ MẬT KHẨU"), color = HefimerColors.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     Spacer(Modifier.height(4.dp))
-                    Text(tr("Enter password to unlock", "Nhập mật khẩu để mở khóa"), color = HefimerColors.White40, fontSize = 11.sp)
+                    Text(tr("Enter password to unlock", "Nhập mật khẩu để mở khóa"), color = HefimerColors.White45, fontSize = 11.sp)
                 }
                 HefimerTextField(
                     value = pw,
@@ -872,16 +949,18 @@ private fun SaveTextRenameDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(32.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(34.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
                     .padding(22.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.Edit, null, tint = HefimerColors.White, modifier = Modifier.size(16.dp))
                     Text(tr("SAVE AS FILE", "LƯU THÀNH TỆP"), color = HefimerColors.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 }
-                HefimerTextField(value = input, onValueChange = { input = it }, placeholder = "filename.txt", mono = true)
+                HefimerTextField(value = input, onValueChange = { input = it }, placeholder = tr("filename.txt", "ten_tep.txt"), mono = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
                     HefimerPrimaryButton(

@@ -104,10 +104,12 @@ fun SettingsSheetContent(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(34.dp)
-                    .clip(CircleShape)
-                    .background(HefimerColors.White06)
-                    .border(1.dp, HefimerColors.White10, CircleShape)
-                    .applePressable(onClick = onClose),
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.89f, onClick = onClose),
             ) {
                 Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White60, modifier = Modifier.size(16.dp))
             }
@@ -167,19 +169,23 @@ fun SettingsSheetContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(HefimerColors.White04)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
-                    .applePressable(pressedScale = 0.98f, onClick = onOpenProviderPicker)
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(24.dp),
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.975f, onClick = onOpenProviderPicker)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White15, RoundedCornerShape(14.dp)),
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(14.dp),
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        ),
                 ) {
                     Icon(Icons.Rounded.Inventory2, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
@@ -192,11 +198,11 @@ fun SettingsSheetContent(
                     )
                     Text(
                         text = "${defaultCfg.localizedMaxSize()} • ${tr("Auto-routes larger files", "Tự chuyển tuyến tệp lớn")}",
-                        color = HefimerColors.White40,
+                        color = HefimerColors.White45,
                         fontSize = 11.sp,
                     )
                 }
-                Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White40, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White45, modifier = Modifier.size(18.dp))
             }
         }
 
@@ -206,19 +212,23 @@ fun SettingsSheetContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(HefimerColors.White04)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
-                .applePressable(pressedScale = 0.98f, onClick = onReplayOnboarding)
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(24.dp),
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                )
+                .applePressable(pressedScale = 0.975f, onClick = onReplayOnboarding)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(36.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(HefimerColors.White06)
-                    .border(1.dp, HefimerColors.White12, RoundedCornerShape(14.dp)),
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(14.dp),
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    ),
             ) {
                 Icon(Icons.Rounded.AutoAwesome, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
             }
@@ -231,11 +241,11 @@ fun SettingsSheetContent(
                 )
                 Text(
                     text = tr("Replay the 4-step intro tour", "Xem lại 4 màn giới thiệu ứng dụng"),
-                    color = HefimerColors.White40,
+                    color = HefimerColors.White45,
                     fontSize = 11.sp,
                 )
             }
-            Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White40, modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.ChevronRight, null, tint = HefimerColors.White45, modifier = Modifier.size(18.dp))
         }
 
         // Clear local history
@@ -244,10 +254,12 @@ fun SettingsSheetContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(HefimerColors.White04)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
-                .applePressable(enabled = historyCount > 0, pressedScale = 0.98f, onClick = onClearHistory)
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(24.dp),
+                    variant = AppleGlassVariant.Clear,
+                    elevation = 0.dp,
+                )
+                .applePressable(enabled = historyCount > 0, pressedScale = 0.975f, onClick = onClearHistory)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
             Box(
@@ -273,7 +285,7 @@ fun SettingsSheetContent(
                     } else {
                         tr("History is empty", "Lịch sử đang trống")
                     },
-                    color = HefimerColors.White40,
+                    color = HefimerColors.White45,
                     fontSize = 11.sp,
                 )
             }
@@ -286,7 +298,7 @@ fun SettingsSheetContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Hefimer Native",
+                text = tr("Hefimer Mobile", "Ứng dụng Hefimer"),
                 color = HefimerColors.White30,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,

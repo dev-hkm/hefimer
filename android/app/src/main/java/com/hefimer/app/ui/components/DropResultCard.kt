@@ -153,21 +153,24 @@ fun DropResultCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (isR2) HefimerColors.EmeraldBg else HefimerColors.White06)
-                        .border(1.dp, cardBorder, CircleShape)
-                        .applePressable(onClick = onBack)
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.92f, onClick = onBack)
                         .padding(horizontal = 12.dp, vertical = 7.dp),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = tr("Back", "Quay lại"),
-                        tint = accent.copy(alpha = 0.7f),
+                        tint = accent.copy(alpha = 0.78f),
                         modifier = Modifier.size(13.dp),
                     )
                     Text(
                         text = tr("BACK", "QUAY LẠI"),
-                        color = accent.copy(alpha = 0.7f),
+                        color = accent.copy(alpha = 0.78f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.2.sp,
@@ -181,15 +184,18 @@ fun DropResultCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(if (isR2) HefimerColors.EmeraldBg else HefimerColors.White06)
-                    .border(1.dp, cardBorder, CircleShape)
-                    .applePressable(onClick = onReset)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.92f, onClick = onReset)
                     .padding(horizontal = 12.dp, vertical = 7.dp),
             ) {
                 Text(
                     text = resetLabel.uppercase(),
-                    color = accent.copy(alpha = 0.75f),
+                    color = accent.copy(alpha = 0.80f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
@@ -197,7 +203,7 @@ fun DropResultCard(
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = resetLabel,
-                    tint = accent.copy(alpha = 0.75f),
+                    tint = accent.copy(alpha = 0.80f),
                     modifier = Modifier.size(13.dp),
                 )
             }
@@ -234,8 +240,7 @@ fun DropResultCard(
                     digit = ch,
                     index = idx,
                     accent = accent,
-                    bg = cardBg,
-                    border = cardBorder,
+                    isR2 = isR2,
                     reduceMotion = reduceMotion,
                 )
             }
@@ -249,20 +254,23 @@ fun DropResultCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(if (isR2) HefimerColors.EmeraldBg else HefimerColors.White06)
-                    .border(1.dp, cardBorder, CircleShape)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                        elevation = 0.dp,
+                    )
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Schedule,
                     contentDescription = null,
-                    tint = accent.copy(alpha = 0.45f),
+                    tint = accent.copy(alpha = 0.5f),
                     modifier = Modifier.size(13.dp),
                 )
                 Text(
                     text = if (timeLeft == "Expired" || timeLeft == "Đã hết hạn") tr("Expired", "Đã hết hạn") else tr("Expires in $timeLeft", "Hết hạn sau $timeLeft"),
-                    color = accent.copy(alpha = 0.65f),
+                    color = accent.copy(alpha = 0.72f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
@@ -274,7 +282,7 @@ fun DropResultCard(
             Spacer(Modifier.height(10.dp))
             Text(
                 text = subtitle,
-                color = accent.copy(alpha = 0.45f),
+                color = accent.copy(alpha = 0.50f),
                 fontSize = 11.sp,
                 fontStyle = FontStyle.Italic,
                 maxLines = 2,
@@ -337,21 +345,24 @@ fun DropResultCard(
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
-                    .clip(CircleShape)
-                    .background(if (isR2) HefimerColors.EmeraldBg else HefimerColors.White06)
-                    .border(1.dp, cardBorder, CircleShape)
-                    .applePressable { showQr = true },
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.96f) { showQr = true },
             ) {
                 Icon(
                     imageVector = Icons.Rounded.QrCode2,
                     contentDescription = null,
-                    tint = accent.copy(alpha = 0.85f),
+                    tint = accent.copy(alpha = 0.88f),
                     modifier = Modifier.size(17.dp),
                 )
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = tr("QR Code", "Mã QR"),
-                    color = accent.copy(alpha = 0.85f),
+                    color = accent.copy(alpha = 0.88f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -363,23 +374,26 @@ fun DropResultCard(
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
-                    .clip(CircleShape)
-                    .background(if (isR2) HefimerColors.EmeraldBg else HefimerColors.White06)
-                    .border(1.dp, cardBorder, CircleShape)
-                    .applePressable {
-                        shareTextSheet(context, "Hefimer code: $code\n$shareUrl")
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.96f) {
+                        shareTextSheet(context, tr("Hefimer code: $code\n$shareUrl", "Mã Hefimer: $code\n$shareUrl"))
                     },
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Share,
                     contentDescription = null,
-                    tint = accent.copy(alpha = 0.85f),
+                    tint = accent.copy(alpha = 0.88f),
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = tr("Share", "Chia sẻ"),
-                    color = accent.copy(alpha = 0.85f),
+                    color = accent.copy(alpha = 0.88f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -414,8 +428,7 @@ private fun AnimatedDigitTile(
     digit: Char,
     index: Int,
     accent: Color,
-    bg: Color,
-    border: Color,
+    isR2: Boolean,
     reduceMotion: Boolean,
 ) {
     val progress = remember(digit, index) { Animatable(if (reduceMotion) 1f else 0f) }
@@ -441,13 +454,13 @@ private fun AnimatedDigitTile(
                 scaleY = s
                 translationY = (1f - p) * 38f
             }
-            .clip(RoundedCornerShape(26.dp))
-            .background(
-                Brush.verticalGradient(
-                    listOf(accent.copy(alpha = 0.08f), bg),
-                ),
-            )
-            .border(1.dp, border, RoundedCornerShape(26.dp)),
+            .appleGlassSurface(
+                shape = RoundedCornerShape(26.dp),
+                variant = AppleGlassVariant.Clear,
+                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                accentFillTint = if (isR2) HefimerColors.EmeraldBg.copy(alpha = 0.25f) else null,
+                elevation = 2.dp,
+            ),
     ) {
         Text(
             text = digit.toString(),
@@ -469,32 +482,34 @@ private fun AnimatedCopyPill(
     onClick: () -> Unit,
 ) {
     val activeBg = if (isR2) HefimerColors.Emerald400 else HefimerColors.White
-    val inactiveBg = if (isR2) HefimerColors.EmeraldBg else HefimerColors.White10
-    val bgColor by animateColorAsState(
-        targetValue = if (copied) activeBg else inactiveBg,
-        animationSpec = tween(320, easing = AppMotion.AppleSilk),
-        label = "copy_pill_bg",
-    )
-    val borderColor by animateColorAsState(
-        targetValue = if (copied) activeBg else if (isR2) HefimerColors.EmeraldBorder else HefimerColors.White12,
-        animationSpec = tween(280, easing = AppMotion.AppleSilk),
-        label = "copy_pill_border",
-    )
     val fgColor by animateColorAsState(
-        targetValue = if (copied) HefimerColors.Black else if (isR2) HefimerColors.Emerald400 else HefimerColors.White80,
+        targetValue = if (copied) HefimerColors.Black else if (isR2) HefimerColors.Emerald400 else HefimerColors.White85,
         animationSpec = tween(260, easing = AppMotion.AppleSilk),
         label = "copy_pill_fg",
     )
 
+    val pillShape = CircleShape
+    val modifierWithGlass = if (copied) {
+        modifier
+            .height(48.dp)
+            .clip(pillShape)
+            .background(activeBg)
+            .border(1.dp, activeBg, pillShape)
+    } else {
+        modifier
+            .height(48.dp)
+            .appleGlassSurface(
+                shape = pillShape,
+                variant = AppleGlassVariant.Clear,
+                accentBorderTint = if (isR2) HefimerColors.Emerald400 else null,
+                elevation = 0.dp,
+            )
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
-        modifier = modifier
-            .height(48.dp)
-            .clip(CircleShape)
-            .background(bgColor)
-            .border(1.dp, borderColor, CircleShape)
-            .applePressable(pressedScale = 0.96f, onClick = onClick),
+        modifier = modifierWithGlass.applePressable(pressedScale = 0.96f, onClick = onClick),
     ) {
         AnimatedContent(
             targetState = copied to label,
@@ -557,6 +572,7 @@ fun QrShareModal(
                     .appleGlassSurface(
                         shape = RoundedCornerShape(36.dp),
                         variant = AppleGlassVariant.Elevated,
+                        accentBorderTint = if (emeraldTheme) HefimerColors.Emerald400 else null,
                         elevation = 24.dp,
                     )
                     .padding(24.dp),
@@ -568,7 +584,7 @@ fun QrShareModal(
                 ) {
                     Text(
                         text = title.uppercase(),
-                        color = HefimerColors.White40,
+                        color = HefimerColors.White45,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.2.sp,
@@ -577,14 +593,17 @@ fun QrShareModal(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(34.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.White06)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .applePressable(pressedScale = 0.89f, onClick = onDismiss),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = tr("Close", "Đóng"),
-                            tint = HefimerColors.White60,
+                            tint = HefimerColors.White70,
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -655,9 +674,11 @@ fun QrShareModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(46.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.White08)
-                            .border(1.dp, HefimerColors.White12, CircleShape)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .applePressable(pressedScale = 0.96f) {
                                 copyToClipboard(context, "Hefimer Link", url)
                                 onToast(tr("Link copied", "Đã sao chép liên kết"), false)

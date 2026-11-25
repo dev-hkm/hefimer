@@ -403,7 +403,12 @@ class FileUploadEngine(
         cancelToken: UploadCancellationToken,
     ): LocalPickedFile = withContext(Dispatchers.IO) {
         val root = DocumentFile.fromTreeUri(context, treeUri)
-            ?: throw IOException("Could not open selected folder")
+            ?: throw IOException(
+                com.hefimer.app.ui.theme.tr(
+                    "Could not open selected folder",
+                    "Không thể mở thư mục đã chọn",
+                ),
+            )
         val folderName = (root.name?.takeIf { it.isNotBlank() } ?: "folder").removeSuffix(".zip")
         val files = mutableListOf<Pair<String, DocumentFile>>()
 
@@ -416,7 +421,9 @@ class FileUploadEngine(
             }
         }
         walk(root, "")
-        if (files.isEmpty()) throw IOException("Selected folder is empty")
+        if (files.isEmpty()) {
+            throw IOException(com.hefimer.app.ui.theme.tr("Selected folder is empty", "Thư mục đã chọn đang trống"))
+        }
 
         val outFile = File(context.cacheDir, "${folderName}_${System.currentTimeMillis()}.zip")
         val totalBytes = files.sumOf { it.second.length().coerceAtLeast(1L) }.coerceAtLeast(1L)
@@ -484,7 +491,12 @@ class FileUploadEngine(
         }
         if (eligibleIds.isEmpty()) {
             val primary = UploadProviders.getConfig(primaryProviderId)
-            throw IOException("File size exceeds limit of ${primary.maxSizeLabel} for ${primary.name}")
+            throw IOException(
+                com.hefimer.app.ui.theme.tr(
+                    "File size exceeds limit of ${primary.maxSizeLabel} for ${primary.name}",
+                    "Kích thước tệp vượt giới hạn ${primary.localizedMaxSize()} của ${primary.name}",
+                ),
+            )
         }
 
         var lastError: Throwable? = null
@@ -521,7 +533,9 @@ class FileUploadEngine(
                 lastError = e
             }
         }
-        throw lastError ?: IOException("All upload providers failed")
+        throw lastError ?: IOException(
+            com.hefimer.app.ui.theme.tr("All upload providers failed", "Tất cả máy chủ tải lên đều thất bại"),
+        )
     }
 
     private fun uploadSingle(
@@ -545,7 +559,12 @@ class FileUploadEngine(
         "tmpfiles" -> uploadTmpfiles(picked, cancelToken, onProgress, onBytesProgress, onStatus)
         "uguu" -> uploadUguu(picked, cancelToken, onProgress, onBytesProgress, onStatus)
         "puticu" -> uploadPutIcu(picked, expire, cancelToken, onProgress, onBytesProgress, onStatus)
-        else -> throw IOException("Unsupported upload provider: $providerId")
+        else -> throw IOException(
+            com.hefimer.app.ui.theme.tr(
+                "Unsupported upload provider: $providerId",
+                "Máy chủ tải lên không được hỗ trợ: $providerId",
+            ),
+        )
     }
 
     private fun openStream(picked: LocalPickedFile): InputStream {
@@ -553,7 +572,7 @@ class FileUploadEngine(
             return picked.tempFile.inputStream()
         }
         return context.contentResolver.openInputStream(picked.uri)
-            ?: throw IOException("Cannot read selected file")
+            ?: throw IOException(com.hefimer.app.ui.theme.tr("Cannot read selected file", "Không thể đọc tệp đã chọn"))
     }
 
     private fun streamingBody(
@@ -631,7 +650,12 @@ class FileUploadEngine(
                         obj["error"]?.jsonPrimitive?.contentOrNull
                             ?: obj["message"]?.jsonPrimitive?.contentOrNull
                     }.getOrNull()
-                    throw IOException(parsedMsg ?: "Upload failed with status ${resp.code}")
+                    throw IOException(
+                        parsedMsg ?: com.hefimer.app.ui.theme.tr(
+                            "Upload failed with status ${resp.code}",
+                            "Tải lên thất bại với mã lỗi ${resp.code}",
+                        ),
+                    )
                 }
                 return Triple(resp.code, text, resp.headers)
             }
@@ -651,7 +675,9 @@ class FileUploadEngine(
         onStatus: (String) -> Unit,
     ): String {
         if (picked.size > 99L * 1024L * 1024L) {
-            throw IOException("sto.care API limit is 100 MB")
+            throw IOException(
+                com.hefimer.app.ui.theme.tr("sto.care API limit is 100 MB", "Giới hạn API của sto.care là 100 MB"),
+            )
         }
         onStatus(com.hefimer.app.ui.theme.tr("Uploading via sto.care...", "Đang tải lên qua sto.care..."))
         val safeWireName = asciiSafeWireName(picked.name)
@@ -662,7 +688,10 @@ class FileUploadEngine(
         val (_, text, _) = execute(req, cancelToken)
         val obj = json.parseToJsonElement(text).jsonObject
         return obj["url"]?.jsonPrimitive?.contentOrNull
-            ?: throw IOException(obj["error"]?.jsonPrimitive?.contentOrNull ?: "sto.care did not return a URL")
+            ?: throw IOException(
+                obj["error"]?.jsonPrimitive?.contentOrNull
+                    ?: com.hefimer.app.ui.theme.tr("sto.care did not return a URL", "sto.care không trả về liên kết"),
+            )
     }
 
     private fun uploadStorageTo(
@@ -692,7 +721,10 @@ class FileUploadEngine(
         val (_, initText, _) = execute(initReq, cancelToken)
         val initObj = json.parseToJsonElement(initText).jsonObject
         if (initObj["success"]?.jsonPrimitive?.content != "true") {
-            throw IOException(initObj["error"]?.jsonPrimitive?.contentOrNull ?: "storage.to init failed")
+            throw IOException(
+                initObj["error"]?.jsonPrimitive?.contentOrNull
+                    ?: com.hefimer.app.ui.theme.tr("storage.to init failed", "Khởi tạo storage.to thất bại"),
+            )
         }
 
         val r2Key = initObj["r2_key"]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -701,7 +733,7 @@ class FileUploadEngine(
 
         if (uploadType == "single") {
             val uploadUrl = initObj["upload_url"]?.jsonPrimitive?.contentOrNull
-                ?: throw IOException("Missing storage.to upload URL")
+                ?: throw IOException(com.hefimer.app.ui.theme.tr("Missing storage.to upload URL", "Thiếu liên kết tải lên storage.to"))
             onStatus(com.hefimer.app.ui.theme.tr("Uploading bytes to storage.to...", "Đang tải lên storage.to..."))
             val putReq = Request.Builder()
                 .url(uploadUrl)
@@ -735,7 +767,9 @@ class FileUploadEngine(
                         it.jsonObject["partNumber"]?.jsonPrimitive?.intOrNull == partNum
                     }?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
                 }
-                if (partUrl.isNullOrBlank()) throw IOException("Missing URL for part $partNum")
+                if (partUrl.isNullOrBlank()) {
+                    throw IOException(com.hefimer.app.ui.theme.tr("Missing URL for part $partNum", "Thiếu liên kết cho phần $partNum"))
+                }
 
                 val start = (partNum - 1L) * partSize
                 val len = minOf(partSize, picked.size - start).coerceAtLeast(0L)
@@ -758,7 +792,7 @@ class FileUploadEngine(
                     .build()
                 val (_, _, headers) = execute(putPartReq, cancelToken)
                 val etag = headers["ETag"] ?: headers["etag"]
-                    ?: throw IOException("Missing ETag for part $partNum")
+                    ?: throw IOException(com.hefimer.app.ui.theme.tr("Missing ETag for part $partNum", "Thiếu ETag cho phần $partNum"))
                 completedParts.add(partNum to etag)
             }
 
@@ -784,7 +818,12 @@ class FileUploadEngine(
                 .build()
             execute(completeReq, cancelToken)
         } else {
-            throw IOException("Unsupported storage.to upload type: $uploadType")
+            throw IOException(
+                com.hefimer.app.ui.theme.tr(
+                    "Unsupported storage.to upload type: $uploadType",
+                    "Kiểu tải lên storage.to không được hỗ trợ: $uploadType",
+                ),
+            )
         }
 
         onStatus(com.hefimer.app.ui.theme.tr("Finalizing upload with storage.to...", "Đang hoàn tất với storage.to..."))
@@ -804,7 +843,10 @@ class FileUploadEngine(
         val fileObj = confirmObj["file"]?.jsonObject
         val fileUrl = fileObj?.get("raw_url")?.jsonPrimitive?.contentOrNull
             ?: fileObj?.get("url")?.jsonPrimitive?.contentOrNull
-            ?: throw IOException(confirmObj["error"]?.jsonPrimitive?.contentOrNull ?: "storage.to confirm failed")
+            ?: throw IOException(
+                confirmObj["error"]?.jsonPrimitive?.contentOrNull
+                    ?: com.hefimer.app.ui.theme.tr("storage.to confirm failed", "Xác nhận storage.to thất bại"),
+            )
 
         val fileId = fileObj?.get("id")?.jsonPrimitive?.contentOrNull
         ownerToken = confirmObj["owner_token"]?.jsonPrimitive?.contentOrNull ?: ownerToken
@@ -870,13 +912,13 @@ class FileUploadEngine(
                 val (_, text, _) = execute(req, cancelToken)
                 val obj = json.parseToJsonElement(text).jsonObject
                 if (obj["status"]?.jsonPrimitive?.contentOrNull != "ok") {
-                    throw IOException("Gofile upload failed")
+                    throw IOException(com.hefimer.app.ui.theme.tr("Gofile upload failed", "Tải lên Gofile thất bại"))
                 }
                 cachedGofileServer = server
                 val data = obj["data"]?.jsonObject
                 val code = data?.get("parentFolderCode")?.jsonPrimitive?.contentOrNull
                     ?: data?.get("id")?.jsonPrimitive?.contentOrNull
-                    ?: throw IOException("Gofile missing folder code")
+                    ?: throw IOException(com.hefimer.app.ui.theme.tr("Gofile missing folder code", "Gofile thiếu mã thư mục"))
                 val guestToken = data?.get("guestToken")?.jsonPrimitive?.contentOrNull
                 if (!guestToken.isNullOrBlank()) {
                     val expSec = (System.currentTimeMillis() + com.hefimer.app.data.model.parseExpireDurationMs(expire)) / 1000L
@@ -900,7 +942,7 @@ class FileUploadEngine(
                 lastErr = e
             }
         }
-        throw lastErr ?: IOException("Gofile upload failed")
+        throw lastErr ?: IOException(com.hefimer.app.ui.theme.tr("Gofile upload failed", "Tải lên Gofile thất bại"))
     }
 
     private fun uploadLitterbox(
@@ -941,7 +983,9 @@ class FileUploadEngine(
                 .build()
             execute(proxyReq, cancelToken).second.trim()
         }
-        if (!text.startsWith("https://")) throw IOException(text.ifBlank { "Litterbox upload failed" })
+        if (!text.startsWith("https://")) {
+            throw IOException(text.ifBlank { com.hefimer.app.ui.theme.tr("Litterbox upload failed", "Tải lên Litterbox thất bại") })
+        }
         return text
     }
 
@@ -964,7 +1008,12 @@ class FileUploadEngine(
         val partSize = initObj["partSize"]?.jsonPrimitive?.longOrNull ?: picked.size
         val urls = initObj["urls"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
         if (uploadId.isBlank() || key.isBlank() || urls.isEmpty()) {
-            throw IOException("VikingFile returned invalid multipart metadata")
+            throw IOException(
+                com.hefimer.app.ui.theme.tr(
+                    "VikingFile returned invalid multipart metadata",
+                    "VikingFile trả về siêu dữ liệu tải lên không hợp lệ",
+                ),
+            )
         }
 
         onStatus(
@@ -999,7 +1048,12 @@ class FileUploadEngine(
                 .build()
             val (_, _, headers) = execute(putReq, cancelToken)
             val etag = (headers["ETag"] ?: headers["etag"])?.replace("\"", "")
-                ?: throw IOException("VikingFile part $partNum missing ETag")
+                ?: throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "VikingFile part $partNum missing ETag",
+                        "Phần $partNum của VikingFile thiếu ETag",
+                    ),
+                )
             parts.add(partNum to etag)
         }
 
@@ -1020,7 +1074,10 @@ class FileUploadEngine(
         val (_, completeText, _) = execute(completeReq, cancelToken)
         val obj = json.parseToJsonElement(completeText).jsonObject
         return obj["url"]?.jsonPrimitive?.contentOrNull
-            ?: throw IOException(obj["error"]?.jsonPrimitive?.contentOrNull ?: "VikingFile complete failed")
+            ?: throw IOException(
+                obj["error"]?.jsonPrimitive?.contentOrNull
+                    ?: com.hefimer.app.ui.theme.tr("VikingFile complete failed", "Hoàn tất VikingFile thất bại"),
+            )
     }
 
     private fun uploadTmpfileLink(
@@ -1045,7 +1102,7 @@ class FileUploadEngine(
         val obj = json.parseToJsonElement(text).jsonObject
         return obj["downloadLink"]?.jsonPrimitive?.contentOrNull
             ?: obj["downloadLinkEncoded"]?.jsonPrimitive?.contentOrNull
-            ?: throw IOException("tfLink upload failed")
+            ?: throw IOException(com.hefimer.app.ui.theme.tr("tfLink upload failed", "Tải lên tfLink thất bại"))
     }
 
     private fun uploadTempFile(
@@ -1075,7 +1132,10 @@ class FileUploadEngine(
         val obj = json.parseToJsonElement(text).jsonObject
         val url = obj["files"]?.jsonArray?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
         if (obj["success"]?.jsonPrimitive?.content != "true" || url.isNullOrBlank()) {
-            throw IOException(obj["message"]?.jsonPrimitive?.contentOrNull ?: "TempFile upload failed")
+            throw IOException(
+                obj["message"]?.jsonPrimitive?.contentOrNull
+                    ?: com.hefimer.app.ui.theme.tr("TempFile upload failed", "Tải lên TempFile thất bại"),
+            )
         }
         return "${url}download"
     }
@@ -1132,7 +1192,9 @@ class FileUploadEngine(
             execute(Request.Builder().url("$origin/api/proxy/tempsh").post(makeBody()).build(), cancelToken).second
         }
         val trimmed = text.trim()
-        if (!trimmed.startsWith("https://temp.sh/")) throw IOException("temp.sh upload failed")
+        if (!trimmed.startsWith("https://temp.sh/")) {
+            throw IOException(com.hefimer.app.ui.theme.tr("temp.sh upload failed", "Tải lên temp.sh thất bại"))
+        }
         return trimmed
     }
 
@@ -1158,7 +1220,10 @@ class FileUploadEngine(
         val obj = json.parseToJsonElement(text).jsonObject
         val url = obj["data"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
         if (obj["status"]?.jsonPrimitive?.contentOrNull == "success" && !url.isNullOrBlank()) return url
-        throw IOException(obj["error"]?.jsonPrimitive?.contentOrNull ?: "tmpfiles upload failed")
+        throw IOException(
+            obj["error"]?.jsonPrimitive?.contentOrNull
+                ?: com.hefimer.app.ui.theme.tr("tmpfiles upload failed", "Tải lên tmpfiles thất bại"),
+        )
     }
 
     private fun uploadUguu(
@@ -1183,7 +1248,7 @@ class FileUploadEngine(
         val obj = json.parseToJsonElement(text).jsonObject
         val url = obj["files"]?.jsonArray?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
         if (obj["success"]?.jsonPrimitive?.content == "true" && !url.isNullOrBlank()) return url
-        throw IOException("Uguu.se upload failed")
+        throw IOException(com.hefimer.app.ui.theme.tr("Uguu.se upload failed", "Tải lên Uguu.se thất bại"))
     }
 
     private fun uploadPutIcu(
@@ -1206,6 +1271,6 @@ class FileUploadEngine(
         val obj = json.parseToJsonElement(text).jsonObject
         return obj["direct_url"]?.jsonPrimitive?.contentOrNull
             ?: obj["url"]?.jsonPrimitive?.contentOrNull
-            ?: throw IOException("Put.icu upload failed")
+            ?: throw IOException(com.hefimer.app.ui.theme.tr("Put.icu upload failed", "Tải lên Put.icu thất bại"))
     }
 }

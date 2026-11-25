@@ -72,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
@@ -104,6 +105,7 @@ import com.hefimer.app.ui.components.HefimerPrimaryButton
 import com.hefimer.app.ui.components.QrShareModal
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.AppleGlassVariant
+import com.hefimer.app.ui.theme.AppleMonochromeBackdrop
 import com.hefimer.app.ui.theme.AppleOdometerNumber
 import com.hefimer.app.ui.theme.AppleSegmentedControl
 import com.hefimer.app.ui.theme.HefimerColors
@@ -186,9 +188,11 @@ fun RoomsScreen(vm: HefimerViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .appleEntrance(1)
-                    .clip(RoundedCornerShape(30.dp))
-                    .background(HefimerColors.SurfaceElevated)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(30.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 10.dp,
+                    )
                     .padding(16.dp),
             ) {
                 Text(tr("YOUR NAME", "TÊN CỦA BẠN"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
@@ -249,9 +253,11 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(HefimerColors.SurfaceElevated)
-                .border(1.dp, HefimerColors.White12, RoundedCornerShape(32.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(32.dp),
+                    variant = AppleGlassVariant.Regular,
+                    elevation = 12.dp,
+                )
                 .padding(20.dp),
         ) {
             if (state.chatLobbyMode == "join") {
@@ -300,10 +306,12 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(48.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(HefimerColors.White08)
-                                .border(1.dp, HefimerColors.White12, RoundedCornerShape(16.dp))
-                                .applePressable(pressedScale = 0.90f) { vm.randomizeChatCode() },
+                                .appleGlassSurface(
+                                    shape = RoundedCornerShape(18.dp),
+                                    variant = AppleGlassVariant.Clear,
+                                    elevation = 0.dp,
+                                )
+                                .applePressable(pressedScale = 0.89f) { vm.randomizeChatCode() },
                         ) {
                             Icon(Icons.Rounded.Casino, tr("Random", "Ngẫu nhiên"), tint = HefimerColors.White, modifier = Modifier.size(20.dp))
                         }
@@ -322,15 +330,30 @@ private fun ChatLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                             "24h" to tr("24 hours", "24 giờ"),
                         ).forEach { (v, lbl) ->
                             val sel = state.chatCreateExpire == v
+                            val chipFill by animateColorAsState(
+                                targetValue = if (sel) HefimerColors.White else Color.Transparent,
+                                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                                label = "chat_expire_fill_$v",
+                            )
+                            val chipText by animateColorAsState(
+                                targetValue = if (sel) HefimerColors.Black else HefimerColors.White70,
+                                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                                label = "chat_expire_text_$v",
+                            )
                             Text(
                                 text = lbl,
-                                color = if (sel) HefimerColors.Black else HefimerColors.White60,
+                                color = chipText,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(if (sel) HefimerColors.White else HefimerColors.White08)
-                                    .applePressable(pressedScale = 0.94f) { vm.setChatCreateExpire(v) }
+                                    .appleGlassSurface(
+                                        shape = CircleShape,
+                                        variant = AppleGlassVariant.Clear,
+                                        accentBorderTint = if (sel) HefimerColors.White else null,
+                                        accentFillTint = chipFill,
+                                        elevation = 0.dp,
+                                    )
+                                    .applePressable(pressedScale = 0.93f) { vm.setChatCreateExpire(v) }
                                     .padding(horizontal = 13.dp, vertical = 8.dp),
                             )
                         }
@@ -382,9 +405,11 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(HefimerColors.SurfaceElevated)
-                .border(1.dp, HefimerColors.White12, RoundedCornerShape(32.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(32.dp),
+                    variant = AppleGlassVariant.Regular,
+                    elevation = 12.dp,
+                )
                 .padding(20.dp),
         ) {
             if (state.boardLobbyMode == "join") {
@@ -420,15 +445,30 @@ private fun BoardLobbySection(vm: HefimerViewModel, state: RoomsUiState) {
                             "24h" to tr("24 hours", "24 giờ"),
                         ).forEach { (v, lbl) ->
                             val sel = state.boardCreateExpire == v
+                            val chipFill by animateColorAsState(
+                                targetValue = if (sel) HefimerColors.White else Color.Transparent,
+                                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                                label = "board_expire_fill_$v",
+                            )
+                            val chipText by animateColorAsState(
+                                targetValue = if (sel) HefimerColors.Black else HefimerColors.White70,
+                                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                                label = "board_expire_text_$v",
+                            )
                             Text(
                                 text = lbl,
-                                color = if (sel) HefimerColors.Black else HefimerColors.White60,
+                                color = chipText,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(if (sel) HefimerColors.White else HefimerColors.White08)
-                                    .applePressable(pressedScale = 0.94f) { vm.setBoardCreateExpire(v) }
+                                    .appleGlassSurface(
+                                        shape = CircleShape,
+                                        variant = AppleGlassVariant.Clear,
+                                        accentBorderTint = if (sel) HefimerColors.White else null,
+                                        accentFillTint = chipFill,
+                                        elevation = 0.dp,
+                                    )
+                                    .applePressable(pressedScale = 0.93f) { vm.setBoardCreateExpire(v) }
                                     .padding(horizontal = 14.dp, vertical = 8.dp),
                             )
                         }
@@ -486,177 +526,207 @@ fun ChatRoomOverlay(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HefimerColors.Black)
-            .imePadding(),
-    ) {
-        // Translucent pinned chat header extending behind transparent status bar
+    var composerFocused by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxSize()) {
+        AppleMonochromeBackdrop()
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(HefimerColors.SurfaceElevated),
+                .fillMaxSize()
+                .imePadding(),
         ) {
-            Spacer(Modifier.height(statusTop))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            // Translucent Apple Glass pinned chat header behind transparent status bar
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 14.dp,
+                    ),
             ) {
+                Spacer(Modifier.height(statusTop))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.White08)
-                            .border(1.dp, HefimerColors.White12, CircleShape)
-                            .applePressable(pressedScale = 0.90f, onClick = onClose),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f),
                     ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = state.activeChatName.ifBlank { "${tr("Room", "Phòng")} #${state.activeChatId}" },
-                            color = HefimerColors.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("#${state.activeChatId}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 11.sp)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Icon(Icons.Rounded.People, null, tint = HefimerColors.White75, modifier = Modifier.size(12.dp))
-                                AppleOdometerNumber(
-                                    value = state.chatMemberCount,
-                                    color = HefimerColors.White75,
-                                    style = TextStyle(fontFamily = UbuntuFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .appleGlassSurface(
+                                    shape = CircleShape,
+                                    variant = AppleGlassVariant.Clear,
+                                    elevation = 0.dp,
                                 )
-                            }
-                            if (countdown.isNotBlank()) {
+                                .applePressable(pressedScale = 0.89f, onClick = onClose),
+                        ) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = state.activeChatName.ifBlank { "${tr("Room", "Phòng")} #${state.activeChatId}" },
+                                color = HefimerColors.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("#${state.activeChatId}", color = HefimerColors.White50, fontFamily = JetBrainsMonoFamily, fontSize = 11.sp)
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Icon(Icons.Rounded.Schedule, null, tint = if (isCritical) HefimerColors.Red400 else HefimerColors.White40, modifier = Modifier.size(11.dp))
-                                    Text(
-                                        text = countdown,
-                                        color = if (isCritical) HefimerColors.Red400 else HefimerColors.White40,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
+                                    Icon(Icons.Rounded.People, null, tint = HefimerColors.White75, modifier = Modifier.size(12.dp))
+                                    AppleOdometerNumber(
+                                        value = state.chatMemberCount,
+                                        color = HefimerColors.White75,
+                                        style = TextStyle(fontFamily = UbuntuFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold),
                                     )
+                                }
+                                if (countdown.isNotBlank()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Rounded.Schedule, null, tint = if (isCritical) HefimerColors.Red400 else HefimerColors.White40, modifier = Modifier.size(11.dp))
+                                        Text(
+                                            text = countdown,
+                                            color = if (isCritical) HefimerColors.Red400 else HefimerColors.White40,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(pressedScale = 0.90f) { showQr = true },
-                ) {
-                    Icon(Icons.Rounded.QrCode2, tr("Share QR", "Chia sẻ QR"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
-                }
-            }
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))
-        }
-
-        // Message stream
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            if (state.chatMessages.isEmpty()) {
-                item {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 80.dp),
                         contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
+                            .applePressable(pressedScale = 0.89f) { showQr = true },
                     ) {
-                        Text(tr("Messages vanish when this room expires.", "Tin nhắn sẽ tự xóa khi phòng hết hạn."), color = HefimerColors.White30, fontSize = 13.sp)
+                        Icon(Icons.Rounded.QrCode2, tr("Share QR", "Chia sẻ QR"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                     }
                 }
             }
 
-            items(state.chatMessages, key = { it.id }) { msg ->
-                val isMine = msg.sender.equals(state.userName.trim(), ignoreCase = true)
-                ChatBubbleItem(
-                    msg = msg,
-                    isMine = isMine,
-                    timeText = if (msg.timestamp > 0L) timeFmt.format(Date(msg.timestamp)) else "",
-                    showReactionBar = reactionTargetId == msg.id,
-                    onToggleReactionBar = { reactionTargetId = if (reactionTargetId == msg.id) null else msg.id },
-                    onReact = { rId ->
-                        vm.addChatReaction(msg.id, rId)
-                        reactionTargetId = null
-                    },
-                )
-            }
-        }
+            // Message stream
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (state.chatMessages.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 80.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(tr("Messages vanish when this room expires.", "Tin nhắn sẽ tự xóa khi phòng hết hạn."), color = HefimerColors.White30, fontSize = 13.sp)
+                        }
+                    }
+                }
 
-        // Composer bar integrated cleanly with navigation bar insets
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(HefimerColors.SurfaceElevated)
-                .border(0.5.dp, HefimerColors.White10)
-                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = navBottom + 10.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(CircleShape)
-                    .background(HefimerColors.White06)
-                    .border(1.dp, HefimerColors.White12, CircleShape)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                BasicTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    textStyle = TextStyle(fontFamily = UbuntuFontFamily, fontSize = 14.sp, color = HefimerColors.White),
-                    cursorBrush = SolidColor(HefimerColors.White),
-                    modifier = Modifier.fillMaxWidth(),
-                    decorationBox = { inner ->
-                        if (input.isEmpty()) Text(tr("Message room...", "Nhắn tin vào phòng..."), color = HefimerColors.White30, fontSize = 14.sp)
-                        inner()
-                    },
-                )
+                items(state.chatMessages, key = { it.id }) { msg ->
+                    val isMine = msg.sender.equals(state.userName.trim(), ignoreCase = true)
+                    ChatBubbleItem(
+                        msg = msg,
+                        isMine = isMine,
+                        timeText = if (msg.timestamp > 0L) timeFmt.format(Date(msg.timestamp)) else "",
+                        showReactionBar = reactionTargetId == msg.id,
+                        onToggleReactionBar = { reactionTargetId = if (reactionTargetId == msg.id) null else msg.id },
+                        onReact = { rId ->
+                            vm.addChatReaction(msg.id, rId)
+                            reactionTargetId = null
+                        },
+                    )
+                }
             }
-            Box(
-                contentAlignment = Alignment.Center,
+
+            // Frosted Apple Glass composer dock
+            val canSend = input.isNotBlank()
+            val sendBg by animateColorAsState(
+                targetValue = if (canSend) HefimerColors.White else HefimerColors.White10,
+                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                label = "chat_send_bg",
+            )
+            val sendTint by animateColorAsState(
+                targetValue = if (canSend) HefimerColors.Black else HefimerColors.White30,
+                animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                label = "chat_send_tint",
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(if (input.isNotBlank()) HefimerColors.White else HefimerColors.White10)
-                    .applePressable(enabled = input.isNotBlank(), pressedScale = 0.90f) {
-                        vm.sendChatMessage(input)
-                        input = ""
-                    },
+                    .fillMaxWidth()
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 16.dp,
+                    )
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = navBottom + 12.dp),
             ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.Send,
-                    tr("Send", "Gửi"),
-                    tint = if (input.isNotBlank()) HefimerColors.Black else HefimerColors.White30,
-                    modifier = Modifier.size(18.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            accentBorderTint = if (composerFocused) HefimerColors.White else null,
+                            accentFillTint = if (composerFocused) HefimerColors.White.copy(alpha = 0.06f) else null,
+                            elevation = 0.dp,
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    BasicTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        textStyle = TextStyle(fontFamily = UbuntuFontFamily, fontSize = 14.sp, color = HefimerColors.White),
+                        cursorBrush = SolidColor(HefimerColors.White),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { composerFocused = it.isFocused },
+                        decorationBox = { inner ->
+                            if (input.isEmpty()) Text(tr("Message room...", "Nhắn tin vào phòng..."), color = HefimerColors.White30, fontSize = 14.sp)
+                            inner()
+                        },
+                    )
+                }
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(sendBg)
+                        .applePressable(enabled = canSend, pressedScale = 0.88f) {
+                            vm.sendChatMessage(input)
+                            input = ""
+                        },
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.Send,
+                        tr("Send", "Gửi"),
+                        tint = sendTint,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }
@@ -692,7 +762,7 @@ private fun ChatBubbleItem(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         ) {
             Text(
-                text = if (msg.isAdmin) "${msg.sender} • ADMIN" else msg.sender,
+                text = if (msg.isAdmin) "${msg.sender} • ${tr("ADMIN", "QUẢN TRỊ")}" else msg.sender,
                 color = if (msg.isAdmin) HefimerColors.White else HefimerColors.White40,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -702,27 +772,28 @@ private fun ChatBubbleItem(
             }
         }
 
+        val bubbleShape = RoundedCornerShape(
+            topStart = 22.dp,
+            topEnd = 22.dp,
+            bottomStart = if (isMine) 22.dp else 6.dp,
+            bottomEnd = if (isMine) 6.dp else 22.dp,
+        )
         Box(
             modifier = Modifier
                 .widthIn(max = 290.dp)
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 22.dp,
-                        topEnd = 22.dp,
-                        bottomStart = if (isMine) 22.dp else 6.dp,
-                        bottomEnd = if (isMine) 6.dp else 22.dp,
-                    ),
-                )
-                .background(if (isMine) HefimerColors.White else HefimerColors.White08)
-                .border(
-                    1.dp,
-                    if (isMine) HefimerColors.White else HefimerColors.White10,
-                    RoundedCornerShape(
-                        topStart = 22.dp,
-                        topEnd = 22.dp,
-                        bottomStart = if (isMine) 22.dp else 6.dp,
-                        bottomEnd = if (isMine) 6.dp else 22.dp,
-                    ),
+                .then(
+                    if (isMine) {
+                        Modifier
+                            .clip(bubbleShape)
+                            .background(HefimerColors.White)
+                            .border(1.dp, HefimerColors.White, bubbleShape)
+                    } else {
+                        Modifier.appleGlassSurface(
+                            shape = bubbleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 2.dp,
+                        )
+                    },
                 )
                 .applePressable(pressedScale = 0.98f, onClick = onToggleReactionBar)
                 .padding(horizontal = 15.dp, vertical = 11.dp),
@@ -747,10 +818,12 @@ private fun ChatBubbleItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .background(HefimerColors.White08)
-                            .border(1.dp, HefimerColors.White12, CircleShape)
-                            .applePressable { onReact(rId) }
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
+                            .applePressable(pressedScale = 0.90f) { onReact(rId) }
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(emoji, fontSize = 11.sp)
@@ -767,9 +840,11 @@ private fun ChatBubbleItem(
                 modifier = Modifier
                     .padding(top = 6.dp)
                     .horizontalScroll(rememberScrollState())
-                    .clip(CircleShape)
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White15, CircleShape)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 14.dp,
+                    )
                     .padding(horizontal = 8.dp, vertical = 5.dp),
             ) {
                 CHAT_REACTIONS.forEach { (id, emoji) ->
@@ -864,25 +939,32 @@ fun WhiteboardOverlay(
             }
         }
 
-        // Top translucent bar
+        // Floating Apple Glass top HUD capsule
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .background(HefimerColors.Black.copy(alpha = 0.80f))
-                .padding(top = statusTop + 8.dp, bottom = 10.dp, start = 14.dp, end = 14.dp),
+                .padding(top = statusTop + 8.dp, start = 14.dp, end = 14.dp)
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(28.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 16.dp,
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(38.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(pressedScale = 0.90f, onClick = onClose),
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.89f, onClick = onClose),
                 ) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
@@ -897,10 +979,12 @@ fun WhiteboardOverlay(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(38.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(pressedScale = 0.90f) {
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.89f) {
                             scope.launch {
                                 runCatching {
                                     val bmp = Bitmap.createBitmap(
@@ -941,10 +1025,12 @@ fun WhiteboardOverlay(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(38.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(pressedScale = 0.90f) { showQr = true },
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.89f) { showQr = true },
                 ) {
                     Icon(Icons.Rounded.QrCode2, tr("Share", "Chia sẻ"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
@@ -1023,17 +1109,27 @@ fun WhiteboardOverlay(
                 BoardToolBtn(Icons.Rounded.AutoFixHigh, active = isEraser) { isEraser = true }
                 BoardToolBtn(Icons.Rounded.Palette, active = showPalette) { showPalette = !showPalette }
 
-                val clearBg by animateColorAsState(
-                    targetValue = if (confirmClear) HefimerColors.Red500 else HefimerColors.White08,
+                val clearFill by animateColorAsState(
+                    targetValue = if (confirmClear) HefimerColors.Red500 else Color.Transparent,
                     animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
-                    label = "board_clear_bg",
+                    label = "board_clear_fill",
+                )
+                val clearIconTint by animateColorAsState(
+                    targetValue = if (confirmClear) Color.White else HefimerColors.Red400,
+                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                    label = "board_clear_tint",
                 )
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(clearBg)
-                        .applePressable(pressedScale = 0.94f) {
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            accentBorderTint = if (confirmClear) HefimerColors.Red400 else null,
+                            accentFillTint = clearFill,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.92f) {
                             if (!confirmClear) {
                                 confirmClear = true
                                 scope.launch {
@@ -1050,7 +1146,7 @@ fun WhiteboardOverlay(
                     if (confirmClear) {
                         Text(tr("Tap to Clear", "Chạm để xóa"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(Icons.Rounded.DeleteOutline, tr("Clear", "Xóa"), tint = HefimerColors.Red400, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.DeleteOutline, tr("Clear", "Xóa"), tint = clearIconTint, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -1074,14 +1170,29 @@ private fun BoardToolBtn(
     active: Boolean,
     onClick: () -> Unit,
 ) {
+    val activeFill by animateColorAsState(
+        targetValue = if (active) HefimerColors.White else Color.Transparent,
+        animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+        label = "board_tool_fill",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (active) HefimerColors.Black else HefimerColors.White80,
+        animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+        label = "board_tool_tint",
+    )
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(40.dp)
-            .clip(CircleShape)
-            .background(if (active) HefimerColors.White else HefimerColors.White06)
-            .applePressable(pressedScale = 0.9f, onClick = onClick),
+            .appleGlassSurface(
+                shape = CircleShape,
+                variant = AppleGlassVariant.Clear,
+                accentBorderTint = if (active) HefimerColors.White else null,
+                accentFillTint = activeFill,
+                elevation = 0.dp,
+            )
+            .applePressable(pressedScale = 0.88f, onClick = onClick),
     ) {
-        Icon(icon, null, tint = if (active) HefimerColors.Black else HefimerColors.White80, modifier = Modifier.size(19.dp))
+        Icon(icon, null, tint = iconTint, modifier = Modifier.size(19.dp))
     }
 }

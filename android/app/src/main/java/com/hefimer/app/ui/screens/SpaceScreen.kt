@@ -3,8 +3,10 @@ package com.hefimer.app.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -134,6 +136,14 @@ import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
+private fun localizedSpaceKind(kind: String): String = when (kind) {
+    "file" -> tr("FILE", "TỆP")
+    "note" -> tr("NOTE", "GHI CHÚ")
+    "link" -> tr("LINK", "LIÊN KẾT")
+    "code" -> tr("CODE", "MÃ")
+    else -> kind.uppercase()
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SpaceScreen(vm: HefimerViewModel) {
@@ -187,14 +197,16 @@ fun SpaceScreen(vm: HefimerViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .appleEntrance(0)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(HefimerColors.SurfaceElevated)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(32.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(32.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 10.dp,
+                    )
                     .padding(18.dp),
             ) {
                 Text(
                     text = tr("YOUR DISPLAY NAME", "TÊN HIỂN THỊ CỦA BẠN"),
-                    color = HefimerColors.White30,
+                    color = HefimerColors.White40,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
@@ -226,14 +238,16 @@ fun SpaceScreen(vm: HefimerViewModel) {
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(34.dp))
-                            .background(HefimerColors.SurfaceElevated)
-                            .border(1.dp, HefimerColors.White12, RoundedCornerShape(34.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(34.dp),
+                                variant = AppleGlassVariant.Regular,
+                                elevation = 12.dp,
+                            )
                             .padding(20.dp),
                     ) {
                         Text(
                             text = tr("5-DIGIT SPACE CODE", "MÃ SPACE 5 CHỮ SỐ"),
-                            color = HefimerColors.White30,
+                            color = HefimerColors.White40,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp,
@@ -264,13 +278,15 @@ fun SpaceScreen(vm: HefimerViewModel) {
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(30.dp))
-                            .background(HefimerColors.SurfaceElevated)
-                            .border(1.dp, HefimerColors.White12, RoundedCornerShape(30.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(34.dp),
+                                variant = AppleGlassVariant.Regular,
+                                elevation = 12.dp,
+                            )
                             .padding(20.dp),
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(tr("SPACE TITLE", "TÊN SPACE"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text(tr("SPACE TITLE", "TÊN SPACE"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                             HefimerTextField(
                                 value = state.createTitle,
                                 onValueChange = { vm.setSpaceCreateTitle(it) },
@@ -284,10 +300,10 @@ fun SpaceScreen(vm: HefimerViewModel) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(tr("CUSTOM 5-DIGIT CODE", "MÃ 5 CHỮ SỐ TÙY CHỈNH"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                                Text(tr("CUSTOM 5-DIGIT CODE", "MÃ 5 CHỮ SỐ TÙY CHỈNH"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                                 val (statusText, statusColor) = when (state.createCodeStatus) {
-                                    "checking" -> tr("Checking...", "Đang kiểm tra...") to HefimerColors.White40
-                                    "available" -> tr("Available", "Khả dụng") to HefimerColors.White80
+                                    "checking" -> tr("Checking...", "Đang kiểm tra...") to HefimerColors.White45
+                                    "available" -> tr("Available", "Khả dụng") to HefimerColors.White85
                                     "taken" -> tr("Already in use", "Đã được sử dụng") to HefimerColors.Red400
                                     else -> "" to HefimerColors.White30
                                 }
@@ -310,9 +326,11 @@ fun SpaceScreen(vm: HefimerViewModel) {
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .size(48.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(HefimerColors.White08)
-                                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(16.dp))
+                                        .appleGlassSurface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            variant = AppleGlassVariant.Clear,
+                                            elevation = 0.dp,
+                                        )
                                         .applePressable(pressedScale = 0.90f) { vm.randomizeSpaceCode() },
                                 ) {
                                     Icon(Icons.Rounded.Casino, tr("Randomize", "Ngẫu nhiên"), tint = HefimerColors.White, modifier = Modifier.size(20.dp))
@@ -321,7 +339,7 @@ fun SpaceScreen(vm: HefimerViewModel) {
                         }
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(tr("DURATION", "THỜI HẠN"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                            Text(tr("DURATION", "THỜI HẠN"), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf(
                                     "30m" to tr("30 min", "30 phút"),
@@ -331,14 +349,22 @@ fun SpaceScreen(vm: HefimerViewModel) {
                                     "24h" to tr("24 hours", "24 giờ"),
                                 ).forEach { (v, lbl) ->
                                     val sel = state.createExpire == v
+                                    val fg by animateColorAsState(
+                                        targetValue = if (sel) HefimerColors.Black else HefimerColors.White60,
+                                        animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+                                        label = "sp_dur_fg",
+                                    )
+                                    val chipMod = if (sel) {
+                                        Modifier.clip(CircleShape).background(HefimerColors.White)
+                                    } else {
+                                        Modifier.appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                    }
                                     Text(
                                         text = lbl,
-                                        color = if (sel) HefimerColors.Black else HefimerColors.White60,
+                                        color = fg,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .clip(CircleShape)
-                                            .background(if (sel) HefimerColors.White else HefimerColors.White08)
+                                        modifier = chipMod
                                             .applePressable(pressedScale = 0.94f) { vm.setSpaceCreateExpire(v) }
                                             .padding(horizontal = 14.dp, vertical = 8.dp),
                                     )
@@ -368,7 +394,7 @@ fun SpaceScreen(vm: HefimerViewModel) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.appleEntrance(2)) {
                     Text(
                         text = tr("RECENT SPACES", "SPACE GẦN ĐÂY"),
-                        color = HefimerColors.White30,
+                        color = HefimerColors.White40,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.2.sp,
@@ -379,15 +405,17 @@ fun SpaceScreen(vm: HefimerViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(HefimerColors.White04)
-                                .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
-                                .applePressable { vm.joinSpace(recent.code) }
+                                .appleGlassSurface(
+                                    shape = RoundedCornerShape(24.dp),
+                                    variant = AppleGlassVariant.Regular,
+                                    elevation = 6.dp,
+                                )
+                                .applePressable(pressedScale = 0.98f) { vm.joinSpace(recent.code) }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                         ) {
                             Column {
                                 Text(recent.name, color = HefimerColors.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("#${recent.code}", color = HefimerColors.White40, fontFamily = JetBrainsMonoFamily, fontSize = 11.sp)
+                                Text("#${recent.code}", color = HefimerColors.White45, fontFamily = JetBrainsMonoFamily, fontSize = 11.sp)
                             }
                             Text(
                                 text = tr("Rejoin", "Vào lại"),
@@ -409,10 +437,6 @@ fun SpaceScreen(vm: HefimerViewModel) {
 
 /**
  * Full-screen interactive collaborative infinite canvas overlay for Hefimer Space.
- * - True infinite unclipped world space: cards and buttons work reliably at ANY coordinate & zoom level.
- * - Focal-point pinch zoom (20%..300%) + smooth spring Zoom HUD (- | 100% | +) + smart Fit/Recenter.
- * - Dual-scale architectural grid (minor dots + major intersections + subtle world origin crosshair).
- * - 120Hz GPU-accelerated drag-and-drop with lift scale, z-index elevation, haptic tick, and spring grid snap.
  */
 @Composable
 fun SpaceCanvasOverlay(
@@ -451,9 +475,7 @@ fun SpaceCanvasOverlay(
     }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HefimerColors.Black),
+        modifier = Modifier.fillMaxSize(),
     ) {
         val viewportW = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
         val viewportH = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
@@ -544,7 +566,6 @@ fun SpaceCanvasOverlay(
                 val curPanX = panX.value
                 val curPanY = panY.value
 
-                // Auto-adapt base grid cell size so grid stays crisp & expansive from 20% to 300% zoom
                 var worldStep = 36.dp.toPx()
                 while (worldStep * curZoom < 22f) worldStep *= 2f
                 while (worldStep * curZoom > 96f) worldStep /= 2f
@@ -552,7 +573,6 @@ fun SpaceCanvasOverlay(
                 val minorStep = worldStep * curZoom
                 val majorStep = minorStep * 4f
 
-                // Major subtle grid lines
                 val majorStartX = ((curPanX % majorStep) + majorStep) % majorStep
                 val majorStartY = ((curPanY % majorStep) + majorStep) % majorStep
                 val majorLineColor = HefimerColors.White.copy(alpha = 0.06f)
@@ -577,11 +597,10 @@ fun SpaceCanvasOverlay(
                     my += majorStep
                 }
 
-                // Minor crisp dot grid
                 val ox = ((curPanX % minorStep) + minorStep) % minorStep
                 val oy = ((curPanY % minorStep) + minorStep) % minorStep
                 val dotRadius = (1.25.dp.toPx() * curZoom.coerceIn(0.65f, 1.6f)).coerceIn(1.0f, 2.6f)
-                val dotColor = HefimerColors.White.copy(alpha = 0.14f)
+                val dotColor = HefimerColors.White.copy(alpha = 0.16f)
                 var x = ox
                 while (x < size.width) {
                     var y = oy
@@ -596,17 +615,16 @@ fun SpaceCanvasOverlay(
                     x += minorStep
                 }
 
-                // Subtle world origin crosshair (0, 0)
                 if (curPanX in -40f..(size.width + 40f) && curPanY in -40f..(size.height + 40f)) {
                     val arm = 14.dp.toPx()
                     drawLine(
-                        color = HefimerColors.White.copy(alpha = 0.22f),
+                        color = HefimerColors.White.copy(alpha = 0.24f),
                         start = Offset(curPanX - arm, curPanY),
                         end = Offset(curPanX + arm, curPanY),
                         strokeWidth = 1.5f,
                     )
                     drawLine(
-                        color = HefimerColors.White.copy(alpha = 0.22f),
+                        color = HefimerColors.White.copy(alpha = 0.24f),
                         start = Offset(curPanX, curPanY - arm),
                         end = Offset(curPanX, curPanY + arm),
                         strokeWidth = 1.5f,
@@ -614,7 +632,7 @@ fun SpaceCanvasOverlay(
                 }
             }
 
-            // World items positioned directly in screen space (unclipped, infinite hit-testing!)
+            // World items positioned directly in screen space (unclipped, infinite hit-testing)
             state.items.forEach { item ->
                 key(item.id) {
                     SpaceCanvasCard(
@@ -639,7 +657,7 @@ fun SpaceCanvasOverlay(
                         onCopy = {
                             val copyTarget = item.content?.takeIf { it.isNotBlank() } ?: item.url ?: item.name
                             copyToClipboard(context, item.name, copyTarget)
-                            vm.showToast("Copied ${item.name}", ToastType.SUCCESS)
+                            vm.showToast(tr("Copied ${item.name}", "Đã sao chép ${item.name}"), ToastType.SUCCESS)
                         },
                         onDownload = {
                             item.url?.let { url ->
@@ -676,42 +694,57 @@ fun SpaceCanvasOverlay(
         // Empty hint
         if (state.items.isEmpty()) {
             Column(
-                modifier = Modifier.align(Alignment.Center).padding(horizontal = 32.dp),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 32.dp)
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(30.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 10.dp,
+                    )
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(tr("Infinite Canvas", "Bảng vẽ vô tận"), color = HefimerColors.White50, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Infinite Canvas", "Bảng vẽ vô tận"), color = HefimerColors.White85, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
                     text = tr(
                         "Pinch to zoom, drag to explore, or drop files, notes, links & code below.",
                         "Chụm để thu phóng, kéo để di chuyển hoặc thêm tệp, ghi chú, liên kết & mã bên dưới.",
                     ),
-                    color = HefimerColors.White30,
+                    color = HefimerColors.White50,
                     fontSize = 12.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }
         }
 
-        // Top translucent Space HUD
+        // Top Floating Apple Glass Space HUD Capsule
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .background(HefimerColors.Black.copy(alpha = 0.82f))
-                .padding(top = statusTop + 8.dp, bottom = 10.dp, start = 14.dp, end = 14.dp),
+                .padding(top = statusTop + 8.dp, start = 14.dp, end = 14.dp)
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(28.dp),
+                    variant = AppleGlassVariant.Elevated,
+                    elevation = 16.dp,
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(pressedScale = 0.90f, onClick = onClose),
+                        .size(36.dp)
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.89f, onClick = onClose),
                 ) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Leave", "Rời đi"), tint = HefimerColors.White, modifier = Modifier.size(18.dp))
                 }
@@ -719,7 +752,7 @@ fun SpaceCanvasOverlay(
                     Text(
                         text = state.activeSpaceName.ifBlank { "Space ${state.activeSpaceId}" },
                         color = HefimerColors.White,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -734,13 +767,13 @@ fun SpaceCanvasOverlay(
                         )
                         Text("• ${state.members.size.coerceAtLeast(1)} ${tr("online", "trực tuyến")}", color = HefimerColors.White50, fontSize = 10.sp)
                         if (countdown.isNotBlank()) {
-                            Text("• $countdown", color = HefimerColors.White40, fontSize = 10.sp)
+                            Text("• $countdown", color = HefimerColors.White45, fontSize = 10.sp)
                         }
                     }
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 SpaceMiniTool(Icons.Rounded.Grid4x4, active = snapGrid) {
                     snapGrid = !snapGrid
                     vm.showToast(if (snapGrid) tr("Snap to grid ON", "Bật bám lưới") else tr("Free positioning ON", "Bật đặt tự do"), ToastType.INFO)
@@ -756,17 +789,19 @@ fun SpaceCanvasOverlay(
             }
         }
 
-        // Upload queue progress HUD
+        // Upload queue progress HUD (Elevated Apple Glass)
         if (state.uploadTasks.isNotEmpty()) {
             val task = state.uploadTasks.first()
             Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = statusTop + 72.dp, start = 20.dp, end = 20.dp)
+                    .padding(top = statusTop + 78.dp, start = 18.dp, end = 18.dp)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(26.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(28.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 18.dp,
+                    )
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -798,7 +833,7 @@ fun SpaceCanvasOverlay(
                             tint = HefimerColors.Red400,
                             modifier = Modifier
                                 .size(20.dp)
-                                .applePressable { vm.cancelSpaceUpload() },
+                                .applePressable(pressedScale = 0.88f) { vm.cancelSpaceUpload() },
                         )
                     }
                 }
@@ -832,11 +867,11 @@ fun SpaceCanvasOverlay(
                     .clip(CircleShape)
                     .applePressable(pressedScale = 0.88f) { zoomByFactor(0.78f) },
             ) {
-                Icon(Icons.Rounded.Remove, tr("Zoom out", "Thu nhỏ"), tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Remove, tr("Zoom out", "Thu nhỏ"), tint = HefimerColors.White75, modifier = Modifier.size(16.dp))
             }
             Text(
                 text = "${(zoom.value * 100f).roundToInt()}%",
-                color = HefimerColors.White80,
+                color = HefimerColors.White85,
                 style = TextStyle(
                     fontFamily = JetBrainsMonoFamily,
                     fontSize = 10.sp,
@@ -855,7 +890,7 @@ fun SpaceCanvasOverlay(
                     .clip(CircleShape)
                     .applePressable(pressedScale = 0.88f) { zoomByFactor(1.28f) },
             ) {
-                Icon(Icons.Rounded.Add, tr("Zoom in", "Phóng to"), tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Add, tr("Zoom in", "Phóng to"), tint = HefimerColors.White75, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -973,7 +1008,6 @@ private fun SpaceCanvasCard(
 ) {
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
-    val currentZoom by rememberUpdatedState(zoom)
     val currentSnap by rememberUpdatedState(snapGrid)
     val currentOnDragFinish by rememberUpdatedState(onDragFinish)
 
@@ -981,7 +1015,6 @@ private fun SpaceCanvasCard(
     val worldY = remember(item.id) { Animatable(item.y) }
     var isDragging by remember(item.id) { mutableStateOf(false) }
 
-    // Smoothly follow remote updates only when the user isn't actively dragging this card
     LaunchedEffect(item.x, item.y, isDragging) {
         if (!isDragging) {
             if (kotlin.math.abs(worldX.value - item.x) > 0.5f) {
@@ -999,19 +1032,18 @@ private fun SpaceCanvasCard(
         label = "card_lift",
     )
 
-    val (bg, baseBorder) = if (item.kind == "note") {
+    val (noteBg, noteBorder) = if (item.kind == "note") {
         when (item.noteColor) {
-            "emerald" -> HefimerColors.NoteEmeraldBg to HefimerColors.NoteEmeraldBorder
-            "amber" -> HefimerColors.NoteAmberBg to HefimerColors.NoteAmberBorder
-            "sky" -> HefimerColors.NoteSkyBg to HefimerColors.NoteSkyBorder
-            "rose" -> HefimerColors.NoteRoseBg to HefimerColors.NoteRoseBorder
-            "violet" -> HefimerColors.NoteVioletBg to HefimerColors.NoteVioletBorder
-            else -> HefimerColors.NoteZincBg to HefimerColors.NoteZincBorder
+            "emerald" -> HefimerColors.NoteEmeraldBg to HefimerColors.Emerald400
+            "amber" -> HefimerColors.NoteAmberBg to HefimerColors.Amber400
+            "sky" -> HefimerColors.NoteSkyBg to HefimerColors.Sky400
+            "rose" -> HefimerColors.NoteRoseBg to HefimerColors.Rose400
+            "violet" -> HefimerColors.NoteVioletBg to HefimerColors.Violet400
+            else -> HefimerColors.NoteZincBg to null
         }
     } else {
-        HefimerColors.SurfaceCard.copy(alpha = 0.96f) to HefimerColors.White15
+        null to null
     }
-    val borderColor = if (isDragging) HefimerColors.White50 else baseBorder
 
     val previewUrl = remember(item.url, item.mimeType) {
         if (item.kind == "file" && item.mimeType?.startsWith("image/") == true) {
@@ -1028,12 +1060,16 @@ private fun SpaceCanvasCard(
                 scaleX = zoom * liftScale
                 scaleY = zoom * liftScale
                 transformOrigin = TransformOrigin(0f, 0f)
-                shadowElevation = if (isDragging) 24f else 6f
+                shadowElevation = if (isDragging) 24f else 8f
             }
             .width(248.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(bg)
-            .border(if (isDragging) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(24.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(26.dp),
+                variant = if (isDragging) AppleGlassVariant.Elevated else AppleGlassVariant.Regular,
+                accentBorderTint = if (isDragging) HefimerColors.White else noteBorder,
+                accentFillTint = noteBg,
+                elevation = if (isDragging) 20.dp else 10.dp,
+            )
             .pointerInput(item.id) {
                 detectDragGestures(
                     onDragStart = {
@@ -1056,8 +1092,6 @@ private fun SpaceCanvasCard(
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        // pointerInput is after graphicsLayer(scale = zoom * liftScale),
-                        // so dragAmount is already in local world coordinates (exact 1:1 with finger).
                         scope.launch {
                             worldX.snapTo(worldX.value + dragAmount.x)
                             worldY.snapTo(worldY.value + dragAmount.y)
@@ -1075,15 +1109,15 @@ private fun SpaceCanvasCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = item.kind.uppercase(),
-                color = HefimerColors.White40,
+                text = localizedSpaceKind(item.kind),
+                color = HefimerColors.White45,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.8.sp,
             )
             Text(
                 text = item.uploadedBy,
-                color = HefimerColors.White30,
+                color = HefimerColors.White40,
                 fontSize = 9.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1115,7 +1149,7 @@ private fun SpaceCanvasCard(
         if (!item.content.isNullOrBlank()) {
             Text(
                 text = item.content,
-                color = HefimerColors.White70,
+                color = HefimerColors.White75,
                 fontFamily = if (item.kind == "code") JetBrainsMonoFamily else UbuntuFontFamily,
                 fontSize = if (item.kind == "code") 11.sp else 12.sp,
                 maxLines = 4,
@@ -1132,30 +1166,30 @@ private fun SpaceCanvasCard(
             )
         } else if (item.kind == "file") {
             Text(
-                text = "${formatBytes(item.size ?: 0L)} • ${item.providerName ?: "Host"}",
-                color = HefimerColors.White40,
+                text = "${formatBytes(item.size ?: 0L)} • ${item.providerName ?: tr("Host", "Máy chủ")}",
+                color = HefimerColors.White45,
                 fontFamily = JetBrainsMonoFamily,
                 fontSize = 10.sp,
             )
         }
 
-        // Generous 32.dp circular action buttons so every action works reliably on touch
+        // Generous 32.dp circular glass action buttons
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (item.kind == "file" && !item.url.isNullOrBlank()) {
-                SpaceCardActionIcon(Icons.Rounded.Download, "Download", HefimerColors.White80, onDownload)
+                SpaceCardActionIcon(Icons.Rounded.Download, tr("Download", "Tải xuống"), HefimerColors.White85, onDownload)
             }
             if (item.kind == "link" && !item.url.isNullOrBlank()) {
-                SpaceCardActionIcon(Icons.Rounded.OpenInNew, "Open", HefimerColors.Sky400, onOpenLink)
+                SpaceCardActionIcon(Icons.Rounded.OpenInNew, tr("Open", "Mở"), HefimerColors.Sky400, onOpenLink)
             }
             if (item.kind != "file") {
-                SpaceCardActionIcon(Icons.Rounded.ContentCopy, "Copy", HefimerColors.White70, onCopy)
-                SpaceCardActionIcon(Icons.Rounded.Edit, "Edit", HefimerColors.White70, onEdit)
+                SpaceCardActionIcon(Icons.Rounded.ContentCopy, tr("Copy", "Sao chép"), HefimerColors.White75, onCopy)
+                SpaceCardActionIcon(Icons.Rounded.Edit, tr("Edit", "Sửa"), HefimerColors.White75, onEdit)
             }
-            SpaceCardActionIcon(Icons.Rounded.DeleteOutline, "Delete", HefimerColors.Red400, onDelete)
+            SpaceCardActionIcon(Icons.Rounded.DeleteOutline, tr("Delete", "Xóa"), HefimerColors.Red400, onDelete)
         }
     }
 }
@@ -1171,9 +1205,11 @@ private fun SpaceCardActionIcon(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(32.dp)
-            .clip(CircleShape)
-            .background(HefimerColors.White06)
-            .border(1.dp, HefimerColors.White10, CircleShape)
+            .appleGlassSurface(
+                shape = CircleShape,
+                variant = AppleGlassVariant.Clear,
+                elevation = 0.dp,
+            )
             .applePressable(pressedScale = 0.88f, onClick = onClick),
     ) {
         Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(15.dp))
@@ -1186,16 +1222,26 @@ private fun SpaceMiniTool(
     active: Boolean,
     onClick: () -> Unit,
 ) {
+    val bg by animateColorAsState(
+        targetValue = if (active) HefimerColors.White else Color.Transparent,
+        animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+        label = "sp_tool_bg",
+    )
+    val tint by animateColorAsState(
+        targetValue = if (active) HefimerColors.Black else HefimerColors.White85,
+        animationSpec = tween(AppMotion.Micro, easing = AppMotion.AppleSilk),
+        label = "sp_tool_tint",
+    )
+    val mod = if (active) {
+        Modifier.size(34.dp).clip(CircleShape).background(bg)
+    } else {
+        Modifier.size(34.dp).appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+    }
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(if (active) HefimerColors.White else HefimerColors.White08)
-            .border(1.dp, HefimerColors.White12, CircleShape)
-            .applePressable(pressedScale = 0.9f, onClick = onClick),
+        modifier = mod.applePressable(pressedScale = 0.89f, onClick = onClick),
     ) {
-        Icon(icon, null, tint = if (active) HefimerColors.Black else HefimerColors.White80, modifier = Modifier.size(16.dp))
+        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -1206,19 +1252,22 @@ private fun SpaceDockAction(
     primary: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val mod = if (primary) {
+        Modifier.clip(RoundedCornerShape(18.dp)).background(HefimerColors.White)
+    } else {
+        Modifier.appleGlassSurface(RoundedCornerShape(18.dp), AppleGlassVariant.Clear, elevation = 0.dp)
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (primary) HefimerColors.White else HefimerColors.White06)
+        modifier = mod
             .applePressable(pressedScale = 0.92f, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        Icon(icon, null, tint = if (primary) HefimerColors.Black else HefimerColors.White80, modifier = Modifier.size(18.dp))
+        Icon(icon, null, tint = if (primary) HefimerColors.Black else HefimerColors.White85, modifier = Modifier.size(18.dp))
         Spacer(Modifier.height(2.dp))
         Text(
             text = label,
-            color = if (primary) HefimerColors.Black else HefimerColors.White60,
+            color = if (primary) HefimerColors.Black else HefimerColors.White70,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
@@ -1247,20 +1296,29 @@ private fun SpaceComposerDialog(
         "violet" to HefimerColors.Violet400,
     )
 
+    val modalHeading = when (mode) {
+        "note" -> if (editing != null) tr("EDIT NOTE", "CHỈNH SỬA GHI CHÚ") else tr("ADD NOTE", "THÊM GHI CHÚ")
+        "link" -> if (editing != null) tr("EDIT LINK", "CHỈNH SỬA LIÊN KẾT") else tr("ADD LINK", "THÊM LIÊN KẾT")
+        "code" -> if (editing != null) tr("EDIT CODE", "CHỈNH SỬA MÃ NGUỒN") else tr("ADD CODE", "THÊM MÃ NGUỒN")
+        else -> if (editing != null) tr("EDIT ITEM", "CHỈNH SỬA") else tr("ADD ITEM", "THÊM MỤC")
+    }
+
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(30.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(30.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
                     .padding(22.dp),
             ) {
                 Text(
-                    text = "${if (editing != null) "EDIT" else "ADD"} ${mode.uppercase()}",
-                    color = HefimerColors.White50,
+                    text = modalHeading,
+                    color = HefimerColors.White55,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.2.sp,
@@ -1268,7 +1326,11 @@ private fun SpaceComposerDialog(
                 HefimerTextField(
                     value = name,
                     onValueChange = { name = it },
-                    placeholder = if (mode == "note") "Note title..." else if (mode == "link") "Link title..." else "Snippet title...",
+                    placeholder = when (mode) {
+                        "note" -> tr("Note title...", "Tiêu đề ghi chú...")
+                        "link" -> tr("Link title...", "Tiêu đề liên kết...")
+                        else -> tr("Snippet title...", "Tiêu đề đoạn mã...")
+                    },
                 )
                 if (mode == "link") {
                     HefimerTextField(
@@ -1281,7 +1343,7 @@ private fun SpaceComposerDialog(
                     HefimerTextField(
                         value = content,
                         onValueChange = { content = it },
-                        placeholder = if (mode == "code") "Paste code..." else "Write note...",
+                        placeholder = if (mode == "code") tr("Paste code...", "Dán mã nguồn...") else tr("Write note...", "Viết nội dung ghi chú..."),
                         mono = mode == "code",
                         singleLine = false,
                         modifier = Modifier.height(130.dp),
@@ -1291,21 +1353,30 @@ private fun SpaceComposerDialog(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         colors.forEach { (id, dot) ->
                             val selected = color == id
+                            val swatchScale by animateFloatAsState(
+                                targetValue = if (selected) 1.12f else 1f,
+                                animationSpec = AppMotion.snappySpring(),
+                                label = "swatch_scale_$id",
+                            )
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
+                                    .graphicsLayer {
+                                        scaleX = swatchScale
+                                        scaleY = swatchScale
+                                    }
                                     .clip(CircleShape)
                                     .background(dot)
-                                    .border(if (selected) 2.5.dp else 0.dp, HefimerColors.White, CircleShape)
-                                    .applePressable { color = id },
+                                    .border(if (selected) 2.5.dp else 1.dp, if (selected) HefimerColors.White else HefimerColors.White20, CircleShape)
+                                    .applePressable(pressedScale = 0.88f) { color = id },
                             )
                         }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HefimerSecondaryButton("Cancel", onClick = onDismiss, modifier = Modifier.weight(1f))
+                    HefimerSecondaryButton(tr("Cancel", "Hủy"), onClick = onDismiss, modifier = Modifier.weight(1f))
                     HefimerPrimaryButton(
-                        text = if (editing != null) "Update" else "Place",
+                        text = if (editing != null) tr("Update", "Cập nhật") else tr("Place", "Đặt lên bảng"),
                         height = 48.dp,
                         modifier = Modifier.weight(1f),
                         onClick = {
@@ -1313,8 +1384,14 @@ private fun SpaceComposerDialog(
                                 val u = url.trim()
                                 if (u.isNotBlank() && !u.startsWith("http")) "https://$u" else u
                             } else null
+                            val defaultName = when (mode) {
+                                "note" -> tr("Sticky Note", "Ghi chú dán")
+                                "link" -> tr("Shared Link", "Liên kết")
+                                "code" -> tr("Code Snippet", "Đoạn mã")
+                                else -> tr("Untitled", "Không tên")
+                            }
                             onSave(
-                                name.trim().ifBlank { if (mode == "note") "Sticky Note" else mode.replaceFirstChar { it.uppercase() } },
+                                name.trim().ifBlank { defaultName },
                                 if (mode != "link") content else null,
                                 finalUrl,
                                 color,
@@ -1343,9 +1420,11 @@ private fun SpaceItemPreviewDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(30.dp))
-                    .background(HefimerColors.SurfaceCard)
-                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(30.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(36.dp),
+                        variant = AppleGlassVariant.Elevated,
+                        elevation = 24.dp,
+                    )
                     .padding(22.dp),
             ) {
                 Row(
@@ -1354,14 +1433,17 @@ private fun SpaceItemPreviewDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(item.kind.uppercase(), color = HefimerColors.White40, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                        Text(localizedSpaceKind(item.kind), color = HefimerColors.White45, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                         Text(item.name, color = HefimerColors.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(34.dp).clip(CircleShape).background(HefimerColors.White08).applePressable(onClick = onDismiss),
+                        modifier = Modifier
+                            .size(34.dp)
+                            .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                            .applePressable(pressedScale = 0.89f, onClick = onDismiss),
                     ) {
-                        Icon(Icons.Rounded.Close, null, tint = HefimerColors.White70, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White75, modifier = Modifier.size(16.dp))
                     }
                 }
 
@@ -1374,21 +1456,23 @@ private fun SpaceItemPreviewDialog(
                             .fillMaxWidth()
                             .heightIn(max = 280.dp)
                             .verticalScroll(rememberScrollState())
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(HefimerColors.Black)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(18.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(20.dp),
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .padding(14.dp),
                     ) {
                         if (text != null) {
                             Text(text, fontFamily = JetBrainsMonoFamily, fontSize = 12.sp, color = HefimerColors.White)
                         } else {
-                            Text(item.content, fontSize = 13.sp, color = HefimerColors.White80)
+                            Text(item.content, fontSize = 13.sp, color = HefimerColors.White85)
                         }
                     }
                 } else if (item.kind == "file") {
                     Text(
-                        text = "${formatBytes(item.size ?: 0L)} • ${item.providerName ?: "Host"}",
-                        color = HefimerColors.White50,
+                        text = "${formatBytes(item.size ?: 0L)} • ${item.providerName ?: tr("Host", "Máy chủ")}",
+                        color = HefimerColors.White55,
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 12.sp,
                     )
@@ -1396,25 +1480,29 @@ private fun SpaceItemPreviewDialog(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (item.kind == "file") {
-                        HefimerPrimaryButton("Download", icon = Icons.Rounded.Download, height = 46.dp, modifier = Modifier.weight(1f), onClick = onDownload)
+                        HefimerPrimaryButton(tr("Download", "Tải xuống"), icon = Icons.Rounded.Download, height = 46.dp, modifier = Modifier.weight(1f), onClick = onDownload)
                     } else if (item.kind == "link" && !item.url.isNullOrBlank()) {
-                        HefimerPrimaryButton("Open Link", icon = Icons.Rounded.OpenInNew, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onOpenLink(item.url) })
+                        HefimerPrimaryButton(tr("Open Link", "Mở liên kết"), icon = Icons.Rounded.OpenInNew, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onOpenLink(item.url) })
                     } else if (!item.content.isNullOrBlank()) {
-                        HefimerPrimaryButton("Copy", icon = Icons.Rounded.ContentCopy, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onCopy(item.content) })
+                        HefimerPrimaryButton(tr("Copy", "Sao chép"), icon = Icons.Rounded.ContentCopy, height = 46.dp, modifier = Modifier.weight(1f), onClick = { onCopy(item.content) })
                     }
                     if (item.kind != "file") {
-                        HefimerSecondaryButton("Edit", height = 46.dp, modifier = Modifier.weight(0.7f), onClick = onEdit)
+                        HefimerSecondaryButton(tr("Edit", "Sửa"), height = 46.dp, modifier = Modifier.weight(0.7f), onClick = onEdit)
                     }
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(46.dp)
-                            .clip(CircleShape)
-                            .background(HefimerColors.RedBg)
-                            .border(1.dp, HefimerColors.RedBorder, CircleShape)
-                            .applePressable(onClick = onDelete),
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                accentBorderTint = HefimerColors.Red400,
+                                accentFillTint = HefimerColors.RedBg,
+                                elevation = 0.dp,
+                            )
+                            .applePressable(pressedScale = 0.90f, onClick = onDelete),
                     ) {
-                        Icon(Icons.Rounded.DeleteOutline, "Delete", tint = HefimerColors.Red400, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.DeleteOutline, tr("Delete", "Xóa"), tint = HefimerColors.Red400, modifier = Modifier.size(18.dp))
                     }
                 }
             }

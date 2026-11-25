@@ -349,7 +349,7 @@ private fun HefimerRootScreen(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(HefimerColors.Black.copy(alpha = 0.78f))
+                        .background(HefimerColors.Black.copy(alpha = 0.65f))
                         .padding(24.dp),
                 ) {
                     Column(
@@ -357,9 +357,11 @@ private fun HefimerRootScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(36.dp))
-                            .background(HefimerColors.SurfaceCard)
-                            .border(1.dp, HefimerColors.White15, RoundedCornerShape(36.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(36.dp),
+                                variant = AppleGlassVariant.Elevated,
+                                elevation = 24.dp,
+                            )
                             .padding(26.dp),
                     ) {
                         Text(
@@ -378,7 +380,7 @@ private fun HefimerRootScreen(
                             )
                         }
                         HefimerPrimaryButton(
-                            text = com.hefimer.app.ui.theme.tr("Got it", "Đã hiểu"),
+                            text = tr("Got it", "Đã hiểu"),
                             onClick = { vm.dismissBroadcast() },
                         )
                     }
@@ -391,36 +393,49 @@ private fun HefimerRootScreen(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(HefimerColors.Black.copy(alpha = 0.92f))
+                        .background(HefimerColors.Black.copy(alpha = 0.88f))
                         .padding(32.dp),
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(36.dp),
+                                variant = AppleGlassVariant.Elevated,
+                                accentBorderTint = HefimerColors.Red400,
+                                elevation = 24.dp,
+                            )
+                            .padding(28.dp),
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(72.dp)
-                                .clip(CircleShape)
-                                .background(HefimerColors.RedBg)
-                                .border(1.dp, HefimerColors.RedBorder, CircleShape),
+                                .appleGlassSurface(
+                                    shape = CircleShape,
+                                    variant = AppleGlassVariant.Clear,
+                                    accentBorderTint = HefimerColors.Red400,
+                                    accentFillTint = HefimerColors.RedBg,
+                                    elevation = 0.dp,
+                                ),
                         ) {
                             Icon(Icons.Rounded.AcUnit, null, tint = HefimerColors.Red400, modifier = Modifier.size(34.dp))
                         }
                         Text(
-                            text = com.hefimer.app.ui.theme.tr("SYSTEM FROZEN", "HỆ THỐNG TẠM ĐÓNG BĂNG"),
+                            text = tr("SYSTEM FROZEN", "HỆ THỐNG TẠM ĐÓNG BĂNG"),
                             color = HefimerColors.White,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 2.sp,
                         )
                         Text(
-                            text = com.hefimer.app.ui.theme.tr(
+                            text = tr(
                                 "The administrator has temporarily suspended operations for maintenance. Please check back later.",
                                 "Quản trị viên đã tạm ngừng hệ thống để bảo trì. Vui lòng quay lại sau.",
                             ),
-                            color = HefimerColors.White40,
+                            color = HefimerColors.White50,
                             fontSize = 13.sp,
                             textAlign = TextAlign.Center,
                         )

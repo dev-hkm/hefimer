@@ -258,13 +258,25 @@ object DownloadHelper {
         try {
             call.execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    throw IOException("Download failed with HTTP ${resp.code}")
+                    throw IOException(
+                        com.hefimer.app.ui.theme.tr(
+                            "Download failed with HTTP ${resp.code}",
+                            "Tải xuống thất bại với mã HTTP ${resp.code}",
+                        ),
+                    )
                 }
-                val body = resp.body ?: throw IOException("Empty download response")
+                val body = resp.body ?: throw IOException(
+                    com.hefimer.app.ui.theme.tr("Empty download response", "Phản hồi tải xuống trống"),
+                )
                 val ct = resp.header("Content-Type")?.substringBefore(';')?.trim() ?: "application/octet-stream"
                 // Guard against accidentally saving a provider HTML error page as a binary file
                 if (ct.equals("text/html", ignoreCase = true) && !safeName.endsWith(".html", true) && !safeName.endsWith(".htm", true)) {
-                    throw IOException("Upstream returned an HTML page instead of file bytes")
+                    throw IOException(
+                        com.hefimer.app.ui.theme.tr(
+                            "Upstream returned an HTML page instead of file bytes",
+                            "Máy chủ trả về trang HTML thay vì dữ liệu tệp",
+                        ),
+                    )
                 }
                 val totalBytes = body.contentLength()
                 onProgress(0L, totalBytes, 0)
@@ -278,11 +290,21 @@ object DownloadHelper {
                     }
                     val resolver = context.contentResolver
                     val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                        ?: throw IOException("Could not create file in Downloads")
+                        ?: throw IOException(
+                            com.hefimer.app.ui.theme.tr(
+                                "Could not create file in Downloads",
+                                "Không thể tạo tệp trong thư mục Tải xuống",
+                            ),
+                        )
                     try {
                         resolver.openOutputStream(uri)?.use { out ->
                             copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
-                        } ?: throw IOException("Cannot open Downloads output stream")
+                        } ?: throw IOException(
+                            com.hefimer.app.ui.theme.tr(
+                                "Cannot open Downloads output stream",
+                                "Không thể mở luồng ghi vào thư mục Tải xuống",
+                            ),
+                        )
                         val finish = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
                         resolver.update(uri, finish, null, null)
                     } catch (e: Throwable) {
@@ -365,7 +387,9 @@ object DownloadHelper {
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
                 val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: throw IllegalStateException("Could not create download entry")
+                    ?: throw IllegalStateException(
+                        com.hefimer.app.ui.theme.tr("Could not create download entry", "Không thể tạo mục tải xuống"),
+                    )
                 context.contentResolver.openOutputStream(uri)?.use { it.write(content.toByteArray()) }
             } else {
                 val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -385,7 +409,9 @@ object DownloadHelper {
                     put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Hefimer")
                 }
                 val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                    ?: throw IllegalStateException("Could not save image")
+                    ?: throw IllegalStateException(
+                        com.hefimer.app.ui.theme.tr("Could not save image", "Không thể lưu ảnh"),
+                    )
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                 }

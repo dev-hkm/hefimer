@@ -114,6 +114,11 @@ fun HefimerFloatingBottomDock(
             modifier = Modifier
                 .width(248.dp)
                 .height(pillHeight)
+                .appleLiquidRefraction(
+                    cornerRadius = pillHeight / 2,
+                    bezelWidth = 4.5.dp,
+                    refractionPx = 3.5f,
+                )
                 .appleGlassSurface(
                     shape = CircleShape,
                     variant = AppleGlassVariant.Elevated,
@@ -142,12 +147,6 @@ fun HefimerFloatingBottomDock(
                     .graphicsLayer { translationX = thumbOffsetPx }
                     .width(slotWidth)
                     .height(thumbHeight)
-                    .appleLiquidRefraction(
-                        cornerRadius = thumbHeight / 2,
-                        bezelWidth = 8.dp,
-                        refractionPx = 4f,
-                        dispersion = 0.008f,
-                    )
                     .clip(CircleShape)
                     .background(thumbColor),
             )

@@ -53,7 +53,12 @@ class FirebaseRtdbClient(
         apiClient.newCall(req).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
-                throw IOException("RTDB GET failed (${resp.code}): ${body.take(120)}")
+                throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "RTDB GET failed (${resp.code}): ${body.take(120)}",
+                        "Lỗi tải dữ liệu RTDB (${resp.code}): ${body.take(120)}",
+                    ),
+                )
             }
             if (body.isBlank() || body == "null") return@withContext null
             val parsed = json.parseToJsonElement(body)
@@ -70,7 +75,12 @@ class FirebaseRtdbClient(
         apiClient.newCall(req).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
-                throw IOException("RTDB PUT failed (${resp.code}): ${body.take(120)}")
+                throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "RTDB PUT failed (${resp.code}): ${body.take(120)}",
+                        "Lỗi ghi dữ liệu RTDB (${resp.code}): ${body.take(120)}",
+                    ),
+                )
             }
             if (body.isBlank() || body == "null") null else json.parseToJsonElement(body)
         }
@@ -85,7 +95,12 @@ class FirebaseRtdbClient(
         apiClient.newCall(req).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
-                throw IOException("RTDB PATCH failed (${resp.code}): ${body.take(120)}")
+                throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "RTDB PATCH failed (${resp.code}): ${body.take(120)}",
+                        "Lỗi cập nhật RTDB (${resp.code}): ${body.take(120)}",
+                    ),
+                )
             }
             if (body.isBlank() || body == "null") null else json.parseToJsonElement(body)
         }
@@ -100,7 +115,12 @@ class FirebaseRtdbClient(
         apiClient.newCall(req).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
-                throw IOException("RTDB POST failed (${resp.code}): ${body.take(120)}")
+                throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "RTDB POST failed (${resp.code}): ${body.take(120)}",
+                        "Lỗi gửi dữ liệu RTDB (${resp.code}): ${body.take(120)}",
+                    ),
+                )
             }
             val parsed = json.parseToJsonElement(body)
             parsed.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
@@ -115,7 +135,12 @@ class FirebaseRtdbClient(
         apiClient.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) {
                 val body = resp.body?.string().orEmpty()
-                throw IOException("RTDB DELETE failed (${resp.code}): ${body.take(120)}")
+                throw IOException(
+                    com.hefimer.app.ui.theme.tr(
+                        "RTDB DELETE failed (${resp.code}): ${body.take(120)}",
+                        "Lỗi xóa dữ liệu RTDB (${resp.code}): ${body.take(120)}",
+                    ),
+                )
             }
         }
     }

@@ -2,6 +2,7 @@ package com.hefimer.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -144,9 +145,11 @@ fun LinkScreen(vm: HefimerViewModel) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(34.dp))
-                        .background(HefimerColors.SurfaceElevated)
-                        .border(1.dp, HefimerColors.White10, RoundedCornerShape(34.dp))
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(34.dp),
+                            variant = AppleGlassVariant.Regular,
+                            elevation = 12.dp,
+                        )
                         .padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -175,9 +178,11 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
             modifier = Modifier
                 .fillMaxWidth()
                 .appleEntrance(0)
-                .clip(RoundedCornerShape(34.dp))
-                .background(HefimerColors.White04)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(34.dp))
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(34.dp),
+                    variant = AppleGlassVariant.Regular,
+                    elevation = 12.dp,
+                )
                 .padding(22.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -199,9 +204,11 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .padding(top = 4.dp)
-                    .clip(CircleShape)
-                    .background(HefimerColors.Black.copy(alpha = 0.5f))
-                    .border(1.dp, HefimerColors.White10, CircleShape)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    )
                     .padding(horizontal = 12.dp, vertical = 7.dp),
             ) {
                 Icon(Icons.Rounded.Smartphone, null, tint = HefimerColors.White50, modifier = Modifier.size(14.dp))
@@ -227,9 +234,11 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(34.dp))
-                    .background(HefimerColors.SurfaceElevated)
-                    .border(1.dp, HefimerColors.White10, RoundedCornerShape(34.dp))
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(34.dp),
+                        variant = AppleGlassVariant.Regular,
+                        elevation = 12.dp,
+                    )
                     .padding(20.dp),
             ) {
                 if (mode == "create") {
@@ -252,16 +261,30 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                                 "never" to tr("Forever", "Vĩnh viễn"),
                             ).forEach { (v, lbl) ->
                                 val sel = state.duration == v
+                                val chipFill by animateColorAsState(
+                                    targetValue = if (sel) HefimerColors.White else Color.Transparent,
+                                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                                    label = "link_dur_fill_$v",
+                                )
+                                val chipText by animateColorAsState(
+                                    targetValue = if (sel) HefimerColors.Black else HefimerColors.White60,
+                                    animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+                                    label = "link_dur_text_$v",
+                                )
                                 Text(
                                     text = lbl,
-                                    color = if (sel) HefimerColors.Black else HefimerColors.White50,
+                                    color = chipText,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(if (sel) HefimerColors.White else HefimerColors.White06)
-                                        .border(1.dp, if (sel) HefimerColors.White else HefimerColors.White10, RoundedCornerShape(14.dp))
-                                        .applePressable { vm.setLinkDuration(v) }
+                                        .appleGlassSurface(
+                                            shape = RoundedCornerShape(14.dp),
+                                            variant = AppleGlassVariant.Clear,
+                                            accentBorderTint = if (sel) HefimerColors.White else null,
+                                            accentFillTint = chipFill,
+                                            elevation = 0.dp,
+                                        )
+                                        .applePressable(pressedScale = 0.93f) { vm.setLinkDuration(v) }
                                         .padding(horizontal = 14.dp, vertical = 10.dp),
                                 )
                             }
@@ -279,9 +302,11 @@ private fun LinkSetupContent(vm: HefimerViewModel, state: LinkUiState, reduceMot
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(HefimerColors.White04)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(24.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(24.dp),
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .padding(16.dp),
                     ) {
                         Icon(Icons.Rounded.QrCode2, null, tint = HefimerColors.White, modifier = Modifier.size(22.dp))
@@ -332,9 +357,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
             modifier = Modifier
                 .fillMaxWidth()
                 .appleEntrance(0)
-                .clip(RoundedCornerShape(34.dp))
-                .background(HefimerColors.White04)
-                .border(1.dp, HefimerColors.White10, RoundedCornerShape(34.dp)),
+                .appleGlassSurface(
+                    shape = RoundedCornerShape(34.dp),
+                    variant = AppleGlassVariant.Regular,
+                    elevation = 12.dp,
+                ),
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 val center = Offset(size.width - 10.dp.toPx(), 10.dp.toPx())
@@ -393,9 +420,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(30.dp))
-                            .background(HefimerColors.White025)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(30.dp),
+                                variant = AppleGlassVariant.Regular,
+                                elevation = 10.dp,
+                            )
                             .padding(18.dp),
                     ) {
                         Row(
@@ -409,12 +438,15 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             }
                             Text(
                                 text = "${state.sync.members.count { it.online }} ${tr("online", "trực tuyến")}",
-                                color = HefimerColors.White50,
+                                color = HefimerColors.White60,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
-                                    .clip(CircleShape)
-                                    .border(1.dp, HefimerColors.White10, CircleShape)
+                                    .appleGlassSurface(
+                                        shape = CircleShape,
+                                        variant = AppleGlassVariant.Clear,
+                                        elevation = 0.dp,
+                                    )
                                     .padding(horizontal = 10.dp, vertical = 4.dp),
                             )
                         }
@@ -434,9 +466,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             modifier = Modifier
                                 .padding(top = 6.dp)
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(HefimerColors.Black.copy(alpha = 0.4f))
-                                .border(1.dp, HefimerColors.White08, RoundedCornerShape(20.dp))
+                                .appleGlassSurface(
+                                    shape = RoundedCornerShape(22.dp),
+                                    variant = AppleGlassVariant.Clear,
+                                    elevation = 0.dp,
+                                )
                                 .padding(12.dp),
                         ) {
                             Text(tr("THIS DEVICE NAME", "TÊN THIẾT BỊ NÀY"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
@@ -454,10 +488,14 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.4.sp,
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(HefimerColors.White10)
-                                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(14.dp))
-                                        .applePressable(pressedScale = 0.92f) { vm.renameLinkDevice() }
+                                        .appleGlassSurface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            variant = AppleGlassVariant.Clear,
+                                            accentBorderTint = HefimerColors.White20,
+                                            accentFillTint = HefimerColors.White10,
+                                            elevation = 0.dp,
+                                        )
+                                        .applePressable(pressedScale = 0.90f) { vm.renameLinkDevice() }
                                         .padding(horizontal = 14.dp, vertical = 14.dp),
                                 )
                             }
@@ -470,11 +508,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                             verticalArrangement = Arrangement.spacedBy(14.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(30.dp))
-                                .background(
-                                    Brush.verticalGradient(listOf(HefimerColors.White08, HefimerColors.White025)),
+                                .appleGlassSurface(
+                                    shape = RoundedCornerShape(30.dp),
+                                    variant = AppleGlassVariant.Regular,
+                                    elevation = 10.dp,
                                 )
-                                .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
                                 .padding(18.dp),
                         ) {
                             Row(
@@ -508,9 +546,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .background(HefimerColors.Black.copy(alpha = 0.5f))
-                                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(18.dp))
+                                        .appleGlassSurface(
+                                            shape = RoundedCornerShape(18.dp),
+                                            variant = AppleGlassVariant.Clear,
+                                            elevation = 0.dp,
+                                        )
                                         .applePressable(pressedScale = 0.96f) {
                                             copyToClipboard(context, "Pairing Token", inv.token)
                                             copiedToken = true
@@ -572,9 +612,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(30.dp))
-                            .background(HefimerColors.White025)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(30.dp),
+                                variant = AppleGlassVariant.Regular,
+                                elevation = 10.dp,
+                            )
                             .padding(18.dp),
                     ) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -609,9 +651,11 @@ private fun LinkActiveGroupContent(vm: HefimerViewModel, state: LinkUiState, red
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(30.dp))
-                            .background(HefimerColors.White025)
-                            .border(1.dp, HefimerColors.White10, RoundedCornerShape(30.dp))
+                            .appleGlassSurface(
+                                shape = RoundedCornerShape(30.dp),
+                                variant = AppleGlassVariant.Regular,
+                                elevation = 10.dp,
+                            )
                             .padding(18.dp),
                     ) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -657,9 +701,11 @@ private fun MemberRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(HefimerColors.Black.copy(alpha = 0.4f))
-            .border(1.dp, HefimerColors.White08, RoundedCornerShape(18.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(18.dp),
+                variant = AppleGlassVariant.Clear,
+                elevation = 0.dp,
+            )
             .padding(12.dp),
     ) {
         Box(
@@ -688,9 +734,16 @@ private fun MemberRow(
         if (canRemove) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(34.dp).clip(CircleShape).applePressable(pressedScale = 0.88f, onClick = onRemove),
+                modifier = Modifier
+                    .size(34.dp)
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.88f, onClick = onRemove),
             ) {
-                Icon(Icons.Rounded.DeleteOutline, tr("Remove", "Gỡ"), tint = HefimerColors.White30, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.DeleteOutline, tr("Remove", "Gỡ"), tint = HefimerColors.White50, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -708,15 +761,23 @@ private fun IncomingTransferRow(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(HefimerColors.Black.copy(alpha = 0.45f))
-            .border(1.dp, HefimerColors.White08, RoundedCornerShape(20.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(20.dp),
+                variant = AppleGlassVariant.Clear,
+                elevation = 0.dp,
+            )
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(HefimerColors.White06),
+                modifier = Modifier
+                    .size(38.dp)
+                    .appleGlassSurface(
+                        shape = RoundedCornerShape(12.dp),
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    ),
             ) {
                 Icon(if (transfer.kind == "file") Icons.Rounded.Download else Icons.Rounded.Description, null, tint = HefimerColors.White, modifier = Modifier.size(18.dp))
             }
@@ -748,9 +809,11 @@ private fun OutgoingTransferRow(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(HefimerColors.Black.copy(alpha = 0.45f))
-            .border(1.dp, HefimerColors.White08, RoundedCornerShape(20.dp))
+            .appleGlassSurface(
+                shape = RoundedCornerShape(20.dp),
+                variant = AppleGlassVariant.Clear,
+                elevation = 0.dp,
+            )
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -772,8 +835,11 @@ private fun OutgoingTransferRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .border(1.dp, HefimerColors.White10, CircleShape)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                elevation = 0.dp,
+                            )
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         Box(Modifier.size(6.dp).clip(CircleShape).background(dotColor))
@@ -786,10 +852,17 @@ private fun OutgoingTransferRow(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.applePressable(onClick = onCancel),
+                modifier = Modifier
+                    .appleGlassSurface(
+                        shape = CircleShape,
+                        variant = AppleGlassVariant.Clear,
+                        elevation = 0.dp,
+                    )
+                    .applePressable(pressedScale = 0.94f, onClick = onCancel)
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
             ) {
-                Icon(Icons.Rounded.Close, null, tint = HefimerColors.White30, modifier = Modifier.size(13.dp))
-                Text(tr("CANCEL OFFER", "HỦY GỬI"), color = HefimerColors.White30, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                Icon(Icons.Rounded.Close, null, tint = HefimerColors.White50, modifier = Modifier.size(13.dp))
+                Text(tr("CANCEL OFFER", "HỦY GỬI"), color = HefimerColors.White50, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
             }
         }
     }
@@ -816,9 +889,13 @@ private fun LinkStatusPill(status: String) {
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.4.sp,
         modifier = Modifier
-            .clip(CircleShape)
-            .background(if (active) HefimerColors.White12 else HefimerColors.White04)
-            .border(1.dp, if (active) HefimerColors.White20 else HefimerColors.White10, CircleShape)
+            .appleGlassSurface(
+                shape = CircleShape,
+                variant = AppleGlassVariant.Clear,
+                accentBorderTint = if (active) HefimerColors.White20 else null,
+                accentFillTint = if (active) HefimerColors.White10 else null,
+                elevation = 0.dp,
+            )
             .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
@@ -856,9 +933,11 @@ fun FloatingIncomingOfferBanner(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(46.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(HefimerColors.White10)
-                        .border(1.dp, HefimerColors.White20, RoundedCornerShape(16.dp)),
+                        .appleGlassSurface(
+                            shape = RoundedCornerShape(16.dp),
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        ),
                 ) {
                     Icon(if (current.kind == "file") Icons.Rounded.Download else Icons.Rounded.Description, null, tint = HefimerColors.White, modifier = Modifier.size(21.dp))
                 }

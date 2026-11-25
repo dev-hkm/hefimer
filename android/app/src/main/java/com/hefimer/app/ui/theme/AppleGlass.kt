@@ -93,8 +93,8 @@ private const val LIQUID_GLASS_LENS_AGSL = """
         float gradLen = length(grad);
         float2 normal2D = gradLen > 0.0001 ? grad / gradLen : float2(0.0, 0.0);
 
-        float bezel = 1.0 - smoothstep(-bezelWidth, 0.0, d);
-        float lensProfile = sqrt(max(0.0, 1.0 - (1.0 - bezel) * (1.0 - bezel)));
+        float bezel = smoothstep(-bezelWidth, 0.0, d);
+        float lensProfile = pow(bezel, 0.85);
         float2 offset = normal2D * (refractionStrength * bezel * lensProfile);
 
         half r = content.eval(clamp(fragCoord - offset * (1.0 - dispersion), float2(0.0), size)).r;
@@ -104,14 +104,14 @@ private const val LIQUID_GLASS_LENS_AGSL = """
 
         float3 surfaceN = normalize(float3(normal2D * bezel, max(0.28, 1.0 - bezel)));
         float3 lightDir = normalize(float3(-0.55, -0.75, 0.55));
-        float spec = pow(max(dot(surfaceN, lightDir), 0.0), 14.0);
-        float rimGlow = pow(bezel, 2.2) * (isLight > 0.5 ? 0.34 : 0.16);
+        float spec = pow(max(dot(surfaceN, lightDir), 0.0), 12.0) * bezel;
+        float rimGlow = pow(bezel, 2.0) * (isLight > 0.5 ? 0.36 : 0.22);
 
-        half3 glassTint = isLight > 0.5 ? half3(0.97, 0.97, 0.98) : half3(0.10, 0.10, 0.11);
-        float tintMix = isLight > 0.5 ? 0.14 : 0.12;
+        half3 glassTint = isLight > 0.5 ? half3(0.98, 0.98, 0.99) : half3(0.14, 0.14, 0.16);
+        float tintMix = isLight > 0.5 ? 0.16 : 0.14;
 
         half3 lit = mix(refracted.rgb, glassTint, tintMix * bezel);
-        lit += half3(1.0) * half(spec * 0.26 + rimGlow);
+        lit += half3(1.0) * half(spec * 0.28 + rimGlow);
 
         return half4(lit, refracted.a);
     }
@@ -123,16 +123,16 @@ private const val LIQUID_GLASS_LENS_AGSL = """
  */
 fun Modifier.appleLiquidRefraction(
     cornerRadius: Dp = 24.dp,
-    bezelWidth: Dp = 14.dp,
-    refractionPx: Float = 8f,
-    dispersion: Float = 0.012f,
+    bezelWidth: Dp = 10.dp,
+    refractionPx: Float = 6f,
+    dispersion: Float = 0.0f,
     isLightMode: Boolean = HefimerColors.isLightMode,
 ): Modifier = composed {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@composed this
 
     val density = LocalDensity.current
-    var widthPx = remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
-    var heightPx = remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    val widthPx = remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    val heightPx = remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
     val shader = remember { RuntimeShader(LIQUID_GLASS_LENS_AGSL) }
 
     this
@@ -153,7 +153,7 @@ fun Modifier.appleLiquidRefraction(
 }
 
 /**
- * Applies full Apple Glass optical pipeline (shadow depth + luminance-adaptive fill +
+ * Applies full Apple Glass optical pipeline (shadow depth + luminance-adaptive translucency +
  * overhead room bounce sheen + grazing diagonal Fresnel 1dp specular rim).
  * Strictly monochrome unless accented for Secret R2 Mode.
  */
@@ -165,7 +165,7 @@ fun Modifier.appleGlassSurface(
     elevation: Dp = when (variant) {
         AppleGlassVariant.Elevated -> 18.dp
         AppleGlassVariant.Regular -> 8.dp
-        AppleGlassVariant.Clear -> 4.dp
+        AppleGlassVariant.Clear -> 2.dp
     },
 ): Modifier = composed {
     val isLight = HefimerColors.isLightMode
@@ -173,68 +173,94 @@ fun Modifier.appleGlassSurface(
 
     val fillAlpha = when {
         reduceTransparency -> 0.96f
-        variant == AppleGlassVariant.Elevated -> if (isLight) 0.90f else 0.84f
-        variant == AppleGlassVariant.Regular -> if (isLight) 0.86f else 0.68f
-        else -> if (isLight) 0.72f else 0.44f
+        variant == AppleGlassVariant.Elevated -> if (isLight) 0.80f else 0.72f
+        variant == AppleGlassVariant.Regular -> if (isLight) 0.72f else 0.56f
+        else -> if (isLight) 0.44f else 0.08f
     }
 
     val baseFill = accentFillTint ?: if (isLight) {
         Color(0xFFFFFFFF).copy(alpha = fillAlpha)
+    } else if (variant == AppleGlassVariant.Clear) {
+        Color(0xFFFFFFFF).copy(alpha = fillAlpha)
     } else {
-        Color(0xFF101012).copy(alpha = fillAlpha)
+        Color(0xFF131316).copy(alpha = fillAlpha)
     }
 
     val topSheenAlpha = when (variant) {
-        AppleGlassVariant.Elevated -> if (isLight) 0.55f else 0.085f
-        AppleGlassVariant.Regular -> if (isLight) 0.42f else 0.06f
-        AppleGlassVariant.Clear -> if (isLight) 0.30f else 0.045f
+        AppleGlassVariant.Elevated -> if (isLight) 0.65f else 0.14f
+        AppleGlassVariant.Regular -> if (isLight) 0.52f else 0.105f
+        AppleGlassVariant.Clear -> if (isLight) 0.36f else 0.075f
+    }
+    val bottomBounceAlpha = when (variant) {
+        AppleGlassVariant.Elevated -> if (isLight) 0.18f else 0.045f
+        AppleGlassVariant.Regular -> if (isLight) 0.12f else 0.032f
+        AppleGlassVariant.Clear -> if (isLight) 0.06f else 0.020f
     }
 
-    val innerSheen = remember(isLight, topSheenAlpha) {
+    val innerSheen = remember(isLight, topSheenAlpha, bottomBounceAlpha) {
         Brush.verticalGradient(
             0.0f to Color.White.copy(alpha = topSheenAlpha),
-            0.48f to Color.White.copy(alpha = topSheenAlpha * 0.22f),
-            1.0f to Color.Transparent,
+            0.35f to Color.White.copy(alpha = topSheenAlpha * 0.28f),
+            0.78f to Color.Transparent,
+            1.0f to Color.White.copy(alpha = bottomBounceAlpha),
         )
     }
 
     val fresnelRim = remember(isLight, accentBorderTint, variant) {
         if (accentBorderTint != null) {
             Brush.linearGradient(
-                0.0f to accentBorderTint.copy(alpha = 0.52f),
-                0.38f to accentBorderTint.copy(alpha = 0.16f),
-                0.72f to Color.Black.copy(alpha = if (isLight) 0.05f else 0.20f),
-                1.0f to accentBorderTint.copy(alpha = 0.28f),
+                0.0f to accentBorderTint.copy(alpha = 0.68f),
+                0.36f to accentBorderTint.copy(alpha = 0.22f),
+                0.70f to Color.Black.copy(alpha = if (isLight) 0.06f else 0.22f),
+                1.0f to accentBorderTint.copy(alpha = 0.38f),
             )
         } else if (isLight) {
+            val darkEdge = when (variant) {
+                AppleGlassVariant.Elevated -> 0.12f
+                AppleGlassVariant.Regular -> 0.10f
+                AppleGlassVariant.Clear -> 0.08f
+            }
             Brush.linearGradient(
-                0.0f to Color.White.copy(alpha = 0.95f),
-                0.32f to Color(0xFF0B0B0C).copy(alpha = 0.09f),
-                0.70f to Color(0xFF0B0B0C).copy(alpha = 0.12f),
-                1.0f to Color.White.copy(alpha = 0.70f),
+                0.0f to Color.White.copy(alpha = 0.98f),
+                0.30f to Color(0xFF0B0B0C).copy(alpha = darkEdge),
+                0.70f to Color(0xFF0B0B0C).copy(alpha = darkEdge + 0.03f),
+                1.0f to Color.White.copy(alpha = 0.78f),
             )
         } else {
-            val topAlpha = if (variant == AppleGlassVariant.Elevated) 0.34f else 0.24f
-            val tailAlpha = if (variant == AppleGlassVariant.Elevated) 0.18f else 0.12f
+            val topAlpha = when (variant) {
+                AppleGlassVariant.Elevated -> 0.42f
+                AppleGlassVariant.Regular -> 0.32f
+                AppleGlassVariant.Clear -> 0.24f
+            }
+            val tailAlpha = when (variant) {
+                AppleGlassVariant.Elevated -> 0.22f
+                AppleGlassVariant.Regular -> 0.16f
+                AppleGlassVariant.Clear -> 0.12f
+            }
             Brush.linearGradient(
                 0.0f to Color.White.copy(alpha = topAlpha),
-                0.34f to Color.White.copy(alpha = 0.07f),
-                0.70f to Color.Black.copy(alpha = 0.26f),
+                0.34f to Color.White.copy(alpha = 0.08f),
+                0.70f to Color.Black.copy(alpha = 0.22f),
                 1.0f to Color.White.copy(alpha = tailAlpha),
             )
         }
     }
 
-    val ambientShadowAlpha = if (isLight) 0.07f else 0.44f
-    val spotShadowAlpha = if (isLight) 0.11f else 0.58f
+    val ambientShadowAlpha = if (isLight) 0.08f else 0.46f
+    val spotShadowAlpha = if (isLight) 0.12f else 0.62f
 
-    this
-        .shadow(
+    val withShadow = if (elevation > 0.dp) {
+        this.shadow(
             elevation = elevation,
             shape = shape,
             ambientColor = Color.Black.copy(alpha = ambientShadowAlpha),
             spotColor = Color.Black.copy(alpha = spotShadowAlpha),
         )
+    } else {
+        this
+    }
+
+    withShadow
         .clip(shape)
         .background(baseFill)
         .background(innerSheen)
@@ -251,7 +277,7 @@ fun AppleGlassSurface(
     elevation: Dp = when (variant) {
         AppleGlassVariant.Elevated -> 18.dp
         AppleGlassVariant.Regular -> 8.dp
-        AppleGlassVariant.Clear -> 4.dp
+        AppleGlassVariant.Clear -> 2.dp
     },
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -270,7 +296,7 @@ fun AppleGlassSurface(
 /**
  * Ambient monochrome studio depth field behind scrollable content & floating glass chrome.
  * Ensures floating Apple Glass surfaces always refract & modulate subtle tonal depth
- * rather than floating over flat #000000 dead void (strict monochrome; emerald glow reserved for Secret R2).
+ * rather than floating over flat dead void (strict monochrome; emerald glow reserved for Secret R2).
  */
 @Composable
 fun AppleMonochromeBackdrop(
@@ -278,16 +304,21 @@ fun AppleMonochromeBackdrop(
     modifier: Modifier = Modifier,
 ) {
     val isLight = HefimerColors.isLightMode
-    val baseColor = if (isLight) Color(0xFFF2F3F6) else Color(0xFF020203)
+    val baseColor = if (isLight) Color(0xFFE7E9EF) else Color(0xFF030305)
     val primaryGlowTarget = when {
-        isR2Mode -> Color(0xFF10B981).copy(alpha = if (isLight) 0.10f else 0.085f)
-        isLight -> Color(0xFFFFFFFF).copy(alpha = 0.95f)
-        else -> Color.White.copy(alpha = 0.068f)
+        isR2Mode -> Color(0xFF10B981).copy(alpha = if (isLight) 0.16f else 0.13f)
+        isLight -> Color(0xFFFFFFFF).copy(alpha = 0.96f)
+        else -> Color.White.copy(alpha = 0.13f)
     }
     val secondaryGlowTarget = when {
-        isR2Mode -> Color(0xFF059669).copy(alpha = if (isLight) 0.06f else 0.045f)
-        isLight -> Color(0xFFDDE0E7).copy(alpha = 0.65f)
-        else -> Color.White.copy(alpha = 0.036f)
+        isR2Mode -> Color(0xFF059669).copy(alpha = if (isLight) 0.10f else 0.08f)
+        isLight -> Color(0xFFC9CDD8).copy(alpha = 0.72f)
+        else -> Color.White.copy(alpha = 0.075f)
+    }
+    val centerSweepTarget = when {
+        isR2Mode -> Color(0xFF10B981).copy(alpha = if (isLight) 0.06f else 0.045f)
+        isLight -> Color(0xFFFFFFFF).copy(alpha = 0.45f)
+        else -> Color.White.copy(alpha = 0.04f)
     }
     val primaryGlow = animateColorAsState(
         targetValue = primaryGlowTarget,
@@ -299,6 +330,11 @@ fun AppleMonochromeBackdrop(
         animationSpec = tween(AppMotion.Content, easing = AppMotion.AppleSilk),
         label = "backdrop_secondary_glow",
     )
+    val centerSweep = animateColorAsState(
+        targetValue = centerSweepTarget,
+        animationSpec = tween(AppMotion.Content, easing = AppMotion.AppleSilk),
+        label = "backdrop_center_sweep",
+    )
 
     Canvas(
         modifier = modifier
@@ -307,29 +343,41 @@ fun AppleMonochromeBackdrop(
     ) {
         val w = size.width
         val h = size.height
-        val radiusTop = maxOf(w, h) * 0.68f
+        val radiusTop = maxOf(w, h) * 0.72f
         drawCircle(
             brush = Brush.radialGradient(
                 0f to primaryGlow.value,
-                0.55f to primaryGlow.value.copy(alpha = primaryGlow.value.alpha * 0.25f),
+                0.50f to primaryGlow.value.copy(alpha = primaryGlow.value.alpha * 0.30f),
                 1f to Color.Transparent,
-                center = Offset(w * 0.22f, h * 0.12f),
+                center = Offset(w * 0.18f, h * 0.10f),
                 radius = radiusTop,
             ),
             radius = radiusTop,
-            center = Offset(w * 0.22f, h * 0.12f),
+            center = Offset(w * 0.18f, h * 0.10f),
         )
-        val radiusBottom = maxOf(w, h) * 0.62f
+        val radiusMid = maxOf(w, h) * 0.56f
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to centerSweep.value,
+                0.55f to centerSweep.value.copy(alpha = centerSweep.value.alpha * 0.25f),
+                1f to Color.Transparent,
+                center = Offset(w * 0.52f, h * 0.46f),
+                radius = radiusMid,
+            ),
+            radius = radiusMid,
+            center = Offset(w * 0.52f, h * 0.46f),
+        )
+        val radiusBottom = maxOf(w, h) * 0.66f
         drawCircle(
             brush = Brush.radialGradient(
                 0f to secondaryGlow.value,
-                0.55f to secondaryGlow.value.copy(alpha = secondaryGlow.value.alpha * 0.22f),
+                0.55f to secondaryGlow.value.copy(alpha = secondaryGlow.value.alpha * 0.25f),
                 1f to Color.Transparent,
-                center = Offset(w * 0.85f, h * 0.86f),
+                center = Offset(w * 0.88f, h * 0.86f),
                 radius = radiusBottom,
             ),
             radius = radiusBottom,
-            center = Offset(w * 0.85f, h * 0.86f),
+            center = Offset(w * 0.88f, h * 0.86f),
         )
     }
 }

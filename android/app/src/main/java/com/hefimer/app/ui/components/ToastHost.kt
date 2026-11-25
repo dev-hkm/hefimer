@@ -349,15 +349,20 @@ fun HefimerToggleRow(
     activeColor: Color = HefimerColors.Red500,
     modifier: Modifier = Modifier,
 ) {
-    val bg by animateColorAsState(
-        targetValue = if (checked) activeColor.copy(alpha = 0.12f) else HefimerColors.White04,
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) activeColor else HefimerColors.White15,
         animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
-        label = "toggle_bg",
+        label = "toggle_track",
     )
-    val border by animateColorAsState(
-        targetValue = if (checked) activeColor.copy(alpha = 0.35f) else HefimerColors.White10,
+    val iconColor by animateColorAsState(
+        targetValue = if (checked) activeColor else HefimerColors.White40,
         animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
-        label = "toggle_border",
+        label = "toggle_icon",
+    )
+    val titleColor by animateColorAsState(
+        targetValue = if (checked) activeColor else HefimerColors.White80,
+        animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
+        label = "toggle_title",
     )
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 20.dp else 2.dp,
@@ -369,29 +374,33 @@ fun HefimerToggleRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(bg)
-            .border(1.dp, border, RoundedCornerShape(20.dp))
-            .applePressable(onClick = onToggle)
+            .appleGlassSurface(
+                shape = RoundedCornerShape(22.dp),
+                variant = AppleGlassVariant.Clear,
+                accentBorderTint = if (checked) activeColor else null,
+                accentFillTint = if (checked) activeColor.copy(alpha = 0.14f) else null,
+                elevation = 0.dp,
+            )
+            .applePressable(pressedScale = 0.97f, onClick = onToggle)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (checked) activeColor else HefimerColors.White40,
+            tint = iconColor,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = if (checked) activeColor else HefimerColors.White80,
+                color = titleColor,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 text = subtitle,
-                color = if (checked) activeColor.copy(alpha = 0.7f) else HefimerColors.White40,
+                color = if (checked) activeColor.copy(alpha = 0.72f) else HefimerColors.White40,
                 fontSize = 11.sp,
             )
         }
@@ -400,7 +409,7 @@ fun HefimerToggleRow(
                 .width(42.dp)
                 .height(24.dp)
                 .clip(CircleShape)
-                .background(if (checked) activeColor else HefimerColors.White15),
+                .background(trackColor),
         ) {
             Box(
                 modifier = Modifier
@@ -508,10 +517,12 @@ fun FloatingDownloadProgressBanner(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(30.dp)
-                        .clip(CircleShape)
-                        .background(HefimerColors.White08)
-                        .border(1.dp, HefimerColors.White12, CircleShape)
-                        .applePressable(onClick = onCancel),
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 0.dp,
+                        )
+                        .applePressable(pressedScale = 0.89f, onClick = onCancel),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,

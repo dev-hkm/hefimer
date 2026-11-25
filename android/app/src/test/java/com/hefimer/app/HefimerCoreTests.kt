@@ -149,6 +149,18 @@ class HefimerCoreTests {
             assertEquals("30 giây", UploadProviders.STANDARD_EXPIRE_OPTIONS.first().localizedLabel())
             assertEquals("5 phút", UploadProviders.STANDARD_EXPIRE_OPTIONS[1].localizedLabel())
             assertEquals("Gửi Email", CodeHighlighter.getSmartAction("dev@hefimer.qzz.io")?.label)
+            UploadProviders.ALL.forEach { cfg ->
+                assertTrue("${cfg.id} expiryVi missing", cfg.localizedExpiry().isNotBlank() && cfg.localizedExpiry() != cfg.expiry)
+                assertTrue("${cfg.id} speedVi missing", cfg.localizedSpeed().isNotBlank() && cfg.localizedSpeed() != cfg.speed)
+                assertTrue("${cfg.id} featuresVi missing", cfg.localizedFeatures().isNotBlank() && cfg.localizedFeatures() != cfg.features)
+                cfg.expireOptions.forEach { opt ->
+                    assertTrue("${cfg.id}/${opt.value} label missing", opt.localizedLabel().isNotBlank())
+                }
+            }
+            com.hefimer.app.ui.theme.HefimerLang.update(com.hefimer.app.ui.theme.AppLanguage.EN)
+            assertEquals("My Hefimer Group", com.hefimer.app.ui.theme.tr("My Hefimer Group", "Nhóm Hefimer của tôi"))
+            com.hefimer.app.ui.theme.HefimerLang.update(com.hefimer.app.ui.theme.AppLanguage.VI)
+            assertEquals("Nhóm Hefimer của tôi", com.hefimer.app.ui.theme.tr("My Hefimer Group", "Nhóm Hefimer của tôi"))
         } finally {
             com.hefimer.app.ui.theme.HefimerLang.update(prev)
         }

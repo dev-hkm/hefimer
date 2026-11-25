@@ -205,7 +205,7 @@ data class LinkUiState(
     val error: String = "",
     val sync: DeviceSync = DeviceSync(),
     val setupMode: String = "create", // "create" or "join"
-    val groupName: String = "My Hefimer Group",
+    val groupName: String = tr("My Hefimer Group", "Nhóm Hefimer của tôi"),
     val duration: String = "7d",
     val pairToken: String = "",
     val invite: InviteResponse? = null,
@@ -373,6 +373,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         storage.setAppLanguageCode(language.code)
         _appLanguage.value = language
         com.hefimer.app.ui.theme.HefimerLang.update(language)
+        _linkState.update { st ->
+            if (st.groupName == "My Hefimer Group" || st.groupName == "Nhóm Hefimer của tôi") {
+                st.copy(groupName = tr("My Hefimer Group", "Nhóm Hefimer của tôi"))
+            } else {
+                st
+            }
+        }
     }
 
     fun selectTab(tab: MainTab, recordBackStack: Boolean = true) {
@@ -781,7 +788,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     fileProgressFraction = 0f,
                     fileUploadedBytes = 0L,
                     fileTotalBytes = 0L,
-                    fileStatus = "Zipping folder contents...",
+                    fileStatus = tr("Zipping folder contents...", "Đang nén thư mục..."),
                 )
             }
             try {
@@ -1108,7 +1115,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 fileProgressFraction = 0f,
                 fileUploadedBytes = 0L,
                 fileTotalBytes = totalSize,
-                fileStatus = "Preparing Secret R2...",
+                fileStatus = tr("Preparing Secret R2...", "Đang chuẩn bị Secret R2..."),
             )
         }
 
@@ -1123,7 +1130,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 st.pickedFiles.forEachIndexed { idx, picked ->
                     val targetName = if (!isMulti) singleName else picked.name
                     val prefix = if (isMulti) "[${idx + 1}/${st.pickedFiles.size}] " else ""
-                    _sendState.update { it.copy(fileStatus = "${prefix}Streaming to Secret R2: $targetName") }
+                    _sendState.update {
+                        it.copy(fileStatus = "${prefix}${tr("Streaming to Secret R2", "Đang tải lên Secret R2")}: $targetName")
+                    }
                     val key = r2Service.uploadToR2(
                         picked = picked,
                         customName = targetName,
@@ -1301,7 +1310,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             val existing = rtdb.get("drops/$candidate")
             if (existing == null) return candidate
         }
-        throw IllegalStateException("Could not generate a unique 5-digit code")
+        throw IllegalStateException(
+            tr(
+                "Could not generate a unique 5-digit code",
+                "Không thể tạo mã 5 chữ số duy nhất",
+            ),
+        )
     }
     // endregion
 
@@ -1682,7 +1696,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     private fun startSpaceSession(code: String, name: String, expiresAt: Long) {
         spaceObserverJob?.cancel()
-        val displayName = _spaceState.value.userName.trim().ifBlank { "Guest" }
+        val displayName = _spaceState.value.userName.trim().ifBlank { tr("Guest", "Khách") }
         val userColor = getUserColor(displayName + clientId)
 
         _spaceState.update {
@@ -1730,7 +1744,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     val vo = v as? JsonObject ?: return@mapNotNull null
                     SpaceMember(
                         id = id,
-                        name = vo["name"]?.jsonPrimitive?.contentOrNull ?: "Guest",
+                        name = vo["name"]?.jsonPrimitive?.contentOrNull ?: tr("Guest", "Khách"),
                         color = vo["color"]?.jsonPrimitive?.contentOrNull ?: getUserColor(id),
                         joinedAt = vo["joinedAt"]?.jsonPrimitive?.longOrNull ?: 0L,
                     )
@@ -1744,7 +1758,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     if (now - updated > 20_000L) return@mapNotNull null
                     SpaceCursor(
                         id = id,
-                        name = vo["name"]?.jsonPrimitive?.contentOrNull ?: "Guest",
+                        name = vo["name"]?.jsonPrimitive?.contentOrNull ?: tr("Guest", "Khách"),
                         color = vo["color"]?.jsonPrimitive?.contentOrNull ?: getUserColor(id),
                         x = vo["x"]?.jsonPrimitive?.floatOrNull ?: 0f,
                         y = vo["y"]?.jsonPrimitive?.floatOrNull ?: 0f,
@@ -1785,10 +1799,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         if (code.isBlank()) return
         val id = UUID.randomUUID().toString().replace("-", "").take(12)
         val nextZ = (_spaceState.value.items.maxOfOrNull { it.zIndex } ?: 1) + 1
-        val author = _spaceState.value.userName.trim().ifBlank { "Guest" }
+        val author = _spaceState.value.userName.trim().ifBlank { tr("Guest", "Khách") }
         val payload = buildJsonObject {
             put("kind", JsonPrimitive(kind))
-            put("name", JsonPrimitive(name.ifBlank { if (kind == "note") "Sticky Note" else "Untitled" }))
+            put("name", JsonPrimitive(name.ifBlank { if (kind == "note") tr("Sticky Note", "Ghi chú") else tr("Untitled", "Không tiêu đề") }))
             content?.let { put("content", JsonPrimitive(it)) }
             url?.let { put("url", JsonPrimitive(it)) }
             if (kind == "note") put("noteColor", JsonPrimitive(noteColor))
@@ -1949,11 +1963,11 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private fun parseLegacySpaceFile(id: String, raw: JsonObject): SpaceItem = SpaceItem(
         id = id,
         kind = "file",
-        name = raw["name"]?.jsonPrimitive?.contentOrNull ?: "Untitled file",
+        name = raw["name"]?.jsonPrimitive?.contentOrNull ?: tr("Untitled file", "Tệp không tên"),
         x = raw["x"]?.jsonPrimitive?.floatOrNull ?: 100f,
         y = raw["y"]?.jsonPrimitive?.floatOrNull ?: 100f,
         zIndex = raw["zIndex"]?.jsonPrimitive?.intOrNull ?: 1,
-        uploadedBy = raw["uploadedBy"]?.jsonPrimitive?.contentOrNull ?: "Anonymous",
+        uploadedBy = raw["uploadedBy"]?.jsonPrimitive?.contentOrNull ?: tr("Anonymous", "Ẩn danh"),
         timestamp = raw["timestamp"]?.jsonPrimitive?.longOrNull ?: 0L,
         sourceNode = "files",
         url = raw["url"]?.jsonPrimitive?.contentOrNull,
@@ -1968,11 +1982,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         return SpaceItem(
             id = id,
             kind = kind,
-            name = raw["name"]?.jsonPrimitive?.contentOrNull ?: if (kind == "note") "Sticky Note" else "Untitled",
+            name = raw["name"]?.jsonPrimitive?.contentOrNull
+                ?: if (kind == "note") tr("Sticky Note", "Ghi chú") else tr("Untitled", "Không tiêu đề"),
             x = raw["x"]?.jsonPrimitive?.floatOrNull ?: 100f,
             y = raw["y"]?.jsonPrimitive?.floatOrNull ?: 100f,
             zIndex = raw["zIndex"]?.jsonPrimitive?.intOrNull ?: 1,
-            uploadedBy = raw["uploadedBy"]?.jsonPrimitive?.contentOrNull ?: "Anonymous",
+            uploadedBy = raw["uploadedBy"]?.jsonPrimitive?.contentOrNull ?: tr("Anonymous", "Ẩn danh"),
             timestamp = raw["timestamp"]?.jsonPrimitive?.longOrNull ?: 0L,
             sourceNode = "items",
             url = raw["url"]?.jsonPrimitive?.contentOrNull,
@@ -2102,7 +2117,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     showToast(tr("Room has expired", "Phòng đã hết hạn"), ToastType.ERROR)
                     return@launch
                 }
-                val rName = obj["name"]?.jsonPrimitive?.contentOrNull ?: "Chat $target"
+                val rName = obj["name"]?.jsonPrimitive?.contentOrNull ?: tr("Chat $target", "Phòng $target")
                 recordHistory(HistoryItem(code = target, type = "room", action = "received", roomName = rName))
                 _roomsState.update { it.copy(chatLoading = false) }
                 startChatSession(target, rName, exp)
@@ -2133,7 +2148,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 rtdb.set(
                     "chats/$roomId/members/$memberKey",
                     buildJsonObject {
-                        put("name", JsonPrimitive(_roomsState.value.userName.ifBlank { "Guest" }))
+                        put("name", JsonPrimitive(_roomsState.value.userName.ifBlank { tr("Guest", "Khách") }))
                         put("joinedAt", FirebaseRtdbClient.serverTimestamp())
                     },
                 )
@@ -2151,7 +2166,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     }?.toMap().orEmpty()
                     ChatMessage(
                         id = id,
-                        sender = vo["sender"]?.jsonPrimitive?.contentOrNull ?: "Guest",
+                        sender = vo["sender"]?.jsonPrimitive?.contentOrNull ?: tr("Guest", "Khách"),
                         senderId = vo["senderId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
                         text = vo["text"]?.jsonPrimitive?.contentOrNull.orEmpty(),
                         timestamp = vo["timestamp"]?.jsonPrimitive?.longOrNull ?: 0L,
@@ -2299,7 +2314,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     showToast(tr("Board has expired", "Bảng đã hết hạn"), ToastType.ERROR)
                     return@launch
                 }
-                val bName = obj["name"]?.jsonPrimitive?.contentOrNull ?: "Board $target"
+                val bName = obj["name"]?.jsonPrimitive?.contentOrNull ?: tr("Board $target", "Bảng $target")
                 recordHistory(HistoryItem(code = target, type = "board", action = "joined", boardName = bName))
                 _roomsState.update { it.copy(boardLoading = false) }
                 startBoardSession(target, bName, exp)
@@ -2460,7 +2475,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         loading = false,
                         busyKey = if (it.busyKey == "refresh") "" else it.busyKey,
-                        error = e.message ?: "Device service is unavailable",
+                        error = e.message ?: tr("Device service is unavailable", "Dịch vụ thiết bị tạm không khả dụng"),
                     )
                 }
             } finally {
