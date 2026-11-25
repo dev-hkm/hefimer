@@ -1842,6 +1842,7 @@ fun HefimerTextField(
     singleLine: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
     val iconTint by animateColorAsState(
         targetValue = if (focused) HefimerColors.White else HefimerColors.White40,
         animationSpec = tween(AppMotion.Fast, easing = AppMotion.AppleSilk),
@@ -1868,7 +1869,11 @@ fun HefimerTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = singleLine,
-            visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+            visualTransformation = if (isPassword && !passwordVisible) {
+                PasswordVisualTransformation()
+            } else {
+                androidx.compose.ui.text.input.VisualTransformation.None
+            },
             textStyle = TextStyle(
                 fontFamily = if (mono) JetBrainsMonoFamily else UbuntuFontFamily,
                 fontSize = 13.5.sp,
@@ -1891,5 +1896,17 @@ fun HefimerTextField(
                 inner()
             },
         )
+        if (isPassword) {
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                contentDescription = tr("Toggle visibility", "Ẩn/hiện mật khẩu"),
+                tint = HefimerColors.White60,
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .applePressable(pressedScale = 0.88f) { passwordVisible = !passwordVisible },
+            )
+        }
     }
 }

@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -63,6 +65,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -88,7 +91,7 @@ enum class MainTab(val label: String, val labelVi: String, val icon: ImageVector
 
 /**
  * Custom dynamic curved-notch Shape that carves a smooth Apple-liquid concave cradle
- * directly underneath the gliding active circular orb.
+ * centered strictly at [notchCenterX] underneath the gliding active circular orb.
  */
 private class NotchedLiquidDockShape(
     private val notchCenterX: Float,
@@ -105,12 +108,13 @@ private class NotchedLiquidDockShape(
         val h = size.height
         val r = cornerRadiusPx.coerceAtMost(minOf(w, h) * 0.5f)
         val nr = notchRadiusPx.coerceAtLeast(12f)
-        val halfSpan = nr * 1.42f
-        val startX = (notchCenterX - halfSpan).coerceIn(r, w - r)
-        val endX = (notchCenterX + halfSpan).coerceIn(r, w - r)
-        val midX = ((startX + endX) * 0.5f)
+        val maxSpan = ((w - r * 2f) * 0.25f).coerceAtLeast(nr)
+        val halfSpan = (nr * 1.16f).coerceAtMost(maxSpan)
+        val midX = notchCenterX.coerceIn(r + halfSpan, w - r - halfSpan)
+        val startX = midX - halfSpan
+        val endX = midX + halfSpan
 
-        if (endX - startX < nr * 1.1f) {
+        if (endX - startX < nr) {
             return Outline.Rounded(
                 RoundRect(
                     rect = Rect(0f, 0f, w, h),
@@ -126,14 +130,14 @@ private class NotchedLiquidDockShape(
             cubicTo(
                 x1 = startX + halfSpan * 0.36f,
                 y1 = 0f,
-                x2 = midX - nr * 0.88f,
+                x2 = midX - nr * 0.84f,
                 y2 = notchDepthPx,
                 x3 = midX,
                 y3 = notchDepthPx,
             )
             // Right smooth S-curve back up to top bar edge
             cubicTo(
-                x1 = midX + nr * 0.88f,
+                x1 = midX + nr * 0.84f,
                 y1 = notchDepthPx,
                 x2 = endX - halfSpan * 0.36f,
                 y2 = 0f,
@@ -175,10 +179,9 @@ private class NotchedLiquidDockShape(
 }
 
 /**
- * Curved-notch Apple Liquid Glass floating bottom navigation dock (label-free).
- * - Elevated Apple Glass bar with real-time liquid concave cradle tracking the active orb.
- * - Floating circular orb rises above the bar with soft Apple spring physics, squish-stretch,
- *   vertical droplet settle bounce, and tactile scrub gestures.
+ * Curved-notch Apple Liquid Glass floating bottom navigation dock.
+ * - Elevated Apple Glass bar with real-time liquid concave cradle centered on the active orb.
+ * - Shows a crisp localized label ONLY beneath the active orb (zero clutter on inactive tabs).
  */
 @Composable
 fun HefimerFloatingBottomDock(
@@ -207,18 +210,18 @@ fun HefimerFloatingBottomDock(
                     1.0f to HefimerColors.Black.copy(alpha = 0.94f),
                 ),
             )
-            .padding(top = 8.dp, bottom = navBottom + 10.dp, start = 20.dp, end = 20.dp),
+            .padding(top = 8.dp, bottom = navBottom + 10.dp, start = 16.dp, end = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val barHeight = 56.dp
-        val orbSize = 50.dp
+        val barHeight = 58.dp
+        val orbSize = 48.dp
         val orbRise = 18.dp
         val totalHeight = barHeight + orbRise
-        val horizontalPad = 8.dp
+        val horizontalPad = 20.dp
 
         BoxWithConstraints(
             modifier = Modifier
-                .widthIn(max = 316.dp)
+                .widthIn(max = 330.dp)
                 .fillMaxWidth()
                 .height(totalHeight),
         ) {
@@ -229,9 +232,9 @@ fun HefimerFloatingBottomDock(
             val slotWidthPx = innerWidthPx / tabs.size
             val orbSizePx = with(density) { orbSize.toPx() }
             val orbRisePx = with(density) { orbRise.toPx() }
-            val notchRadiusPx = with(density) { 30.dp.toPx() }
-            val notchDepthPx = with(density) { 26.dp.toPx() }
-            val cornerRadiusPx = with(density) { 24.dp.toPx() }
+            val notchRadiusPx = with(density) { 25.dp.toPx() }
+            val notchDepthPx = with(density) { 25.dp.toPx() }
+            val cornerRadiusPx = with(density) { 18.dp.toPx() }
 
             var hoveredTabIdx by remember { mutableIntStateOf(-1) }
             val activeIndex = if (hoveredTabIdx in tabs.indices) hoveredTabIdx else selectedIndex
@@ -295,7 +298,7 @@ fun HefimerFloatingBottomDock(
                     ),
             )
 
-            // Floating active circular orb above the concave cradle
+            // Floating active circular orb centered above the concave cradle
             val activeTab = tabs[activeIndex]
             val orbPressDipPx = with(density) { (if (hoveredTabIdx >= 0) 2.5.dp else 0.dp).toPx() }
             val orbSettlePx = with(density) { orbBounceOffset.value.dp.toPx() }
@@ -394,7 +397,7 @@ fun HefimerFloatingBottomDock(
                         label = "dock_bar_alpha_$idx",
                     )
                     val iconYOffset by animateFloatAsState(
-                        targetValue = if (isSelected) -orbRisePx * 0.4f else 0f,
+                        targetValue = if (isSelected) -orbRisePx * 0.38f else 0f,
                         animationSpec = AppMotion.snappySpring(),
                         label = "dock_bar_y_$idx",
                     )
@@ -408,23 +411,49 @@ fun HefimerFloatingBottomDock(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .height(barHeight)
-                            .graphicsLayer {
+                            .height(barHeight),
+                    ) {
+                        // Inactive icon centered inside the bar
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.graphicsLayer {
                                 alpha = iconAlpha
                                 translationY = iconYOffset
                                 scaleX = pressScale
                                 scaleY = pressScale
                             },
-                    ) {
-                        DockTabIconWithBadge(
-                            tab = tab,
-                            tint = HefimerColors.White50,
-                            badgeBg = HefimerColors.White,
-                            badgeFg = HefimerColors.Black,
-                            dotColor = HefimerColors.White,
-                            linkBadgeCount = linkBadgeCount,
-                            linkGroupActive = linkGroupActive,
-                        )
+                        ) {
+                            DockTabIconWithBadge(
+                                tab = tab,
+                                tint = HefimerColors.White50,
+                                badgeBg = HefimerColors.White,
+                                badgeFg = HefimerColors.Black,
+                                dotColor = HefimerColors.White,
+                                linkBadgeCount = linkBadgeCount,
+                                linkGroupActive = linkGroupActive,
+                            )
+                        }
+
+                        // Active-only short label nestled cleanly underneath the floating orb
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = isSelected,
+                            enter = fadeIn(tween(180, easing = AppMotion.AppleSilk)) +
+                                slideInVertically(AppMotion.snappySpring()) { it / 2 },
+                            exit = fadeOut(tween(110, easing = AppMotion.AppleEase)) +
+                                slideOutVertically(tween(110, easing = AppMotion.AppleEase)) { it / 2 },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp),
+                        ) {
+                            Text(
+                                text = tab.localizedLabel(),
+                                color = if (isR2Mode && tab == MainTab.SEND) HefimerColors.Emerald400 else HefimerColors.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }
@@ -448,7 +477,7 @@ private fun DockTabIconWithBadge(
             imageVector = tab.icon,
             contentDescription = tab.localizedLabel(),
             tint = tint,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(21.dp),
         )
         if (tab == MainTab.LINK) {
             if (linkGroupActive && linkBadgeCount == 0) {

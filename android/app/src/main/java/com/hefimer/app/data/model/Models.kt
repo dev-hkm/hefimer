@@ -283,8 +283,6 @@ data class GlobalStatsState(
     val noticeExpiresAt: Long = 0L,
     val isFrozen: Boolean = false,
     val likes: Int = 0,
-    val adminPass: String = "meobinh95",
-    val secretPass: String = "meobinh905",
     val broadcast: GlobalBroadcast? = null,
 )
 

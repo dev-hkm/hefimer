@@ -32,6 +32,8 @@ import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -81,6 +83,7 @@ fun SettingsSheetContent(
     onToggleHapticEnabled: () -> Unit,
     onOpenProviderPicker: () -> Unit,
     onOpenInfoDoc: (HefimerInfoDoc) -> Unit,
+    onOpenAdmin: () -> Unit,
     onReplayOnboarding: () -> Unit,
     onClearHistory: () -> Unit,
     onClose: () -> Unit,
@@ -256,6 +259,7 @@ fun SettingsSheetContent(
 
             // Optional Free storage.to API Token card
             var tokenDraft by remember(storageToApiToken) { mutableStateOf(storageToApiToken) }
+            var tokenVisible by remember { mutableStateOf(false) }
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
@@ -307,7 +311,8 @@ fun SettingsSheetContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Box(
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(14.dp))
@@ -315,26 +320,42 @@ fun SettingsSheetContent(
                             .border(1.dp, HefimerColors.White12, RoundedCornerShape(14.dp))
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                     ) {
-                        if (tokenDraft.isEmpty()) {
-                            Text(
-                                text = tr("Paste Bearer token...", "Dán Bearer token..."),
-                                color = HefimerColors.White30,
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 11.sp,
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (tokenDraft.isEmpty()) {
+                                Text(
+                                    text = tr("Paste Bearer token...", "Dán Bearer token..."),
+                                    color = HefimerColors.White30,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 11.sp,
+                                )
+                            }
+                            BasicTextField(
+                                value = tokenDraft,
+                                onValueChange = { tokenDraft = it },
+                                singleLine = true,
+                                visualTransformation = if (tokenVisible) {
+                                    androidx.compose.ui.text.input.VisualTransformation.None
+                                } else {
+                                    PasswordVisualTransformation()
+                                },
+                                textStyle = TextStyle(
+                                    color = HefimerColors.White,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontSize = 11.sp,
+                                ),
+                                cursorBrush = SolidColor(HefimerColors.White),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        BasicTextField(
-                            value = tokenDraft,
-                            onValueChange = { tokenDraft = it },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            textStyle = TextStyle(
-                                color = HefimerColors.White,
-                                fontFamily = JetBrainsMonoFamily,
-                                fontSize = 11.sp,
-                            ),
-                            cursorBrush = SolidColor(HefimerColors.White),
-                            modifier = Modifier.fillMaxWidth(),
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            imageVector = if (tokenVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                            contentDescription = tr("Toggle token visibility", "Ẩn/hiện token"),
+                            tint = HefimerColors.White60,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .applePressable(pressedScale = 0.88f) { tokenVisible = !tokenVisible },
                         )
                     }
                     Box(
@@ -515,9 +536,13 @@ fun SettingsSheetContent(
             }
         }
 
-        // Version footer
+        // Version footer (discreet Admin Console trigger)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .applePressable(pressedScale = 0.97f, onClick = onOpenAdmin)
+                .padding(vertical = 6.dp, horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {

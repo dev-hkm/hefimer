@@ -32,6 +32,9 @@ import com.hefimer.app.data.model.ToastMessage
 import com.hefimer.app.data.model.ToastType
 import com.hefimer.app.data.model.UploadStats
 import com.hefimer.app.data.model.parseExpireDurationMs
+import com.hefimer.app.data.network.AdminApiClient
+import com.hefimer.app.data.network.AdminR2ConfigDto
+import com.hefimer.app.data.network.AdminStatsDto
 import com.hefimer.app.data.network.DeviceApiClient
 import com.hefimer.app.data.network.DownloadCancellationToken
 import com.hefimer.app.data.network.DownloadHelper
@@ -240,6 +243,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     val uploader = FileUploadEngine(application, storage)
     val r2Service = R2Service(application)
     val deviceApi = DeviceApiClient(storage)
+    private val adminApi = AdminApiClient()
     private val networkMonitor = NetworkMonitor(application)
     val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
@@ -315,6 +319,19 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     private val _savedFilePrompt = MutableStateFlow<SavedFilePrompt?>(null)
     val savedFilePrompt: StateFlow<SavedFilePrompt?> = _savedFilePrompt.asStateFlow()
+
+    data class AdminUiState(
+        val showLogin: Boolean = false,
+        val loginLoading: Boolean = false,
+        val token: String = "",
+        val showDashboard: Boolean = false,
+        val busy: Boolean = false,
+        val stats: AdminStatsDto = AdminStatsDto(),
+        val r2Config: AdminR2ConfigDto = AdminR2ConfigDto(),
+    )
+
+    private val _adminState = MutableStateFlow(AdminUiState())
+    val adminState: StateFlow<AdminUiState> = _adminState.asStateFlow()
 
     private val _clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
     val clipboardSuggestion: StateFlow<ClipboardSuggestion?> = _clipboardSuggestion.asStateFlow()
@@ -873,11 +890,24 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         noticeExpiresAt = obj["noticeExpiresAt"]?.jsonPrimitive?.longOrNull ?: 0L,
                         isFrozen = obj["isFrozen"]?.jsonPrimitive?.booleanOrNull ?: false,
                         likes = obj["likes"]?.jsonPrimitive?.intOrNull ?: cur.likes,
-                        adminPass = passwords?.get("admin")?.jsonPrimitive?.contentOrNull ?: cur.adminPass,
-                        secretPass = passwords?.get("secret")?.jsonPrimitive?.contentOrNull ?: cur.secretPass,
                         broadcast = broadcast,
                     )
                 }
+            }
+        }
+
+        // Fetch public runtime stats from backend KV (works even with RTDB stats locked)
+        viewModelScope.launch {
+            adminApi.fetchPublicStats()?.let { pub ->
+                _globalStats.update { cur ->
+                    cur.copy(
+                        developer = pub.developer,
+                        isFrozen = pub.isFrozen,
+                        likes = maxOf(cur.likes, pub.likes),
+                        notice = pub.notice,
+                    )
+                }
+                _adminState.update { it.copy(stats = pub) }
             }
         }
 
@@ -1055,13 +1085,227 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun verifyR2Passcode(input: String) {
-        if (input == _globalStats.value.secretPass) {
-            _sendState.update { it.copy(isR2Mode = true, showR2AuthDialog = false, fileExpire = "1h") }
-            showToast(tr("Secret R2 mode activated", "Đã bật chế độ Secret R2"), ToastType.SUCCESS)
-        } else {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) {
             showToast(tr("Incorrect password", "Sai mật khẩu"), ToastType.ERROR)
+            return
+        }
+        viewModelScope.launch {
+            val ok = adminApi.verifySecretPasscode(trimmed)
+            if (ok) {
+                _sendState.update { it.copy(isR2Mode = true, showR2AuthDialog = false, fileExpire = "1h") }
+                showToast(tr("Private storage mode activated", "Đã bật chế độ lưu trữ riêng tư"), ToastType.SUCCESS)
+            } else {
+                showToast(tr("Incorrect password", "Sai mật khẩu"), ToastType.ERROR)
+            }
         }
     }
+
+    // region ADMIN DASHBOARD
+    fun openAdminEntry() {
+        val cur = _adminState.value
+        if (cur.token.isNotBlank()) {
+            _adminState.update { it.copy(showDashboard = true, busy = true) }
+            viewModelScope.launch {
+                runCatching { adminApi.fetchOverview(cur.token) }
+                    .onSuccess { ov ->
+                        _adminState.update { it.copy(busy = false, stats = ov.stats, r2Config = ov.r2) }
+                    }
+                    .onFailure {
+                        _adminState.update { it.copy(busy = false, showDashboard = false, token = "", showLogin = true) }
+                    }
+            }
+        } else {
+            _adminState.update { it.copy(showLogin = true) }
+        }
+    }
+
+    fun dismissAdminLogin() {
+        _adminState.update { it.copy(showLogin = false, loginLoading = false) }
+    }
+
+    fun loginAdmin(password: String) {
+        val clean = password.trim()
+        if (clean.isEmpty()) {
+            showToast(tr("Password required", "Vui lòng nhập mật khẩu"), ToastType.ERROR)
+            return
+        }
+        _adminState.update { it.copy(loginLoading = true) }
+        viewModelScope.launch {
+            runCatching {
+                val token = adminApi.login(clean)
+                val overview = adminApi.fetchOverview(token)
+                token to overview
+            }.onSuccess { (token, ov) ->
+                _adminState.update {
+                    it.copy(
+                        showLogin = false,
+                        loginLoading = false,
+                        token = token,
+                        showDashboard = true,
+                        stats = ov.stats,
+                        r2Config = ov.r2,
+                    )
+                }
+                showToast(tr("Admin session unlocked", "Đã mở khóa bảng quản trị"), ToastType.SUCCESS)
+            }.onFailure { err ->
+                _adminState.update { it.copy(loginLoading = false) }
+                showToast(err.message ?: tr("Invalid admin password", "Sai mật khẩu quản trị"), ToastType.ERROR)
+            }
+        }
+    }
+
+    fun closeAdminDashboard() {
+        _adminState.update { it.copy(showDashboard = false) }
+    }
+
+    fun logoutAdmin() {
+        _adminState.value = AdminUiState(stats = _adminState.value.stats)
+        showToast(tr("Admin signed out", "Đã đăng xuất Admin"), ToastType.INFO)
+    }
+
+    fun toggleAdminFreeze() {
+        val cur = _adminState.value
+        if (cur.token.isBlank()) return
+        val target = !cur.stats.isFrozen
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updateStats(cur.token, isFrozen = target) }
+                .onSuccess { st ->
+                    _adminState.update { it.copy(busy = false, stats = st) }
+                    _globalStats.update { it.copy(isFrozen = st.isFrozen) }
+                    showToast(
+                        if (st.isFrozen) tr("System frozen", "Đã đóng băng hệ thống") else tr("System unfrozen", "Đã mở khóa hệ thống"),
+                        ToastType.SUCCESS,
+                    )
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("Update failed", "Cập nhật thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+
+    fun setAdminDeveloper(dev: String) {
+        val cur = _adminState.value
+        if (cur.token.isBlank()) return
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updateStats(cur.token, developer = dev) }
+                .onSuccess { st ->
+                    _adminState.update { it.copy(busy = false, stats = st) }
+                    _globalStats.update { it.copy(developer = st.developer) }
+                    showToast(tr("Developer updated: ${st.developer}", "Đã đổi: ${st.developer}"), ToastType.SUCCESS)
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("Update failed", "Cập nhật thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+
+    fun updateAdminLikes(likes: Int) {
+        val cur = _adminState.value
+        if (cur.token.isBlank()) return
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updateStats(cur.token, likes = likes) }
+                .onSuccess { st ->
+                    _adminState.update { it.copy(busy = false, stats = st) }
+                    _globalStats.update { it.copy(likes = st.likes) }
+                    showToast(tr("Likes updated", "Đã cập nhật lượt thích"), ToastType.SUCCESS)
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("Update failed", "Cập nhật thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+
+    fun sendAdminBroadcast(title: String, message: String, durationMinutes: Int) {
+        val cur = _adminState.value
+        if (cur.token.isBlank() || (title.isBlank() && message.isBlank())) return
+        val now = System.currentTimeMillis()
+        val expiresAt = if (durationMinutes <= 0) 0L else now + durationMinutes * 60_000L
+        val bcObj = buildJsonObject {
+            put("id", JsonPrimitive(UUID.randomUUID().toString().take(8)))
+            put("title", JsonPrimitive(title.ifBlank { "SYSTEM ANNOUNCEMENT" }))
+            put("message", JsonPrimitive(message.trim()))
+            put("icon", JsonPrimitive("Bell"))
+            put("theme", JsonPrimitive("blue"))
+            put("timestamp", JsonPrimitive(now))
+            put("expiresAt", JsonPrimitive(expiresAt))
+        }
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updateStats(cur.token, broadcast = bcObj) }
+                .onSuccess { st ->
+                    _adminState.update { it.copy(busy = false, stats = st) }
+                    showToast(tr("Broadcast sent", "Đã phát thông báo"), ToastType.SUCCESS)
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("Broadcast failed", "Phát thông báo thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+
+    fun clearAdminBroadcast() {
+        val cur = _adminState.value
+        if (cur.token.isBlank()) return
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updateStats(cur.token, clearBroadcast = true) }
+                .onSuccess { st ->
+                    _adminState.update { it.copy(busy = false, stats = st) }
+                    _globalStats.update { it.copy(broadcast = null) }
+                    showToast(tr("Broadcast cleared", "Đã xóa thông báo"), ToastType.SUCCESS)
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("Clear failed", "Xóa thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+
+    fun updateAdminPasswords(adminPass: String, secretPass: String) {
+        val cur = _adminState.value
+        if (cur.token.isBlank()) return
+        if (adminPass.isBlank() && secretPass.isBlank()) {
+            showToast(tr("Enter at least one new password", "Nhập ít nhất 1 mật khẩu mới"), ToastType.ERROR)
+            return
+        }
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updatePasswords(cur.token, adminPass, secretPass) }
+                .onSuccess {
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(tr("Backend passwords updated", "Đã cập nhật mật khẩu trên backend"), ToastType.SUCCESS)
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("Password update failed", "Đổi mật khẩu thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+
+    fun updateAdminR2Config(accountId: String, accessKeyId: String, secretAccessKey: String, bucketName: String) {
+        val cur = _adminState.value
+        if (cur.token.isBlank()) return
+        _adminState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            runCatching { adminApi.updateR2Config(cur.token, accountId, accessKeyId, secretAccessKey, bucketName) }
+                .onSuccess { r2 ->
+                    _adminState.update { it.copy(busy = false, r2Config = r2) }
+                    showToast(tr("R2 credentials saved to backend", "Đã lưu 4 khóa R2 lên backend"), ToastType.SUCCESS)
+                }
+                .onFailure { err ->
+                    _adminState.update { it.copy(busy = false) }
+                    showToast(err.message ?: tr("R2 update failed", "Lưu cấu hình R2 thất bại"), ToastType.ERROR)
+                }
+        }
+    }
+    // endregion
 
     fun exitR2Mode() {
         _sendState.update {

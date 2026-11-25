@@ -62,6 +62,8 @@ import com.hefimer.app.data.network.DownloadHelper
 import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
+import com.hefimer.app.ui.components.AdminDashboardSheetContent
+import com.hefimer.app.ui.components.AdminLoginDialog
 import com.hefimer.app.ui.components.FloatingDownloadProgressBanner
 import com.hefimer.app.ui.components.HefimerConfirmDialog
 import com.hefimer.app.ui.components.HefimerFloatingBottomDock
@@ -197,6 +199,7 @@ private fun HefimerRootScreen(
     val savedFilePrompt by vm.savedFilePrompt.collectAsState()
     val clipboardSuggestion by vm.clipboardSuggestion.collectAsState()
     val history by vm.history.collectAsState()
+    val adminState by vm.adminState.collectAsState()
     var activeInfoDoc by remember { mutableStateOf<HefimerInfoDoc?>(null) }
 
     LaunchedEffect(hapticEnabled) {
@@ -408,6 +411,10 @@ private fun HefimerRootScreen(
                         dismiss()
                         activeInfoDoc = doc
                     },
+                    onOpenAdmin = {
+                        dismiss()
+                        vm.openAdminEntry()
+                    },
                     onReplayOnboarding = {
                         dismiss()
                         vm.replayOnboarding()
@@ -441,6 +448,38 @@ private fun HefimerRootScreen(
                         onClose = dismiss,
                     )
                 }
+            }
+
+            // Admin Dashboard Sheet (Backend KV PBKDF2 + 4 R2 Credentials)
+            AppleSwipeableSheet(
+                visible = adminState.showDashboard,
+                onDismiss = { vm.closeAdminDashboard() },
+            ) { dismiss ->
+                AdminDashboardSheetContent(
+                    stats = adminState.stats,
+                    r2Config = adminState.r2Config,
+                    busy = adminState.busy,
+                    onToggleFreeze = { vm.toggleAdminFreeze() },
+                    onSetDeveloper = { vm.setAdminDeveloper(it) },
+                    onSendBroadcast = { t, m, mins -> vm.sendAdminBroadcast(t, m, mins) },
+                    onClearBroadcast = { vm.clearAdminBroadcast() },
+                    onUpdateLikes = { vm.updateAdminLikes(it) },
+                    onUpdatePasswords = { a, s -> vm.updateAdminPasswords(a, s) },
+                    onUpdateR2Config = { acc, ak, sk, b -> vm.updateAdminR2Config(acc, ak, sk, b) },
+                    onLogout = {
+                        dismiss()
+                        vm.logoutAdmin()
+                    },
+                    onClose = dismiss,
+                )
+            }
+
+            if (adminState.showLogin) {
+                AdminLoginDialog(
+                    loading = adminState.loginLoading,
+                    onDismiss = { vm.dismissAdminLogin() },
+                    onSubmit = { vm.loginAdmin(it) },
+                )
             }
 
             // Post-Save "Open With App" Bottom Sheet

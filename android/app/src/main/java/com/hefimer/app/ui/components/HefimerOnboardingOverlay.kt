@@ -712,11 +712,11 @@ private fun MultiHostOrbitHero(reduceMotion: Boolean) {
             )
         }
 
-        // Satellite Apple Glass provider chips around orbit (Secret R2 keeps subtle emerald!)
+        // Satellite Apple Glass provider chips around orbit (strictly public hosts)
         HostSatelliteChip("sto.care • 100 MB", Modifier.align(Alignment.TopCenter).offset(y = 4.dp))
         HostSatelliteChip("Gofile • ∞", Modifier.align(Alignment.CenterStart).offset(x = (-4).dp, y = (-26).dp))
         HostSatelliteChip("Pomf • 1 GB", Modifier.align(Alignment.CenterEnd).offset(x = 4.dp, y = (-26).dp))
-        HostSatelliteChip("Secret R2", Modifier.align(Alignment.BottomStart).offset(x = 14.dp, y = (-20).dp), emerald = true)
+        HostSatelliteChip("Catbox • 200 MB", Modifier.align(Alignment.BottomStart).offset(x = 14.dp, y = (-20).dp))
         HostSatelliteChip("x0.at • qu.ax", Modifier.align(Alignment.BottomEnd).offset(x = (-10).dp, y = (-20).dp))
     }
 }
