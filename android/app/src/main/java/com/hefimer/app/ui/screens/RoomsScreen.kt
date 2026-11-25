@@ -143,16 +143,16 @@ import java.util.Date
 import java.util.Locale
 
 private val CHAT_REACTIONS = listOf(
-    "heart" to "❤️",
-    "thumb" to "👍",
-    "smile" to "😄",
-    "frown" to "😢",
-    "fire" to "🔥",
-    "party" to "🎉",
-    "ghost" to "👻",
-    "rocket" to "🚀",
-    "star" to "⭐",
-    "zap" to "⚡",
+    "heart" to "Love",
+    "thumb" to "Like",
+    "smile" to "Joy",
+    "frown" to "Sad",
+    "fire" to "Fire",
+    "party" to "Boost",
+    "ghost" to "Boo",
+    "rocket" to "Launch",
+    "star" to "Spark",
+    "zap" to "Zap",
 )
 
 private val BOARD_COLORS = listOf(
@@ -831,10 +831,9 @@ private fun ChatBubbleItem(
                 modifier = Modifier.padding(top = 5.dp),
             ) {
                 msg.reactions.entries.filter { it.value > 0 }.forEach { (rId, count) ->
-                    val emoji = CHAT_REACTIONS.firstOrNull { it.first == rId }?.second ?: "✨"
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                         modifier = Modifier
                             .appleGlassSurface(
                                 shape = CircleShape,
@@ -842,19 +841,24 @@ private fun ChatBubbleItem(
                                 elevation = 0.dp,
                             )
                             .applePressable(pressedScale = 0.90f) { onReact(rId) }
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                            .padding(horizontal = 9.dp, vertical = 4.dp),
                     ) {
-                        Text(emoji, fontSize = 11.sp)
+                        com.hefimer.app.ui.components.HefimerReactionGlyph(
+                            reactionId = rId,
+                            tint = HefimerColors.White,
+                            size = 13.dp,
+                        )
                         Text(count.toString(), color = HefimerColors.White80, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        // Expandable 10-emoji picker
+        // Expandable custom monochrome vector reaction picker (zero emojis)
         AnimatedVisibility(visible = showReactionBar, enter = AppMotion.softExpandEnter, exit = AppMotion.softExpandExit) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(top = 6.dp)
                     .horizontalScroll(rememberScrollState())
@@ -865,15 +869,21 @@ private fun ChatBubbleItem(
                     )
                     .padding(horizontal = 8.dp, vertical = 5.dp),
             ) {
-                CHAT_REACTIONS.forEach { (id, emoji) ->
-                    Text(
-                        text = emoji,
-                        fontSize = 18.sp,
+                CHAT_REACTIONS.forEach { (id, _) ->
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
+                            .size(32.dp)
                             .clip(CircleShape)
-                            .applePressable(pressedScale = 0.85f) { onReact(id) }
-                            .padding(horizontal = 5.dp, vertical = 2.dp),
-                    )
+                            .background(HefimerColors.White06)
+                            .applePressable(pressedScale = 0.84f) { onReact(id) },
+                    ) {
+                        com.hefimer.app.ui.components.HefimerReactionGlyph(
+                            reactionId = id,
+                            tint = HefimerColors.White,
+                            size = 18.dp,
+                        )
+                    }
                 }
             }
         }

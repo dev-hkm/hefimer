@@ -955,6 +955,51 @@ class FileUploadEngine(
         }
     }
 
+    suspend fun testCustomS3Connection(rawProvider: CustomS3Provider): Result<CustomS3Provider> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val norm = S3SigV4Signer.normalizeProvider(rawProvider)
+                if (norm.bucket.isBlank()) {
+                    throw IOException(com.hefimer.app.ui.theme.tr("Bucket name is required", "Vui lòng nhập tên bucket"))
+                }
+                if (norm.accessKeyId.isBlank() || norm.secretAccessKey.isBlank()) {
+                    throw IOException(com.hefimer.app.ui.theme.tr("Access Key & Secret Key are required", "Vui lòng nhập Access Key và Secret Key"))
+                }
+                val probeKey = "hefimer/.hefimer-probe-${UUID.randomUUID().toString().take(8)}.txt"
+                val putUrl = S3SigV4Signer.presignUrl(
+                    provider = norm,
+                    method = "PUT",
+                    objectKey = probeKey,
+                    expiresSeconds = 300L,
+                )
+                val probeBody = "ok".toRequestBody(null)
+                val putReq = Request.Builder().url(putUrl).put(probeBody).build()
+                HefimerApiConfig.apiClient.newCall(putReq).execute().use { resp ->
+                    val text = resp.body?.string().orEmpty()
+                    if (!resp.isSuccessful) {
+                        val s3Err = S3SigV4Signer.parseS3ErrorXml(text)
+                        throw IOException(
+                            s3Err ?: com.hefimer.app.ui.theme.tr(
+                                "Connection failed (HTTP ${resp.code})",
+                                "Kết nối thất bại (HTTP ${resp.code})",
+                            ),
+                        )
+                    }
+                }
+                // Best-effort cleanup of the tiny probe file
+                runCatching {
+                    val delUrl = S3SigV4Signer.presignUrl(
+                        provider = norm,
+                        method = "DELETE",
+                        objectKey = probeKey,
+                        expiresSeconds = 300L,
+                    )
+                    HefimerApiConfig.apiClient.newCall(Request.Builder().url(delUrl).delete().build()).execute().close()
+                }
+                norm
+            }
+        }
+
     private fun uploadCustomS3(
         provider: CustomS3Provider,
         picked: LocalPickedFile,
@@ -1092,7 +1137,7 @@ class FileUploadEngine(
                         val obj = json.parseToJsonElement(text).jsonObject
                         obj["error"]?.jsonPrimitive?.contentOrNull
                             ?: obj["message"]?.jsonPrimitive?.contentOrNull
-                    }.getOrNull()
+                    }.getOrNull() ?: S3SigV4Signer.parseS3ErrorXml(text)
                     throw IOException(
                         parsedMsg ?: com.hefimer.app.ui.theme.tr(
                             "Upload failed with status ${resp.code}",

@@ -255,4 +255,64 @@ class HefimerCoreTests {
         assertNull(badUnwrap)
         assertNull(DeviceCrypto.unwrapWithAesGcmKey("not-wrapped", secretKey))
     }
+
+    @Test
+    fun s3SigV4NormalizesR2BucketPathAndPresignsCleanly() {
+        val raw = com.hefimer.app.data.model.CustomS3Provider(
+            id = "custom_1",
+            name = "Hefimer",
+            endpoint = "2808e79787056afd24887aa213ba3d13.r2.cloudflarestorage.com/hefimer/",
+            region = "",
+            bucket = "hefimer",
+            accessKeyId = "AKIAIOSFODNN7EXAMPLE",
+            secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        )
+        val norm = com.hefimer.app.data.network.S3SigV4Signer.normalizeProvider(raw)
+        assertEquals("https://2808e79787056afd24887aa213ba3d13.r2.cloudflarestorage.com", norm.endpoint)
+        assertEquals("auto", norm.region)
+
+        val url = com.hefimer.app.data.network.S3SigV4Signer.presignUrl(
+            provider = raw,
+            method = "PUT",
+            objectKey = "hefimer/abc/test file.txt",
+            expiresSeconds = 3600L,
+            nowMs = 1700000000000L,
+        )
+        assertTrue(url.startsWith("https://2808e79787056afd24887aa213ba3d13.r2.cloudflarestorage.com/hefimer/hefimer/abc/test%20file.txt?"))
+        assertTrue(url.contains("X-Amz-Signature="))
+        assertEquals(
+            "NoSuchBucket: The specified bucket does not exist.",
+            com.hefimer.app.data.network.S3SigV4Signer.parseS3ErrorXml(
+                "<Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist.</Message></Error>",
+            ),
+        )
+    }
+
+    @Test
+    fun codeHighlighterDetectsKotlinWithGenericsAndJavaImportsAccurately() {
+        val flappyKotlin = """
+            // FlappyBird.kt - game Flappy Bird mini
+            import java.awt.*
+            import java.awt.event.*
+            import javax.swing.*
+            import kotlin.math.*
+
+            data class Bird(var x: Double, var y: Double, var vy: Double = 0.0)
+            private var pipes = mutableListOf<Pipe>()
+            fun main() { println("ok") }
+        """.trimIndent()
+        assertEquals("kotlin", CodeHighlighter.detectLanguage(flappyKotlin).id)
+
+        val htmlSample = "<!DOCTYPE html><html><body><div class=\"app\"><p>Hello</p></div></body></html>"
+        assertEquals("markup", CodeHighlighter.detectLanguage(htmlSample).id)
+
+        val pySample = "import os\n\ndef greet(name: str):\n    print(f'hi {name}')\n\nif __name__ == '__main__':\n    greet('world')"
+        assertEquals("python", CodeHighlighter.detectLanguage(pySample).id)
+
+        val tsSample = "interface User { id: string; age: number }\nconst fn = (u: User): boolean => u.age > 18;"
+        assertEquals("typescript", CodeHighlighter.detectLanguage(tsSample).id)
+
+        val jsonSample = "{\"ok\": true, \"count\": 3}"
+        assertEquals("json", CodeHighlighter.detectLanguage(jsonSample).id)
+    }
 }

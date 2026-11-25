@@ -96,53 +96,114 @@ object CodeHighlighter {
                     !it.startsWith("/*") && !it.startsWith("#")
             }.orEmpty()
 
-        return when {
-            Regex("""^<!DOCTYPE html|<html|<body|<div|<span|<p|<a """, RegexOption.IGNORE_CASE).containsMatchIn(sample) ->
-                LanguageInfo("markup", "HTML", "html")
-            Regex("""<svg""", RegexOption.IGNORE_CASE).containsMatchIn(sample) ->
-                LanguageInfo("markup", "SVG", "svg")
-            Regex("""^<\?xml""", RegexOption.IGNORE_CASE).containsMatchIn(sample) ->
-                LanguageInfo("markup", "XML", "xml")
-            ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) &&
-                Regex("""^[\{\[]\s*("|\d|true|false|null)""").containsMatchIn(sample) ->
-                LanguageInfo("json", "JSON", "json")
-            Regex("""^FROM\s+[a-z0-9]""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)).containsMatchIn(sample) &&
-                Regex("""\b(RUN|EXPOSE|ENV|COPY|WORKDIR|CMD)\s+""").containsMatchIn(sample) ->
-                LanguageInfo("docker", "Dockerfile", "dockerfile")
-            Regex("""^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH)\s""", RegexOption.IGNORE_CASE).containsMatchIn(firstNonComment) ||
-                Regex("""\b(CREATE TABLE|INSERT INTO|SELECT .* FROM|PRIMARY KEY|FOREIGN KEY)\b""", RegexOption.IGNORE_CASE).containsMatchIn(sample) ->
-                LanguageInfo("sql", "SQL", "sql")
-            Regex("""^(def |class |import |from .* import |if __name__ ==)""", RegexOption.MULTILINE).containsMatchIn(sample) ||
-                sample.contains(":\n    ") ->
-                LanguageInfo("python", "Python", "py")
-            Regex("""^(package |fun |val |data class |sealed class |suspend fun )""", RegexOption.MULTILINE).containsMatchIn(sample) ->
-                LanguageInfo("kotlin", "Kotlin", "kt")
-            Regex("""^(public class |using System;|namespace )""", RegexOption.MULTILINE).containsMatchIn(sample) ->
-                if (sample.contains("using System;")) LanguageInfo("csharp", "C#", "cs") else LanguageInfo("java", "Java", "java")
-            Regex("""^#include\s*<""", RegexOption.MULTILINE).containsMatchIn(sample) ->
-                LanguageInfo("cpp", "C++", "cpp")
-            Regex("""^package main""", RegexOption.MULTILINE).containsMatchIn(sample) && sample.contains("func main()") ->
-                LanguageInfo("go", "Go", "go")
-            Regex("""^(fn main\(\)|use std::|let mut)""", RegexOption.MULTILINE).containsMatchIn(sample) ->
-                LanguageInfo("rust", "Rust", "rs")
-            Regex("""^<\?php""", RegexOption.IGNORE_CASE).containsMatchIn(sample) ->
-                LanguageInfo("php", "PHP", "php")
-            Regex("""^#!/bin/(bash|sh|zsh)|^(echo|ls|mkdir|rm|sudo|npm|git|curl|export)\s""", RegexOption.MULTILINE).containsMatchIn(sample) ->
-                LanguageInfo("bash", "Bash", "sh")
-            Regex("""^(const|let|var|function|import|export|interface|type)\s""", RegexOption.MULTILINE).containsMatchIn(sample) ||
-                sample.contains("=>") || sample.contains("console.log") ->
-                if (Regex("""interface |type [A-Z]|: (string|number|boolean)""").containsMatchIn(sample)) {
-                    LanguageInfo("typescript", "TypeScript", "ts")
-                } else {
-                    LanguageInfo("javascript", "JavaScript", "js")
-                }
-            Regex("""^[.#a-zA-Z0-9-]+\s*\{|@media|@import""").containsMatchIn(sample) ->
-                LanguageInfo("css", "CSS", "css")
-            Regex("""^(#\s|##\s|-\s|\[.*\]\(.*\))""", RegexOption.MULTILINE).containsMatchIn(sample) ->
-                LanguageInfo("markdown", "Markdown", "md")
-            Regex("""^[a-zA-Z0-9_-]+:\s+""").containsMatchIn(sample) && (sample.contains("\n  ") || sample.contains("\n- ")) ->
-                LanguageInfo("yaml", "YAML", "yaml")
-            else -> SUPPORTED_LANGUAGES[0]
+        // High-confidence structural formats first
+        if (((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) &&
+            Regex("""^[\{\[]\s*("|\d|true|false|null)""").containsMatchIn(sample)
+        ) {
+            return LanguageInfo("json", "JSON", "json")
+        }
+        if (Regex("""^\s*<\?php\b""", RegexOption.IGNORE_CASE).containsMatchIn(sample)) {
+            return LanguageInfo("php", "PHP", "php")
+        }
+        if (Regex("""^\s*<\?xml\b""", RegexOption.IGNORE_CASE).containsMatchIn(sample)) {
+            return LanguageInfo("markup", "XML", "xml")
+        }
+        if (Regex("""^\s*<!DOCTYPE\s+html\b""", RegexOption.IGNORE_CASE).containsMatchIn(sample)) {
+            return LanguageInfo("markup", "HTML", "html")
+        }
+        if (Regex("""^\s*#!/bin/(?:ba|z|a)?sh\b""").containsMatchIn(sample)) {
+            return LanguageInfo("bash", "Bash", "sh")
+        }
+        if (Regex("""^FROM\s+[a-z0-9]""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)).containsMatchIn(sample) &&
+            Regex("""\b(RUN|EXPOSE|ENV|COPY|WORKDIR|CMD|ENTRYPOINT)\s+""").containsMatchIn(sample)
+        ) {
+            return LanguageInfo("docker", "Dockerfile", "dockerfile")
+        }
+
+        // Weighted multi-signal scoring so generics like mutableListOf<Pipe>() never mis-match HTML <p>
+        val scores = linkedMapOf<String, Int>()
+        fun addScore(id: String, pts: Int) {
+            scores[id] = (scores[id] ?: 0) + pts
+        }
+        fun hits(pattern: String, opts: Set<RegexOption> = setOf(RegexOption.MULTILINE)): Int =
+            Regex(pattern, opts).findAll(sample).take(12).count()
+
+        // HTML / SVG (require real HTML/SVG tag delimiters, not Kotlin/Java/TS generics like <Pipe>)
+        val htmlTagHits = hits(
+            """</?(?:html|head|body|div|span|p|a|section|article|header|footer|main|nav|ul|ol|li|table|tr|td|th|form|input|button|label|script|style|link|meta|img|h[1-6])(?:\s|>|/>)""",
+            setOf(RegexOption.IGNORE_CASE),
+        )
+        if (htmlTagHits > 0) addScore("markup", htmlTagHits * 3)
+        if (Regex("""<svg(?:\s|>)""", RegexOption.IGNORE_CASE).containsMatchIn(sample) &&
+            Regex("""</svg>""", RegexOption.IGNORE_CASE).containsMatchIn(sample)
+        ) {
+            return LanguageInfo("markup", "SVG", "svg")
+        }
+
+        // Kotlin
+        addScore("kotlin", hits("""\b(?:fun|suspend\s+fun|override\s+fun)\s+\w+\s*\(""") * 5)
+        addScore("kotlin", hits("""\b(?:data\s+class|sealed\s+class|sealed\s+interface|companion\s+object|object\s+\w+)\b""") * 6)
+        addScore("kotlin", hits("""^\s*(?:private|internal|protected|open|override)?\s*(?:val|var)\s+\w+""") * 3)
+        addScore("kotlin", hits("""\b(?:mutableListOf|listOf|mapOf|setOf|println|when\s*\(|import\s+kotlin\.)"""))
+        if (Regex("""\bpackage\s+[\w.]+""").containsMatchIn(sample) && !sample.contains(";")) addScore("kotlin", 3)
+
+        // Java
+        addScore("java", hits("""\bpublic\s+(?:static\s+void\s+main|class|interface|enum)\b""") * 5)
+        addScore("java", hits("""\bSystem\.out\.print(?:ln)?\b|@Override\b""") * 4)
+        addScore("java", hits("""^\s*(?:private|public|protected)\s+(?:static\s+)?(?:final\s+)?[\w<>]+\s+\w+\s*;""") * 3)
+        if (Regex("""\bimport\s+java\.""").containsMatchIn(sample)) {
+            if (scores["kotlin"] ?: 0 > 0) addScore("kotlin", 2) else addScore("java", 4)
+        }
+
+        // Swift
+        addScore("swift", hits("""\bimport\s+(?:SwiftUI|UIKit|Foundation|Combine)\b""") * 6)
+        addScore("swift", hits("""\bfunc\s+\w+\s*\([^)]*\)\s*(?:->\s*\w+|\{)""") * 5)
+        addScore("swift", hits("""\b(?:guard\s+let|if\s+let|@State|@Published|@Binding)\b""") * 4)
+
+        // Python (penalize braces/fun/val so Kotlin/Java/JS imports don't match Python)
+        val hasBraces = sample.contains('{') && sample.contains('}')
+        addScore("python", hits("""^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*:""") * 6)
+        addScore("python", hits("""^\s*class\s+\w+(?:\([^)]*\))?\s*:""") * 5)
+        addScore("python", hits("""^\s*from\s+[\w.]+\s+import\s+""") * 5)
+        addScore("python", hits("""\bif\s+__name__\s*==\s*['"]__main__['"]\s*:""") * 8)
+        addScore("python", hits("""^\s*elif\s+""") * 4)
+        if (!hasBraces && Regex("""^\s*import\s+\w+""", RegexOption.MULTILINE).containsMatchIn(sample)) addScore("python", 3)
+
+        // C# / C++ / Go / Rust
+        addScore("csharp", hits("""\busing\s+System(?:\.\w+)*\s*;|\bnamespace\s+[\w.]+\s*[\{;]""") * 6)
+        addScore("cpp", hits("""^\s*#include\s*[<"]""") * 6 + hits("""\bstd::\w+""") * 3)
+        addScore("go", hits("""^\s*package\s+main\b""") * 5 + hits("""^\s*func\s+\w+\s*\(""") * 5)
+        addScore("rust", hits("""\bfn\s+\w+\s*\(|\blet\s+mut\s+\w+|\buse\s+std::|println!\s*\(""") * 5)
+
+        // JavaScript / TypeScript
+        addScore("typescript", hits("""\b(?:interface|type)\s+[A-Z]\w*\s*(?:=|\{)""") * 5)
+        addScore("typescript", hits(""":\s*(?:string|number|boolean|any|unknown|never|void)\b""") * 3)
+        val jsSignals = hits("""^\s*(?:export\s+)?(?:const|let|var|async\s+function|function)\s+\w+""") * 3 +
+            hits("""=>|console\.log\(|require\(|module\.exports""") * 2
+        if (jsSignals > 0) {
+            if ((scores["typescript"] ?: 0) > 0) addScore("typescript", jsSignals)
+            else addScore("javascript", jsSignals)
+        }
+
+        // SQL
+        if (Regex("""^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH)\s""", RegexOption.IGNORE_CASE).containsMatchIn(firstNonComment)) {
+            addScore("sql", 8)
+        }
+        addScore("sql", hits("""\b(CREATE\s+TABLE|INSERT\s+INTO|SELECT\s+.+\s+FROM|PRIMARY\s+KEY|FOREIGN\s+KEY)\b""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)) * 5)
+
+        // Bash / CSS / Markdown / YAML
+        addScore("bash", hits("""^\s*(?:echo|ls|mkdir|rm|sudo|npm|git|curl|export|chmod|adb)\s+""") * 3)
+        addScore("css", hits("""^[.#a-zA-Z0-9_-]+\s*\{|@media\s|@import\s""") * 3)
+        addScore("markdown", hits("""^#{1,3}\s+\S|\[[^\]]+\]\([^)]+\)""") * 3)
+        if (!hasBraces && Regex("""^[a-zA-Z0-9_-]+:\s+""").containsMatchIn(sample) && (sample.contains("\n  ") || sample.contains("\n- "))) {
+            addScore("yaml", 5)
+        }
+
+        val best = scores.maxByOrNull { it.value }
+        return if (best != null && best.value >= 3) {
+            SUPPORTED_LANGUAGES.firstOrNull { it.id == best.key } ?: SUPPORTED_LANGUAGES[0]
+        } else {
+            SUPPORTED_LANGUAGES[0]
         }
     }
 

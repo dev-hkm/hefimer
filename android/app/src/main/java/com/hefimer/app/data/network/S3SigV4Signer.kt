@@ -19,6 +19,52 @@ import javax.crypto.spec.SecretKeySpec
 object S3SigV4Signer {
     private const val ALGORITHM = "AWS4-HMAC-SHA256"
 
+    fun normalizeProvider(provider: CustomS3Provider): CustomS3Provider {
+        val bucket = provider.bucket.trim()
+        val rawEp = provider.endpoint.trim().trimEnd('/')
+        val withScheme = if (rawEp.startsWith("http://", ignoreCase = true) || rawEp.startsWith("https://", ignoreCase = true)) {
+            rawEp
+        } else {
+            "https://$rawEp"
+        }
+        val normalizedEndpoint = runCatching {
+            val uri = URI(withScheme)
+            val scheme = uri.scheme ?: "https"
+            val authority = uri.authority ?: return@runCatching withScheme
+            var path = uri.path?.trimEnd('/').orEmpty()
+            // Users often paste R2's "S3 API" URL (https://<acc>.r2.cloudflarestorage.com/<bucket>);
+            // strip trailing /<bucket> so presignUrl does not duplicate the bucket segment.
+            if (bucket.isNotEmpty() && path.equals("/$bucket", ignoreCase = true)) {
+                path = ""
+            } else if (bucket.isNotEmpty() && path.endsWith("/$bucket", ignoreCase = true)) {
+                path = path.dropLast(bucket.length + 1)
+            }
+            "$scheme://$authority$path"
+        }.getOrDefault(withScheme)
+
+        return provider.copy(
+            name = provider.name.trim().ifBlank { bucket },
+            endpoint = normalizedEndpoint,
+            region = provider.region.trim().ifBlank { "auto" },
+            bucket = bucket,
+            accessKeyId = provider.accessKeyId.trim(),
+            secretAccessKey = provider.secretAccessKey.trim(),
+            publicBaseUrl = provider.publicBaseUrl.trim().trimEnd('/'),
+        )
+    }
+
+    fun parseS3ErrorXml(xml: String): String? {
+        if (xml.isBlank()) return null
+        val code = Regex("<Code>([^<]+)</Code>", RegexOption.IGNORE_CASE).find(xml)?.groupValues?.getOrNull(1)?.trim()
+        val msg = Regex("<Message>([^<]+)</Message>", RegexOption.IGNORE_CASE).find(xml)?.groupValues?.getOrNull(1)?.trim()
+        return when {
+            !code.isNullOrBlank() && !msg.isNullOrBlank() -> "$code: $msg"
+            !code.isNullOrBlank() -> code
+            !msg.isNullOrBlank() -> msg
+            else -> null
+        }
+    }
+
     fun presignUrl(
         provider: CustomS3Provider,
         method: String,
@@ -26,29 +72,34 @@ object S3SigV4Signer {
         expiresSeconds: Long,
         nowMs: Long = System.currentTimeMillis(),
     ): String {
-        val cleanEndpoint = provider.endpoint.trim().trimEnd('/')
-        val parsed = URI(if (cleanEndpoint.startsWith("http")) cleanEndpoint else "https://$cleanEndpoint")
+        val norm = normalizeProvider(provider)
+        val parsed = URI(norm.endpoint)
         val scheme = parsed.scheme ?: "https"
         val host = parsed.authority ?: throw IllegalArgumentException("Invalid S3/R2 endpoint host")
         val basePath = parsed.path?.trimEnd('/').orEmpty()
-        val region = provider.region.trim().ifBlank { "auto" }
-        val bucket = provider.bucket.trim()
+        val region = norm.region
+        val bucket = norm.bucket
         val cleanKey = objectKey.trimStart('/')
+        val isVirtualHosted = bucket.isNotEmpty() &&
+            host.lowercase(Locale.US).startsWith("${bucket.lowercase(Locale.US)}.")
 
         val canonicalPath = buildString {
             if (basePath.isNotEmpty()) append(basePath)
-            append('/')
-            append(encodePathSegment(bucket))
+            if (!isVirtualHosted && bucket.isNotEmpty()) {
+                append('/')
+                append(encodePathSegment(bucket))
+            }
             cleanKey.split('/').filter { it.isNotEmpty() }.forEach { seg ->
                 append('/')
                 append(encodePathSegment(seg))
             }
+            if (isEmpty()) append('/')
         }
 
         val amzDate = formatAmzDate(nowMs)
         val dateStamp = amzDate.substring(0, 8)
         val credentialScope = "$dateStamp/$region/s3/aws4_request"
-        val credential = "${provider.accessKeyId.trim()}/$credentialScope"
+        val credential = "${norm.accessKeyId}/$credentialScope"
 
         val queryParams = linkedMapOf(
             "X-Amz-Algorithm" to ALGORITHM,
@@ -78,7 +129,7 @@ object S3SigV4Signer {
             sha256Hex(canonicalRequest),
         ).joinToString("\n")
 
-        val signingKey = deriveSigningKey(provider.secretAccessKey.trim(), dateStamp, region, "s3")
+        val signingKey = deriveSigningKey(norm.secretAccessKey, dateStamp, region, "s3")
         val signature = hmacSha256(signingKey, stringToSign).toHex()
 
         return "$scheme://$host$canonicalPath?$canonicalQuery&X-Amz-Signature=$signature"

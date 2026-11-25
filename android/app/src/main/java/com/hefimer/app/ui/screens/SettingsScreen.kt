@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,13 +23,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,6 +98,7 @@ fun SettingsScreen(
     onSetAppLanguage: (AppLanguage) -> Unit,
     onSetDefaultStartTab: (MainTab) -> Unit,
     onSetStorageToApiToken: (String) -> Unit,
+    onTestCustomS3: suspend (CustomS3Provider) -> Result<CustomS3Provider>,
     onSaveCustomS3: (CustomS3Provider) -> Unit,
     onDeleteCustomS3: (CustomS3Provider) -> Unit,
     onSetDefaultProvider: (String) -> Unit,
@@ -108,65 +113,43 @@ fun SettingsScreen(
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val defaultCfg = UploadProviders.getConfig(defaultProviderId, customS3Providers)
     var editingS3 by remember { mutableStateOf<CustomS3Provider?>(null) }
     var showAddS3Dialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HefimerColors.Black)
-            .padding(top = statusTop + 8.dp, bottom = navBottom + 12.dp),
-    ) {
-        // Top Header (matches full-screen screen style)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(40.dp)
-                    .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp)
-                    .applePressable(pressedScale = 0.90f, onClick = onBack),
-            ) {
-                Icon(
-                    imageVector = PhosphorIcons.Regular.CaretLeft,
-                    contentDescription = tr("Back", "Quay lại"),
-                    tint = HefimerColors.White,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = tr("PREFERENCES", "TÙY CHỈNH"),
-                    color = HefimerColors.White45,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.2.sp,
-                )
-                Text(
-                    text = tr("Settings", "Cài đặt"),
-                    color = HefimerColors.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        com.hefimer.app.ui.theme.AppleMonochromeBackdrop(modifier = Modifier.fillMaxSize())
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+        com.hefimer.app.ui.components.HefimerCollapsibleScaffold(
+            kicker = tr("Preferences", "Tùy chỉnh"),
+            title = tr("Settings", "Cài đặt"),
+            subtitle = tr(
+                "Theme, language, custom R2 / S3 buckets, and app preferences.",
+                "Giao diện, ngôn ngữ, kho R2 / S3 riêng và tùy chỉnh ứng dụng.",
+            ),
+            showOrbitMark = true,
+            bottomDockClearance = 36.dp,
+            headerActions = {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp)
+                        .applePressable(pressedScale = 0.90f, onClick = onBack),
+                ) {
+                    Icon(
+                        imageVector = PhosphorIcons.Regular.CaretLeft,
+                        contentDescription = tr("Back", "Quay lại"),
+                        tint = HefimerColors.White,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
         ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
             // 1. APPEARANCE, LANGUAGE & STARTUP
             SettingsSection(title = tr("APPEARANCE & STARTUP", "GIAO DIỆN & KHỞI ĐỘNG")) {
                 SettingsSubLabel(tr("THEME", "CHỦ ĐỀ"))
@@ -594,12 +577,14 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(16.dp))
         }
+        }
     }
 
     if (showAddS3Dialog) {
         CustomS3EditorDialog(
             initial = editingS3,
             onDismiss = { showAddS3Dialog = false },
+            onTestConnection = onTestCustomS3,
             onSave = { prov ->
                 onSaveCustomS3(prov)
                 showAddS3Dialog = false
@@ -674,8 +659,10 @@ private fun SettingsRowButton(
 private fun CustomS3EditorDialog(
     initial: CustomS3Provider?,
     onDismiss: () -> Unit,
+    onTestConnection: suspend (CustomS3Provider) -> Result<CustomS3Provider>,
     onSave: (CustomS3Provider) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var endpoint by remember { mutableStateOf(initial?.endpoint ?: "") }
     var region by remember { mutableStateOf(initial?.region ?: "auto") }
@@ -683,16 +670,19 @@ private fun CustomS3EditorDialog(
     var accessKeyId by remember { mutableStateOf(initial?.accessKeyId ?: "") }
     var secretAccessKey by remember { mutableStateOf(initial?.secretAccessKey ?: "") }
     var publicBaseUrl by remember { mutableStateOf(initial?.publicBaseUrl ?: "") }
+    var isTesting by remember { mutableStateOf(false) }
+    var testError by remember { mutableStateOf<String?>(null) }
 
-    val canSave = endpoint.isNotBlank() && bucket.isNotBlank() && accessKeyId.isNotBlank() && secretAccessKey.isNotBlank()
+    val canSave = !isTesting && endpoint.isNotBlank() && bucket.isNotBlank() && accessKeyId.isNotBlank() && secretAccessKey.isNotBlank()
 
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isTesting) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
                 .padding(horizontal = 20.dp)
                 .appleGlassSurface(shape = RoundedCornerShape(30.dp), variant = AppleGlassVariant.Elevated, elevation = 24.dp)
                 .padding(20.dp),
@@ -713,26 +703,26 @@ private fun CustomS3EditorDialog(
                 )
                 HefimerTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { name = it; testError = null },
                     placeholder = tr("Display name (e.g. My R2)", "Tên hiển thị (vd: R2 của tôi)"),
                 )
                 HefimerTextField(
                     value = endpoint,
-                    onValueChange = { endpoint = it },
+                    onValueChange = { endpoint = it; testError = null },
                     placeholder = "https://<account>.r2.cloudflarestorage.com",
                     mono = true,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HefimerTextField(
                         value = region,
-                        onValueChange = { region = it },
+                        onValueChange = { region = it; testError = null },
                         placeholder = "auto / us-east-1",
                         mono = true,
                         modifier = Modifier.weight(1f),
                     )
                     HefimerTextField(
                         value = bucket,
-                        onValueChange = { bucket = it },
+                        onValueChange = { bucket = it; testError = null },
                         placeholder = tr("Bucket name", "Tên bucket"),
                         mono = true,
                         modifier = Modifier.weight(1.3f),
@@ -740,23 +730,40 @@ private fun CustomS3EditorDialog(
                 }
                 HefimerTextField(
                     value = accessKeyId,
-                    onValueChange = { accessKeyId = it },
+                    onValueChange = { accessKeyId = it; testError = null },
                     placeholder = "Access Key ID",
                     mono = true,
                 )
                 HefimerTextField(
                     value = secretAccessKey,
-                    onValueChange = { secretAccessKey = it },
+                    onValueChange = { secretAccessKey = it; testError = null },
                     placeholder = "Secret Access Key",
                     isPassword = true,
                     mono = true,
                 )
                 HefimerTextField(
                     value = publicBaseUrl,
-                    onValueChange = { publicBaseUrl = it },
+                    onValueChange = { publicBaseUrl = it; testError = null },
                     placeholder = tr("Public CDN URL (optional)", "Tên miền CDN công khai (tùy chọn)"),
                     mono = true,
                 )
+                if (!testError.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(HefimerColors.Rose400.copy(alpha = 0.14f))
+                            .border(1.dp, HefimerColors.Rose400.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                    ) {
+                        Text(
+                            text = testError.orEmpty(),
+                            color = HefimerColors.Rose400,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp,
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -767,38 +774,63 @@ private fun CustomS3EditorDialog(
                             .weight(1f)
                             .height(44.dp)
                             .appleGlassSurface(shape = CircleShape, variant = AppleGlassVariant.Clear, elevation = 0.dp)
-                            .applePressable(pressedScale = 0.96f, onClick = onDismiss),
+                            .applePressable(enabled = !isTesting, pressedScale = 0.96f, onClick = onDismiss),
                     ) {
                         Text(tr("Cancel", "Hủy"), color = HefimerColors.White60, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(1.25f)
                             .height(44.dp)
                             .clip(CircleShape)
                             .background(if (canSave) HefimerColors.White else HefimerColors.White20)
                             .applePressable(enabled = canSave, pressedScale = 0.96f) {
-                                onSave(
-                                    CustomS3Provider(
-                                        id = initial?.id.orEmpty(),
-                                        name = name.ifBlank { bucket },
-                                        endpoint = endpoint,
-                                        region = region.ifBlank { "auto" },
-                                        bucket = bucket,
-                                        accessKeyId = accessKeyId,
-                                        secretAccessKey = secretAccessKey,
-                                        publicBaseUrl = publicBaseUrl,
-                                    ),
+                                val draft = CustomS3Provider(
+                                    id = initial?.id.orEmpty(),
+                                    name = name.ifBlank { bucket },
+                                    endpoint = endpoint,
+                                    region = region.ifBlank { "auto" },
+                                    bucket = bucket,
+                                    accessKeyId = accessKeyId,
+                                    secretAccessKey = secretAccessKey,
+                                    publicBaseUrl = publicBaseUrl,
                                 )
+                                isTesting = true
+                                testError = null
+                                scope.launch {
+                                    val result = onTestConnection(draft)
+                                    isTesting = false
+                                    result.onSuccess { verified ->
+                                        onSave(verified)
+                                    }.onFailure { err ->
+                                        testError = err.message ?: tr("Connection test failed", "Kiểm tra kết nối thất bại")
+                                    }
+                                }
                             },
                     ) {
-                        Text(
-                            text = tr("Save", "Lưu"),
-                            color = if (canSave) HefimerColors.Black else HefimerColors.White45,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            if (isTesting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = HefimerColors.White70,
+                                )
+                            }
+                            Text(
+                                text = if (isTesting) {
+                                    tr("Testing...", "Đang kiểm tra...")
+                                } else {
+                                    tr("Test & Save", "Kiểm tra & Lưu")
+                                },
+                                color = if (canSave) HefimerColors.Black else HefimerColors.White45,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
             }

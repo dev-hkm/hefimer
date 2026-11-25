@@ -28,6 +28,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -745,6 +746,7 @@ fun AppleSwipeableSheet(
             modifier = modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .imePadding()
                 .graphicsLayer {
                     val peel = backPeel.value
                     val elasticStretch = if (offsetY.value < 0f && !reduceMotion) {

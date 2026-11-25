@@ -443,16 +443,13 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    suspend fun testCustomS3Connection(provider: CustomS3Provider): Result<CustomS3Provider> =
+        uploader.testCustomS3Connection(provider)
+
     fun saveCustomS3Provider(provider: CustomS3Provider) {
-        val clean = provider.copy(
-            id = provider.id.ifBlank { "custom_s3_${UUID.randomUUID().toString().take(8)}" },
-            name = provider.name.trim().ifBlank { provider.bucket.trim() },
-            endpoint = provider.endpoint.trim(),
-            region = provider.region.trim().ifBlank { "auto" },
-            bucket = provider.bucket.trim(),
-            accessKeyId = provider.accessKeyId.trim(),
-            secretAccessKey = provider.secretAccessKey.trim(),
-            publicBaseUrl = provider.publicBaseUrl.trim(),
+        val normalized = com.hefimer.app.data.network.S3SigV4Signer.normalizeProvider(provider)
+        val clean = normalized.copy(
+            id = normalized.id.ifBlank { "custom_s3_${UUID.randomUUID().toString().take(8)}" },
         )
         val updated = _customS3Providers.value.filterNot { it.id == clean.id } + clean
         storage.saveCustomS3Providers(updated)

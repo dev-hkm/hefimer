@@ -301,6 +301,7 @@ private fun HefimerRootScreen(
                             onSetAppLanguage = { vm.setAppLanguage(it) },
                             onSetDefaultStartTab = { vm.setDefaultStartTab(it) },
                             onSetStorageToApiToken = { vm.setStorageToApiToken(it) },
+                            onTestCustomS3 = { vm.testCustomS3Connection(it) },
                             onSaveCustomS3 = { vm.saveCustomS3Provider(it) },
                             onDeleteCustomS3 = { item ->
                                 vm.requestConfirm(

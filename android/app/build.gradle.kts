@@ -7,14 +7,14 @@ plugins {
 
 android {
     namespace = "com.hefimer.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hefimer.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 20
-        versionName = "2.6.1"
+        targetSdk = 36
+        versionCode = 21
+        versionName = "2.6.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
