@@ -165,7 +165,10 @@ private val BOARD_COLORS = listOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun RoomsScreen(vm: HefimerViewModel) {
+fun RoomsScreen(
+    vm: HefimerViewModel,
+    onBack: (() -> Unit)? = null,
+) {
     val state by vm.roomsState.collectAsState()
     val heroBounds = LocalHeroBounds.current
     val reduceMotion = rememberReduceMotion()
@@ -178,7 +181,15 @@ fun RoomsScreen(vm: HefimerViewModel) {
             "Tạo phòng trò chuyện tạm thời hoặc bảng vẽ cộng tác theo thời gian thực.",
         ),
         showOrbitMark = true,
+        bottomDockClearance = if (onBack != null) 36.dp else 116.dp,
         headerActions = {
+            if (onBack != null) {
+                HefimerHeaderIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = tr("Back", "Quay lại"),
+                    onClick = onBack,
+                )
+            }
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.QrCodeScanner,
                 contentDescription = tr("Scan Room QR", "Quét QR phòng"),

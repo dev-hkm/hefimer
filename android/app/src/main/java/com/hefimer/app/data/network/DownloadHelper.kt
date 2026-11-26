@@ -155,11 +155,12 @@ object DownloadHelper {
         url: String,
         fileName: String,
         cancelToken: DownloadCancellationToken = DownloadCancellationToken(),
+        e2eeKey: String? = null,
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit = { _, _, _ -> },
     ): DownloadOutcome = withContext(Dispatchers.IO) {
         val safeName = safeDownloadName(fileName)
         val mode = getDirectDownloadMode(url)
-        if (mode == DirectDownloadMode.TAB) {
+        if (mode == DirectDownloadMode.TAB && e2eeKey.isNullOrBlank()) {
             openExternalUrl(context, url)
             return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
         }
@@ -171,13 +172,13 @@ object DownloadHelper {
             val directResolved = runCatching { resolveStorageToOnDevice(url) }.getOrNull()
             if (!directResolved.isNullOrBlank()) {
                 val res = runCatching {
-                    streamToDownloads(context, directResolved, safeName, cancelToken, onProgress)
+                    streamToDownloads(context, directResolved, safeName, cancelToken, onProgress, e2eeKey = e2eeKey)
                 }.getOrNull()
                 if (res != null) return@withContext res
             }
             val proxyUrl = buildProxyUrl(url, safeName)
             val proxyRes = runCatching {
-                streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress)
+                streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress, e2eeKey = e2eeKey)
             }.getOrNull()
             if (proxyRes != null) return@withContext proxyRes
 
@@ -191,7 +192,7 @@ object DownloadHelper {
             val resolved = runCatching { resolveQuAxOnDevice(url) }.getOrNull()
             if (!resolved.isNullOrBlank()) {
                 val res = runCatching {
-                    streamToDownloads(context, resolved, safeName, cancelToken, onProgress, referer = url)
+                    streamToDownloads(context, resolved, safeName, cancelToken, onProgress, referer = url, e2eeKey = e2eeKey)
                 }.getOrNull()
                 if (res != null) return@withContext res
             }
@@ -205,7 +206,7 @@ object DownloadHelper {
         if (mode == DirectDownloadMode.PROXY) {
             val proxyUrl = buildProxyUrl(url, safeName)
             try {
-                return@withContext streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress)
+                return@withContext streamToDownloads(context, proxyUrl, safeName, cancelToken, onProgress, e2eeKey = e2eeKey)
             } catch (e: Throwable) {
                 if (cancelToken.isCancelled() || e.message == "DOWNLOAD_CANCELED") throw e
                 // Fallback: try direct download from phone's own IP
@@ -224,6 +225,7 @@ object DownloadHelper {
                         cancelToken = cancelToken,
                         onProgress = onProgress,
                         usePost = (host == "temp.sh"),
+                        e2eeKey = e2eeKey,
                     )
                 } catch (directErr: Throwable) {
                     if (cancelToken.isCancelled() || directErr.message == "DOWNLOAD_CANCELED") throw directErr
@@ -235,7 +237,7 @@ object DownloadHelper {
 
         // 4. Direct URLs (x0.at, pomf2.lain.la, files.catbox.moe, d.tmpfile.link, Cloudflare R2 presigned URLs)
         try {
-            streamToDownloads(context, url, safeName, cancelToken, onProgress)
+            streamToDownloads(context, url, safeName, cancelToken, onProgress, e2eeKey = e2eeKey)
         } catch (e: HtmlUpstreamException) {
             if (cancelToken.isCancelled()) throw e
             openExternalUrl(context, url)
@@ -342,6 +344,7 @@ object DownloadHelper {
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit,
         referer: String? = null,
         usePost: Boolean = false,
+        e2eeKey: String? = null,
     ): DownloadOutcome {
         if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
         val reqBuilder = Request.Builder().url(url)
@@ -384,6 +387,11 @@ object DownloadHelper {
                 val ct = resolveMimeType(safeName, rawCt)
                 val totalBytes = body.contentLength()
                 onProgress(0L, totalBytes, 0)
+                val sourceStream = if (!e2eeKey.isNullOrBlank()) {
+                    FileE2eeCrypto.decryptInputStream(body.byteStream(), e2eeKey)
+                } else {
+                    body.byteStream()
+                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val values = ContentValues().apply {
@@ -403,7 +411,7 @@ object DownloadHelper {
                     var written = 0L
                     try {
                         resolver.openOutputStream(uri)?.use { out ->
-                            written = copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
+                            written = copyWithProgress(sourceStream, out, totalBytes, cancelToken, onProgress)
                         } ?: throw IOException(
                             com.hefimer.app.ui.theme.tr(
                                 "Cannot open Downloads output stream",
@@ -430,7 +438,7 @@ object DownloadHelper {
                     var written = 0L
                     try {
                         FileOutputStream(dest).use { out ->
-                            written = copyWithProgress(body.byteStream(), out, totalBytes, cancelToken, onProgress)
+                            written = copyWithProgress(sourceStream, out, totalBytes, cancelToken, onProgress)
                         }
                         val uri = runCatching {
                             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", dest)

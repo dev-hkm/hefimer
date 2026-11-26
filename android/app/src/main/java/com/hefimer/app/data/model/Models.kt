@@ -17,6 +17,8 @@ data class DropFileEntry(
     val size: Long = 0L,
     val mimeType: String = "",
     val contentType: String = "",
+    val e2eeKey: String? = null,
+    val e2eeAlgo: String? = null,
 ) {
     val resolvedUrl: String
         get() = listOf(fileUrl, url, rawUrl, downloadUrl).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
@@ -50,6 +52,8 @@ data class DropItem(
     val password: String? = null,
     val expire: String? = null,
     val expiresAt: Long = 0L,
+    val e2eeKey: String? = null,
+    val e2eeAlgo: String? = null,
     val files: List<DropFileEntry>? = null,
 ) {
     val resolvedUrl: String
@@ -371,4 +375,39 @@ fun parseExpireDurationMs(expire: String): Long {
         "w" -> amount * 7L * 86_400_000L
         else -> 3_600_000L
     }
+}
+
+enum class ThemeMode(val id: String) {
+    SYSTEM("system"),
+    DARK("dark"),
+    LIGHT("light"),
+    ;
+
+    companion object {
+        fun fromId(id: String?): ThemeMode =
+            entries.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: SYSTEM
+    }
+}
+
+@Serializable
+data class PollOption(
+    val id: String = "",
+    val label: String = "",
+    val imageUrl: String = "",
+    val votes: Int = 0,
+)
+
+@Serializable
+data class PollItem(
+    val code: String = "",
+    val question: String = "",
+    val coverImageUrl: String = "",
+    val options: List<PollOption> = emptyList(),
+    val allowMultiple: Boolean = false,
+    val password: String? = null,
+    val expire: String = "24h",
+    val createdAt: Long = 0L,
+    val expiresAt: Long = 0L,
+) {
+    val totalVotes: Int get() = options.sumOf { it.votes.coerceAtLeast(0) }
 }

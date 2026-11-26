@@ -105,6 +105,20 @@ class HefimerStorage(context: Context) {
         prefs.edit().putString("hefimer_default_provider", id).apply()
     }
 
+    fun getThemeMode(): String {
+        val saved = prefs.getString("hefimer_theme_mode", null)
+        if (!saved.isNullOrBlank()) return saved
+        return if (prefs.contains("hefimer_light_mode")) {
+            if (prefs.getBoolean("hefimer_light_mode", false)) "light" else "dark"
+        } else {
+            "system"
+        }
+    }
+
+    fun setThemeMode(mode: String) {
+        prefs.edit().putString("hefimer_theme_mode", mode).apply()
+    }
+
     fun isLightMode(): Boolean = prefs.getBoolean("hefimer_light_mode", false)
     fun setLightMode(enabled: Boolean) {
         prefs.edit().putBoolean("hefimer_light_mode", enabled).apply()

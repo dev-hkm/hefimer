@@ -315,4 +315,12 @@ class HefimerCoreTests {
         val jsonSample = "{\"ok\": true, \"count\": 3}"
         assertEquals("json", CodeHighlighter.detectLanguage(jsonSample).id)
     }
+
+    @Test
+    fun themeModeParsesAutoDarkLightSafely() {
+        assertEquals(com.hefimer.app.data.model.ThemeMode.SYSTEM, com.hefimer.app.data.model.ThemeMode.fromId("system"))
+        assertEquals(com.hefimer.app.data.model.ThemeMode.DARK, com.hefimer.app.data.model.ThemeMode.fromId("dark"))
+        assertEquals(com.hefimer.app.data.model.ThemeMode.LIGHT, com.hefimer.app.data.model.ThemeMode.fromId("light"))
+        assertEquals(com.hefimer.app.data.model.ThemeMode.SYSTEM, com.hefimer.app.data.model.ThemeMode.fromId("unknown"))
+    }
 }

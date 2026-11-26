@@ -34,10 +34,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import com.adamglin.PhosphorIcons
 import com.adamglin.phosphoricons.Regular
-import com.adamglin.phosphoricons.regular.ChatsCircle
+import com.adamglin.phosphoricons.regular.Compass
 import com.adamglin.phosphoricons.regular.Devices
 import com.adamglin.phosphoricons.regular.DownloadSimple
-import com.adamglin.phosphoricons.regular.GridFour
 import com.adamglin.phosphoricons.regular.UploadSimple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -85,9 +84,8 @@ import com.hefimer.app.ui.theme.tr
 enum class MainTab(val label: String, val labelVi: String, val icon: ImageVector) {
     SEND("Send", "Gửi", PhosphorIcons.Regular.UploadSimple),
     RECEIVE("Receive", "Nhận", PhosphorIcons.Regular.DownloadSimple),
-    SPACE("Space", "Space", PhosphorIcons.Regular.GridFour),
-    ROOMS("Rooms", "Phòng", PhosphorIcons.Regular.ChatsCircle),
     LINK("Link", "Link", PhosphorIcons.Regular.Devices),
+    EXPLORE("Explore", "Khám phá", PhosphorIcons.Regular.Compass),
     ;
 
     fun localizedLabel(): String = tr(label, labelVi)

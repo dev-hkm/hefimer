@@ -866,6 +866,15 @@ private fun SendFileSection(
                     }
 
                     HefimerToggleRow(
+                        title = tr("Encrypt File (E2EE)", "Mã hóa tệp (E2EE)"),
+                        subtitle = tr("AES-256-GCM on-device before upload", "Mã hóa AES-256-GCM trên máy trước khi tải lên"),
+                        checked = state.fileE2ee,
+                        onToggle = { vm.toggleFileE2ee() },
+                        icon = Icons.Rounded.Lock,
+                        activeColor = HefimerColors.White,
+                    )
+
+                    HefimerToggleRow(
                         title = tr("Self-Destruct", "Tự hủy sau 1 lần xem"),
                         subtitle = tr("Delete after one successful read", "Xóa ngay sau khi người nhận mở 1 lần"),
                         checked = state.fileOneTime,

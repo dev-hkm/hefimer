@@ -137,19 +137,27 @@ fun HistoryOverlayScreen(
                                 "space" -> {
                                     vm.setSpaceJoinCode(item.code)
                                     vm.setSpaceLobbyMode("join")
-                                    vm.selectTab(MainTab.SPACE)
+                                    vm.selectTab(MainTab.EXPLORE)
+                                    vm.openOverlay(com.hefimer.app.ui.AppOverlay.SpaceHub)
                                 }
                                 "room" -> {
                                     vm.setRoomsSection("chat")
                                     vm.setChatLobbyMode("join")
                                     vm.setChatJoinCode(item.code)
-                                    vm.selectTab(MainTab.ROOMS)
+                                    vm.selectTab(MainTab.EXPLORE)
+                                    vm.openOverlay(com.hefimer.app.ui.AppOverlay.RoomsHub)
                                 }
                                 "board" -> {
                                     vm.setRoomsSection("board")
                                     vm.setBoardLobbyMode("join")
                                     vm.setBoardJoinCode(item.code)
-                                    vm.selectTab(MainTab.ROOMS)
+                                    vm.selectTab(MainTab.EXPLORE)
+                                    vm.openOverlay(com.hefimer.app.ui.AppOverlay.RoomsHub)
+                                }
+                                "poll" -> {
+                                    vm.selectTab(MainTab.EXPLORE)
+                                    vm.setPollJoinCode(item.code)
+                                    vm.joinPoll(codeOverride = item.code)
                                 }
                                 else -> {
                                     vm.selectTab(MainTab.RECEIVE)

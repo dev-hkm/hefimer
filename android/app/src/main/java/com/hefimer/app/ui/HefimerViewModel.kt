@@ -63,6 +63,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -81,6 +82,8 @@ import kotlin.random.Random
 sealed interface AppOverlay {
     data object History : AppOverlay
     data object Settings : AppOverlay
+    data object SpaceHub : AppOverlay
+    data object RoomsHub : AppOverlay
     data class QrScanner(val target: ScanTarget = ScanTarget.AUTO) : AppOverlay
     data class SpaceCanvas(val spaceId: String, val spaceName: String) : AppOverlay
     data class ChatRoom(val roomId: String, val roomName: String) : AppOverlay
@@ -115,6 +118,7 @@ data class SendUiState(
     val fileExpire: String = "72h",
     val filePassword: String = "",
     val fileOneTime: Boolean = false,
+    val fileE2ee: Boolean = false,
     val r2CustomName: String = "",
     val r2Description: String = "",
     val fileUploading: Boolean = false,
@@ -282,6 +286,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     private val _noticeDismissed = MutableStateFlow(false)
     val noticeDismissed: StateFlow<Boolean> = _noticeDismissed.asStateFlow()
 
+    private val _themeMode = MutableStateFlow(com.hefimer.app.data.model.ThemeMode.fromId(storage.getThemeMode()))
+    val themeMode: StateFlow<com.hefimer.app.data.model.ThemeMode> = _themeMode.asStateFlow()
+
     private val _isLightMode = MutableStateFlow(storage.isLightMode())
     val isLightMode: StateFlow<Boolean> = _isLightMode.asStateFlow()
 
@@ -427,9 +434,18 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         checkChatCodeAvailability(_roomsState.value.chatCreateCode)
     }
 
+    fun setThemeMode(mode: com.hefimer.app.data.model.ThemeMode) {
+        storage.setThemeMode(mode.id)
+        _themeMode.value = mode
+        if (mode != com.hefimer.app.data.model.ThemeMode.SYSTEM) {
+            val light = (mode == com.hefimer.app.data.model.ThemeMode.LIGHT)
+            storage.setLightMode(light)
+            _isLightMode.value = light
+        }
+    }
+
     fun setLightMode(enabled: Boolean) {
-        storage.setLightMode(enabled)
-        _isLightMode.value = enabled
+        setThemeMode(if (enabled) com.hefimer.app.data.model.ThemeMode.LIGHT else com.hefimer.app.data.model.ThemeMode.DARK)
     }
 
     fun setDefaultUploadProvider(providerId: String) {
@@ -773,32 +789,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     return true
                 }
             }
-            MainTab.SPACE -> {
-                val sp = _spaceState.value
-                if (sp.createdCode.isNotBlank()) {
-                    clearSpaceCreatedCard()
-                    return true
-                }
-                if (sp.lobbyMode == "create") {
-                    setSpaceLobbyMode("join")
-                    return true
-                }
-            }
-            MainTab.ROOMS -> {
-                val rm = _roomsState.value
-                if (rm.section == "chat" && rm.chatCreatedCode.isNotBlank()) {
-                    clearChatCreatedCard()
-                    return true
-                }
-                if (rm.section == "board" && rm.boardCreatedCode.isNotBlank()) {
-                    clearBoardCreatedCard()
-                    return true
-                }
-                if (rm.section == "board") {
-                    setRoomsSection("chat")
-                    return true
-                }
-            }
+            MainTab.EXPLORE -> Unit
             MainTab.LINK -> {
                 if (_linkState.value.section == "activity") {
                     setLinkSection("devices")
@@ -1068,17 +1059,20 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             when {
                 path.contains("/space") -> {
                     _spaceState.update { it.copy(joinCode = codeParam, lobbyMode = "join") }
-                    _selectedTab.value = MainTab.SPACE
+                    _selectedTab.value = MainTab.EXPLORE
+                    openOverlay(AppOverlay.SpaceHub)
                     showToast(tr("Space $codeParam ready to join", "Space $codeParam sẵn sàng tham gia"), ToastType.INFO)
                 }
                 path.contains("/chat-room") -> {
                     _roomsState.update { it.copy(section = "chat", chatLobbyMode = "join", chatJoinCode = codeParam) }
-                    _selectedTab.value = MainTab.ROOMS
+                    _selectedTab.value = MainTab.EXPLORE
+                    openOverlay(AppOverlay.RoomsHub)
                     showToast(tr("Chat room $codeParam ready to join", "Phòng chat $codeParam sẵn sàng tham gia"), ToastType.INFO)
                 }
                 path.contains("/board") -> {
                     _roomsState.update { it.copy(section = "board", boardLobbyMode = "join", boardJoinCode = codeParam) }
-                    _selectedTab.value = MainTab.ROOMS
+                    _selectedTab.value = MainTab.EXPLORE
+                    openOverlay(AppOverlay.RoomsHub)
                     showToast(tr("Board $codeParam ready to join", "Bảng $codeParam sẵn sàng tham gia"), ToastType.INFO)
                 }
                 else -> {
@@ -1415,6 +1409,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun setFileExpire(expire: String) = _sendState.update { it.copy(fileExpire = expire) }
     fun setFilePassword(pw: String) = _sendState.update { it.copy(filePassword = pw) }
     fun toggleFileOneTime() = _sendState.update { it.copy(fileOneTime = !it.fileOneTime) }
+    fun toggleFileE2ee() = _sendState.update { it.copy(fileE2ee = !it.fileE2ee) }
     fun setR2CustomName(v: String) = _sendState.update { it.copy(r2CustomName = v) }
     fun setR2Description(v: String) = _sendState.update { it.copy(r2Description = v) }
 
@@ -1516,57 +1511,76 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 var actualProviderName = effectiveCfg.name
                 val uploadedEntries = mutableListOf<JsonObject>()
                 val fileBytes = LongArray(st.pickedFiles.size)
+                val e2eeKey = if (st.fileE2ee) com.hefimer.app.data.network.FileE2eeCrypto.generateKeyBase64() else null
 
                 st.pickedFiles.forEachIndexed { idx, picked ->
-                    val res = uploader.uploadWithFallback(
-                        primaryProviderId = effectiveProviderId,
-                        picked = picked,
-                        expire = effectiveExpire,
-                        cancelToken = token,
-                        onProgress = { pct ->
-                            if (picked.size <= 0L) {
-                                val approx = (pct / 100f / st.pickedFiles.size + idx.toFloat() / st.pickedFiles.size).coerceIn(0f, 1f)
+                    val uploadTarget = if (e2eeKey != null) {
+                        _sendState.update {
+                            it.copy(fileStatus = tr("Encrypting ${picked.name} (E2EE)...", "Đang mã hóa ${picked.name} (E2EE)..."))
+                        }
+                        com.hefimer.app.data.network.FileE2eeCrypto.encryptToTempFile(getApplication(), picked, e2eeKey)
+                    } else {
+                        picked
+                    }
+                    try {
+                        val res = uploader.uploadWithFallback(
+                            primaryProviderId = effectiveProviderId,
+                            picked = uploadTarget,
+                            expire = effectiveExpire,
+                            cancelToken = token,
+                            onProgress = { pct ->
+                                if (uploadTarget.size <= 0L) {
+                                    val approx = (pct / 100f / st.pickedFiles.size + idx.toFloat() / st.pickedFiles.size).coerceIn(0f, 1f)
+                                    _sendState.update {
+                                        it.copy(
+                                            fileProgress = (approx * 100f).toInt().coerceIn(0, 100),
+                                            fileProgressFraction = approx,
+                                        )
+                                    }
+                                }
+                            },
+                            onBytesProgress = { loaded, _ ->
+                                fileBytes[idx] = loaded.coerceIn(0L, uploadTarget.size.coerceAtLeast(loaded))
+                                val cumLoaded = fileBytes.sum().coerceIn(0L, safeTotal)
+                                val frac = (cumLoaded.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                val pct = (frac * 100f).toInt().coerceIn(0, 100)
                                 _sendState.update {
                                     it.copy(
-                                        fileProgress = (approx * 100f).toInt().coerceIn(0, 100),
-                                        fileProgressFraction = approx,
+                                        fileProgress = pct,
+                                        fileProgressFraction = frac,
+                                        fileUploadedBytes = cumLoaded,
+                                        fileTotalBytes = totalSize,
                                     )
                                 }
-                            }
-                        },
-                        onBytesProgress = { loaded, _ ->
-                            fileBytes[idx] = loaded.coerceIn(0L, picked.size.coerceAtLeast(loaded))
-                            val cumLoaded = fileBytes.sum().coerceIn(0L, safeTotal)
-                            val frac = (cumLoaded.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
-                            val pct = (frac * 100f).toInt().coerceIn(0, 100)
-                            _sendState.update {
-                                it.copy(
-                                    fileProgress = pct,
-                                    fileProgressFraction = frac,
-                                    fileUploadedBytes = cumLoaded,
-                                    fileTotalBytes = totalSize,
-                                )
-                            }
-                        },
-                        onStatus = { msg ->
-                            val prefix = if (isMulti) "[${idx + 1}/${st.pickedFiles.size}] " else ""
-                            _sendState.update { it.copy(fileStatus = "$prefix$msg") }
-                        },
-                        onFallback = { from, to ->
-                            fileBytes[idx] = 0L
-                            showToast(tr("$from unavailable, switching to $to...", "$from đang bận, chuyển sang $to..."), ToastType.INFO)
-                        },
-                    )
-                    fileBytes[idx] = picked.size
-                    actualProviderName = res.providerName
-                    uploadedEntries.add(
-                        buildJsonObject {
-                            put("fileUrl", JsonPrimitive(res.fileUrl))
-                            put("fileName", JsonPrimitive(picked.name))
-                            put("fileSize", JsonPrimitive(picked.size))
-                            put("mimeType", JsonPrimitive(picked.mimeType))
-                        },
-                    )
+                            },
+                            onStatus = { msg ->
+                                val prefix = if (isMulti) "[${idx + 1}/${st.pickedFiles.size}] " else ""
+                                _sendState.update { it.copy(fileStatus = "$prefix$msg") }
+                            },
+                            onFallback = { from, to ->
+                                fileBytes[idx] = 0L
+                                showToast(tr("$from unavailable, switching to $to...", "$from đang bận, chuyển sang $to..."), ToastType.INFO)
+                            },
+                        )
+                        fileBytes[idx] = picked.size
+                        actualProviderName = res.providerName
+                        uploadedEntries.add(
+                            buildJsonObject {
+                                put("fileUrl", JsonPrimitive(res.fileUrl))
+                                put("fileName", JsonPrimitive(picked.name))
+                                put("fileSize", JsonPrimitive(picked.size))
+                                put("mimeType", JsonPrimitive(picked.mimeType))
+                                if (e2eeKey != null) {
+                                    put("e2eeKey", JsonPrimitive(e2eeKey))
+                                    put("e2eeAlgo", JsonPrimitive(com.hefimer.app.data.network.FileE2eeCrypto.ALGO_LABEL))
+                                }
+                            },
+                        )
+                    } finally {
+                        if (e2eeKey != null) {
+                            runCatching { uploadTarget.tempFile?.delete() }
+                        }
+                    }
                 }
 
                 _sendState.update {
@@ -1606,6 +1620,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     if (isMulti) put("files", JsonArray(uploadedEntries))
                     if (st.filePassword.isNotBlank()) put("password", JsonPrimitive(st.filePassword.trim()))
                     if (st.fileOneTime) put("isOneTime", JsonPrimitive(true))
+                    if (e2eeKey != null) {
+                        put("e2eeKey", JsonPrimitive(e2eeKey))
+                        put("e2eeAlgo", JsonPrimitive(com.hefimer.app.data.network.FileE2eeCrypto.ALGO_LABEL))
+                    }
                 }
 
                 rtdb.set("drops/$code", dropJson)
@@ -1689,32 +1707,47 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 val fileBytes = LongArray(st.pickedFiles.size)
                 var singleKey = ""
                 val singleName = st.r2CustomName.trim().ifBlank { st.pickedFiles.first().name }
+                val e2eeKey = if (st.fileE2ee) com.hefimer.app.data.network.FileE2eeCrypto.generateKeyBase64() else null
 
                 st.pickedFiles.forEachIndexed { idx, picked ->
                     val targetName = if (!isMulti) singleName else picked.name
                     val prefix = if (isMulti) "[${idx + 1}/${st.pickedFiles.size}] " else ""
+                    val uploadTarget = if (e2eeKey != null) {
+                        _sendState.update {
+                            it.copy(fileStatus = "${prefix}${tr("Encrypting ${picked.name} (E2EE)...", "Đang mã hóa ${picked.name} (E2EE)...")}")
+                        }
+                        com.hefimer.app.data.network.FileE2eeCrypto.encryptToTempFile(getApplication(), picked, e2eeKey)
+                    } else {
+                        picked
+                    }
                     _sendState.update {
                         it.copy(fileStatus = "${prefix}${tr("Streaming to Secret R2", "Đang tải lên Secret R2")}: $targetName")
                     }
-                    val key = r2Service.uploadToR2(
-                        picked = picked,
-                        customName = targetName,
-                        cancelToken = token,
-                        onProgress = { loaded, _, _ ->
-                            fileBytes[idx] = loaded.coerceIn(0L, picked.size.coerceAtLeast(loaded))
-                            val cumLoaded = fileBytes.sum().coerceIn(0L, safeTotal)
-                            val frac = (cumLoaded.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
-                            val pct = (frac * 100f).toInt().coerceIn(0, 100)
-                            _sendState.update {
-                                it.copy(
-                                    fileProgress = pct,
-                                    fileProgressFraction = frac,
-                                    fileUploadedBytes = cumLoaded,
-                                    fileTotalBytes = totalSize,
-                                )
-                            }
-                        },
-                    )
+                    val key = try {
+                        r2Service.uploadToR2(
+                            picked = uploadTarget,
+                            customName = targetName,
+                            cancelToken = token,
+                            onProgress = { loaded, _, _ ->
+                                fileBytes[idx] = loaded.coerceIn(0L, uploadTarget.size.coerceAtLeast(loaded))
+                                val cumLoaded = fileBytes.sum().coerceIn(0L, safeTotal)
+                                val frac = (cumLoaded.toFloat() / safeTotal.toFloat()).coerceIn(0f, 1f)
+                                val pct = (frac * 100f).toInt().coerceIn(0, 100)
+                                _sendState.update {
+                                    it.copy(
+                                        fileProgress = pct,
+                                        fileProgressFraction = frac,
+                                        fileUploadedBytes = cumLoaded,
+                                        fileTotalBytes = totalSize,
+                                    )
+                                }
+                            },
+                        )
+                    } finally {
+                        if (e2eeKey != null) {
+                            runCatching { uploadTarget.tempFile?.delete() }
+                        }
+                    }
                     fileBytes[idx] = picked.size
                     if (!isMulti) singleKey = key
                     entries.add(
@@ -1752,6 +1785,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     if (isMulti) put("files", JsonArray(entries)) else put("objectKey", JsonPrimitive(singleKey))
                     if (st.filePassword.isNotBlank()) put("password", JsonPrimitive(st.filePassword.trim()))
                     if (st.fileOneTime) put("isOneTime", JsonPrimitive(true))
+                    if (e2eeKey != null) {
+                        put("e2eeKey", JsonPrimitive(e2eeKey))
+                        put("e2eeAlgo", JsonPrimitive(com.hefimer.app.data.network.FileE2eeCrypto.ALGO_LABEL))
+                    }
                 }
 
                 rtdb.set("drops/$code", dropJson)
@@ -2075,11 +2112,14 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     showToast(tr("Invalid or missing file link", "Liên kết tệp không hợp lệ hoặc bị thiếu"), ToastType.ERROR)
                     return
                 }
+                val activeDropE2eeKey = entry.e2eeKey?.takeIf { it.isNotBlank() }
+                    ?: _receiveState.value.result?.e2eeKey?.takeIf { it.isNotBlank() }
                 DownloadHelper.downloadFile(
                     context = getApplication(),
                     url = url,
                     fileName = entry.resolvedName,
                     cancelToken = token,
+                    e2eeKey = activeDropE2eeKey,
                     onProgress = { loaded, total, pct ->
                         val effectiveTotal = if (total > 0L) total else knownSize
                         val effectivePct = if (effectiveTotal > 0L) {
@@ -3395,7 +3435,298 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     }
     // endregion
 
+    // region Live Polls (Explore Hub — max 48h, 5-digit code, optional password & images)
+    data class PollDraftOption(
+        val id: String = UUID.randomUUID().toString().take(8),
+        val label: String = "",
+        val imageUrl: String = "",
+        val uploadingImage: Boolean = false,
+    )
+
+    data class PollUiState(
+        val lobbyMode: String = "join", // "join" | "create"
+        val joinCode: String = "",
+        val joinPassword: String = "",
+        val needsPassword: Boolean = false,
+        val activePoll: com.hefimer.app.data.model.PollItem? = null,
+        val votedOptionIds: Set<String> = emptySet(),
+        val loading: Boolean = false,
+        val question: String = "",
+        val coverImageUrl: String = "",
+        val uploadingCover: Boolean = false,
+        val allowMultiple: Boolean = false,
+        val expire: String = "24h",
+        val createPassword: String = "",
+        val draftOptions: List<PollDraftOption> = listOf(PollDraftOption(), PollDraftOption()),
+    )
+
+    private val _pollState = MutableStateFlow(PollUiState())
+    val pollState: StateFlow<PollUiState> = _pollState.asStateFlow()
+    private var pollObserverJob: kotlinx.coroutines.Job? = null
+
+    fun setPollLobbyMode(mode: String) = _pollState.update { it.copy(lobbyMode = mode, needsPassword = false) }
+    fun setPollJoinCode(code: String) = _pollState.update { it.copy(joinCode = code.filter { c -> c.isDigit() }.take(5), needsPassword = false) }
+    fun setPollJoinPassword(pw: String) = _pollState.update { it.copy(joinPassword = pw) }
+    fun setPollQuestion(q: String) = _pollState.update { it.copy(question = q) }
+    fun setPollAllowMultiple(allow: Boolean) = _pollState.update { it.copy(allowMultiple = allow) }
+    fun setPollExpire(exp: String) = _pollState.update { it.copy(expire = exp) }
+    fun setPollCreatePassword(pw: String) = _pollState.update { it.copy(createPassword = pw) }
+    fun clearPollCoverImage() = _pollState.update { it.copy(coverImageUrl = "") }
+
+    fun addPollDraftOption() {
+        _pollState.update { st ->
+            if (st.draftOptions.size >= 6) st
+            else st.copy(draftOptions = st.draftOptions + PollDraftOption())
+        }
+    }
+
+    fun removePollDraftOption(id: String) {
+        _pollState.update { st ->
+            if (st.draftOptions.size <= 2) st
+            else st.copy(draftOptions = st.draftOptions.filterNot { it.id == id })
+        }
+    }
+
+    fun updatePollDraftOptionLabel(id: String, label: String) {
+        _pollState.update { st ->
+            st.copy(draftOptions = st.draftOptions.map { if (it.id == id) it.copy(label = label) else it })
+        }
+    }
+
+    fun clearPollDraftOptionImage(id: String) {
+        _pollState.update { st ->
+            st.copy(draftOptions = st.draftOptions.map { if (it.id == id) it.copy(imageUrl = "") else it })
+        }
+    }
+
+    fun uploadPollImage(uri: android.net.Uri, targetOptionId: String?) {
+        viewModelScope.launch {
+            if (targetOptionId == null) {
+                _pollState.update { it.copy(uploadingCover = true) }
+            } else {
+                _pollState.update { st ->
+                    st.copy(draftOptions = st.draftOptions.map { if (it.id == targetOptionId) it.copy(uploadingImage = true) else it })
+                }
+            }
+            try {
+                val picked = uploader.resolvePickedFile(uri)
+                val res = uploader.uploadWithFallback(
+                    primaryProviderId = _defaultProviderId.value,
+                    picked = picked,
+                    expire = "48h",
+                    cancelToken = UploadCancellationToken(),
+                    onProgress = {},
+                    onStatus = {},
+                    onFallback = { _, _ -> },
+                )
+                if (targetOptionId == null) {
+                    _pollState.update { it.copy(coverImageUrl = res.fileUrl, uploadingCover = false) }
+                } else {
+                    _pollState.update { st ->
+                        st.copy(
+                            draftOptions = st.draftOptions.map {
+                                if (it.id == targetOptionId) it.copy(imageUrl = res.fileUrl, uploadingImage = false) else it
+                            },
+                        )
+                    }
+                }
+                showToast(tr("Image attached", "Đã đính kèm ảnh"), ToastType.SUCCESS)
+            } catch (e: Throwable) {
+                if (targetOptionId == null) {
+                    _pollState.update { it.copy(uploadingCover = false) }
+                } else {
+                    _pollState.update { st ->
+                        st.copy(draftOptions = st.draftOptions.map { if (it.id == targetOptionId) it.copy(uploadingImage = false) else it })
+                    }
+                }
+                showToast(e.message ?: tr("Image upload failed", "Tải ảnh thất bại"), ToastType.ERROR)
+            }
+        }
+    }
+
+    fun createPoll() {
+        val st = _pollState.value
+        val question = st.question.trim()
+        val validOptions = st.draftOptions.filter { it.label.isNotBlank() || it.imageUrl.isNotBlank() }
+        if (question.isBlank()) {
+            showToast(tr("Enter a poll question", "Vui lòng nhập câu hỏi bình chọn"), ToastType.ERROR)
+            return
+        }
+        if (validOptions.size < 2) {
+            showToast(tr("Add at least 2 options", "Cần ít nhất 2 lựa chọn"), ToastType.ERROR)
+            return
+        }
+        _pollState.update { it.copy(loading = true) }
+        viewModelScope.launch {
+            try {
+                val code = (1..10).firstNotNullOfOrNull {
+                    val candidate = Random.nextInt(10_000, 100_000).toString()
+                    val existing = runCatching { rtdb.get("polls/$candidate") }.getOrNull()
+                    if (existing == null || existing is JsonNull) candidate else null
+                } ?: Random.nextInt(10_000, 100_000).toString()
+
+                val durationMs = parseExpireDurationMs(st.expire).coerceAtMost(48L * 3_600_000L)
+                val now = System.currentTimeMillis()
+                val expiresAt = now + durationMs
+
+                val optsJson = buildJsonObject {
+                    validOptions.forEachIndexed { idx, opt ->
+                        put(
+                            opt.id,
+                            buildJsonObject {
+                                put("id", JsonPrimitive(opt.id))
+                                put("label", JsonPrimitive(opt.label.trim().ifBlank { "Option ${idx + 1}" }))
+                                if (opt.imageUrl.isNotBlank()) put("imageUrl", JsonPrimitive(opt.imageUrl))
+                                put("votes", JsonPrimitive(0))
+                            },
+                        )
+                    }
+                }
+
+                val payload = buildJsonObject {
+                    put("code", JsonPrimitive(code))
+                    put("question", JsonPrimitive(question))
+                    if (st.coverImageUrl.isNotBlank()) put("coverImageUrl", JsonPrimitive(st.coverImageUrl))
+                    put("allowMultiple", JsonPrimitive(st.allowMultiple))
+                    if (st.createPassword.isNotBlank()) put("password", JsonPrimitive(st.createPassword.trim()))
+                    put("expire", JsonPrimitive(st.expire))
+                    put("createdAt", JsonPrimitive(now))
+                    put("expiresAt", JsonPrimitive(expiresAt))
+                    put("options", optsJson)
+                }
+
+                rtdb.set("polls/$code", payload)
+                recordHistory(
+                    HistoryItem(
+                        code = code,
+                        type = "poll",
+                        action = "created",
+                        fileName = question,
+                    ),
+                )
+                _pollState.update {
+                    it.copy(
+                        loading = false,
+                        question = "",
+                        coverImageUrl = "",
+                        createPassword = "",
+                        draftOptions = listOf(PollDraftOption(), PollDraftOption()),
+                        votedOptionIds = emptySet(),
+                    )
+                }
+                startObservingPoll(code)
+                showToast(tr("Poll #$code created", "Đã tạo bình chọn #$code"), ToastType.SUCCESS)
+            } catch (e: Throwable) {
+                _pollState.update { it.copy(loading = false) }
+                showToast(e.message ?: tr("Failed to create poll", "Tạo bình chọn thất bại"), ToastType.ERROR)
+            }
+        }
+    }
+
+    fun joinPoll(codeOverride: String? = null, passwordOverride: String? = null) {
+        val code = (codeOverride ?: _pollState.value.joinCode).filter { it.isDigit() }.take(5)
+        val pwInput = (passwordOverride ?: _pollState.value.joinPassword).trim()
+        if (code.length != 5) {
+            showToast(tr("Enter a 5-digit poll code", "Nhập mã bình chọn 5 chữ số"), ToastType.ERROR)
+            return
+        }
+        _pollState.update { it.copy(loading = true) }
+        viewModelScope.launch {
+            try {
+                val raw = rtdb.get("polls/$code")
+                if (raw == null || raw is JsonNull) {
+                    _pollState.update { it.copy(loading = false) }
+                    showToast(tr("Poll #$code not found or expired", "Không tìm thấy bình chọn #$code"), ToastType.ERROR)
+                    return@launch
+                }
+                val parsed = parsePollJson(code, raw.jsonObject)
+                if (parsed.expiresAt in 1 until System.currentTimeMillis()) {
+                    runCatching { rtdb.remove("polls/$code") }
+                    _pollState.update { it.copy(loading = false) }
+                    showToast(tr("This poll has expired", "Bình chọn này đã hết hạn"), ToastType.ERROR)
+                    return@launch
+                }
+                if (!parsed.password.isNullOrBlank() && parsed.password != pwInput) {
+                    _pollState.update { it.copy(loading = false, needsPassword = true) }
+                    if (pwInput.isNotBlank()) {
+                        showToast(tr("Incorrect poll password", "Sai mật khẩu bình chọn"), ToastType.ERROR)
+                    }
+                    return@launch
+                }
+                recordHistory(HistoryItem(code = code, type = "poll", action = "joined", fileName = parsed.question))
+                _pollState.update { it.copy(loading = false, needsPassword = false, joinPassword = "") }
+                startObservingPoll(code)
+            } catch (e: Throwable) {
+                _pollState.update { it.copy(loading = false) }
+                showToast(e.message ?: tr("Could not open poll", "Không thể mở bình chọn"), ToastType.ERROR)
+            }
+        }
+    }
+
+    fun votePoll(optionId: String) {
+        val st = _pollState.value
+        val poll = st.activePoll ?: return
+        if (!poll.allowMultiple && st.votedOptionIds.isNotEmpty()) {
+            showToast(tr("You already voted on this poll", "Bạn đã bình chọn rồi"), ToastType.INFO)
+            return
+        }
+        if (optionId in st.votedOptionIds) return
+        viewModelScope.launch {
+            try {
+                rtdb.incrementInt("polls/${poll.code}/options/$optionId/votes", 1)
+                _pollState.update { it.copy(votedOptionIds = it.votedOptionIds + optionId) }
+            } catch (e: Throwable) {
+                showToast(e.message ?: tr("Vote failed", "Bình chọn thất bại"), ToastType.ERROR)
+            }
+        }
+    }
+
+    fun closeActivePoll() {
+        pollObserverJob?.cancel()
+        pollObserverJob = null
+        _pollState.update { it.copy(activePoll = null, votedOptionIds = emptySet(), needsPassword = false) }
+    }
+
+    private fun startObservingPoll(code: String) {
+        pollObserverJob?.cancel()
+        pollObserverJob = viewModelScope.launch {
+            rtdb.observe("polls/$code").collect { elem ->
+                if (elem != null && elem !is JsonNull) {
+                    runCatching { parsePollJson(code, elem.jsonObject) }.getOrNull()?.let { poll ->
+                        _pollState.update { it.copy(activePoll = poll) }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun parsePollJson(code: String, obj: JsonObject): com.hefimer.app.data.model.PollItem {
+        val optsObj = obj["options"]?.jsonObject
+        val options = optsObj?.entries?.map { (k, v) ->
+            val o = v.jsonObject
+            com.hefimer.app.data.model.PollOption(
+                id = o["id"]?.jsonPrimitive?.contentOrNull ?: k,
+                label = o["label"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                imageUrl = o["imageUrl"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                votes = o["votes"]?.jsonPrimitive?.intOrNull ?: 0,
+            )
+        }.orEmpty()
+        return com.hefimer.app.data.model.PollItem(
+            code = code,
+            question = obj["question"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            coverImageUrl = obj["coverImageUrl"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            options = options,
+            allowMultiple = obj["allowMultiple"]?.jsonPrimitive?.contentOrNull == "true",
+            password = obj["password"]?.jsonPrimitive?.contentOrNull,
+            expire = obj["expire"]?.jsonPrimitive?.contentOrNull ?: "24h",
+            createdAt = obj["createdAt"]?.jsonPrimitive?.longOrNull ?: 0L,
+            expiresAt = obj["expiresAt"]?.jsonPrimitive?.longOrNull ?: 0L,
+        )
+    }
+    // endregion
+
     override fun onCleared() {
+        pollObserverJob?.cancel()
         networkMonitor.close()
         _sendState.value.pickedFiles.forEach { file ->
             file.tempFile?.let { temp -> runCatching { temp.delete() } }

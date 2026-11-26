@@ -146,7 +146,10 @@ private fun localizedSpaceKind(kind: String): String = when (kind) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SpaceScreen(vm: HefimerViewModel) {
+fun SpaceScreen(
+    vm: HefimerViewModel,
+    onBack: (() -> Unit)? = null,
+) {
     val state by vm.spaceState.collectAsState()
     val heroBounds = LocalHeroBounds.current
     val reduceMotion = rememberReduceMotion()
@@ -159,7 +162,15 @@ fun SpaceScreen(vm: HefimerViewModel) {
             "Ghim tệp, ghi chú, liên kết và code lên không gian bảng vô hạn.",
         ),
         showOrbitMark = true,
+        bottomDockClearance = if (onBack != null) 36.dp else 116.dp,
         headerActions = {
+            if (onBack != null) {
+                HefimerHeaderIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = tr("Back", "Quay lại"),
+                    onClick = onBack,
+                )
+            }
             HefimerHeaderIconButton(
                 icon = Icons.Rounded.QrCodeScanner,
                 contentDescription = tr("Scan Space QR", "Quét QR Space"),

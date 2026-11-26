@@ -57,6 +57,7 @@ import com.adamglin.phosphoricons.regular.CloudArrowUp
 import com.adamglin.phosphoricons.regular.Eye
 import com.adamglin.phosphoricons.regular.EyeSlash
 import com.adamglin.phosphoricons.regular.FileText
+import com.adamglin.phosphoricons.regular.Globe
 import com.adamglin.phosphoricons.regular.HardDrives
 import com.adamglin.phosphoricons.regular.Key
 import com.adamglin.phosphoricons.regular.PencilSimple
@@ -83,7 +84,7 @@ import com.hefimer.app.ui.theme.tr
 
 @Composable
 fun SettingsScreen(
-    isLightMode: Boolean,
+    themeMode: com.hefimer.app.data.model.ThemeMode,
     appLanguage: AppLanguage,
     defaultStartTab: MainTab,
     defaultProviderId: String,
@@ -94,7 +95,7 @@ fun SettingsScreen(
     smartClipboardBanner: Boolean,
     hapticEnabled: Boolean,
     historyCount: Int,
-    onSetLightMode: (Boolean) -> Unit,
+    onSetThemeMode: (com.hefimer.app.data.model.ThemeMode) -> Unit,
     onSetAppLanguage: (AppLanguage) -> Unit,
     onSetDefaultStartTab: (MainTab) -> Unit,
     onSetStorageToApiToken: (String) -> Unit,
@@ -154,10 +155,16 @@ fun SettingsScreen(
             SettingsSection(title = tr("APPEARANCE & STARTUP", "GIAO DIỆN & KHỞI ĐỘNG")) {
                 SettingsSubLabel(tr("THEME", "CHỦ ĐỀ"))
                 AppleSegmentedControl(
-                    options = listOf(false, true),
-                    selected = isLightMode,
-                    label = { if (it) tr("Light", "Sáng") else tr("Dark", "Tối") },
-                    onSelect = onSetLightMode,
+                    options = com.hefimer.app.data.model.ThemeMode.entries,
+                    selected = themeMode,
+                    label = {
+                        when (it) {
+                            com.hefimer.app.data.model.ThemeMode.SYSTEM -> tr("Auto", "Tự động")
+                            com.hefimer.app.data.model.ThemeMode.DARK -> tr("Dark", "Tối")
+                            com.hefimer.app.data.model.ThemeMode.LIGHT -> tr("Light", "Sáng")
+                        }
+                    },
+                    onSelect = onSetThemeMode,
                 )
 
                 SettingsSubLabel(tr("LANGUAGE", "NGÔN NGỮ"))
@@ -550,6 +557,24 @@ fun SettingsScreen(
                         )
                     }
                 }
+
+                // Compact PC / Web availability link
+                val webContext = androidx.compose.ui.platform.LocalContext.current
+                SettingsRowButton(
+                    icon = PhosphorIcons.Regular.Globe,
+                    title = tr("Available on PC & Web", "Có sẵn trên PC & Trình duyệt"),
+                    subtitle = "hefimer.qzz.io",
+                    onClick = {
+                        runCatching {
+                            webContext.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(com.hefimer.app.data.network.HefimerApiConfig.SITE_ORIGIN),
+                                ),
+                            )
+                        }
+                    },
+                )
             }
 
             // Version footer (discreet Admin trigger)

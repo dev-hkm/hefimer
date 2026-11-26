@@ -78,6 +78,7 @@ import com.hefimer.app.ui.components.PostSaveBottomSheetContent
 import com.hefimer.app.ui.components.QrScannerOverlay
 import com.hefimer.app.ui.components.RedownloadConfirmDialog
 import com.hefimer.app.ui.screens.ChatRoomOverlay
+import com.hefimer.app.ui.screens.ExploreScreen
 import com.hefimer.app.ui.screens.FloatingIncomingOfferBanner
 import com.hefimer.app.ui.screens.HistoryOverlayScreen
 import com.hefimer.app.ui.screens.LinkScreen
@@ -130,7 +131,13 @@ class MainActivity : ComponentActivity() {
         viewModel.handleIncomingIntent(intent)
 
         setContent {
-            val isLightMode by viewModel.isLightMode.collectAsState()
+            val themeMode by viewModel.themeMode.collectAsState()
+            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isLightMode = when (themeMode) {
+                com.hefimer.app.data.model.ThemeMode.SYSTEM -> !systemDark
+                com.hefimer.app.data.model.ThemeMode.LIGHT -> true
+                com.hefimer.app.data.model.ThemeMode.DARK -> false
+            }
             LaunchedEffect(isLightMode) {
                 if (isLightMode) {
                     enableEdgeToEdge(
@@ -184,7 +191,7 @@ private fun HefimerRootScreen(
     val downloadState by vm.downloadState.collectAsState()
     val globalStats by vm.globalStats.collectAsState()
     val noticeDismissed by vm.noticeDismissed.collectAsState()
-    val isLightMode by vm.isLightMode.collectAsState()
+    val themeMode by vm.themeMode.collectAsState()
     val appLanguage by vm.appLanguage.collectAsState()
     val defaultProviderId by vm.defaultProviderId.collectAsState()
     val storageToApiToken by vm.storageToApiToken.collectAsState()
@@ -277,16 +284,17 @@ private fun HefimerRootScreen(
                     when (tab) {
                         MainTab.SEND -> SendScreen(vm)
                         MainTab.RECEIVE -> ReceiveScreen(vm)
-                        MainTab.SPACE -> SpaceScreen(vm)
-                        MainTab.ROOMS -> RoomsScreen(vm)
                         MainTab.LINK -> LinkScreen(vm)
+                        MainTab.EXPLORE -> ExploreScreen(vm)
                     }
                 },
                 renderOverlay = { overlay, dismiss ->
                     when (overlay) {
                         AppOverlay.History -> HistoryOverlayScreen(vm = vm, onClose = dismiss)
+                        AppOverlay.SpaceHub -> SpaceScreen(vm = vm, onBack = dismiss)
+                        AppOverlay.RoomsHub -> RoomsScreen(vm = vm, onBack = dismiss)
                         AppOverlay.Settings -> SettingsScreen(
-                            isLightMode = isLightMode,
+                            themeMode = themeMode,
                             appLanguage = appLanguage,
                             defaultStartTab = defaultStartTab,
                             defaultProviderId = defaultProviderId,
@@ -297,7 +305,7 @@ private fun HefimerRootScreen(
                             smartClipboardBanner = smartClipboardBanner,
                             hapticEnabled = hapticEnabled,
                             historyCount = history.size,
-                            onSetLightMode = { vm.setLightMode(it) },
+                            onSetThemeMode = { vm.setThemeMode(it) },
                             onSetAppLanguage = { vm.setAppLanguage(it) },
                             onSetDefaultStartTab = { vm.setDefaultStartTab(it) },
                             onSetStorageToApiToken = { vm.setStorageToApiToken(it) },
@@ -745,8 +753,10 @@ private fun HefimerRootScreen(
 
             // 4-Screen First-Launch Apple Onboarding (emerges directly beneath the logo intro)
             if (showOnboarding) {
+                val resolvedLightMode = themeMode == com.hefimer.app.data.model.ThemeMode.LIGHT ||
+                    (themeMode == com.hefimer.app.data.model.ThemeMode.SYSTEM && !androidx.compose.foundation.isSystemInDarkTheme())
                 HefimerOnboardingOverlay(
-                    isLightMode = isLightMode,
+                    isLightMode = resolvedLightMode,
                     appLanguage = appLanguage,
                     defaultProviderName = UploadProviders.getConfig(defaultProviderId).name,
                     onSetLightMode = { vm.setLightMode(it) },
