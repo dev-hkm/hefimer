@@ -130,6 +130,16 @@ object DownloadHelper {
         return buildProxyUrl(url, "preview", inline = true)
     }
 
+    fun resolveDirectImageUrl(url: String?): String? {
+        if (url.isNullOrBlank()) return null
+        val parsed = runCatching { URI(url.trim()) }.getOrNull() ?: return null
+        val scheme = parsed.scheme?.lowercase().orEmpty()
+        if (scheme != "https" && scheme != "http") return null
+        val host = parsed.host?.lowercase().orEmpty()
+        if (host in DIRECT_INLINE_PREVIEW_HOSTS) return url.trim()
+        return buildProxyUrl(url.trim(), "image.jpg", inline = true)
+    }
+
     private fun safeDownloadName(raw: String): String {
         val cleaned = raw.trim()
             .replace(Regex("""[/\\:*?"<>|\r\n\u0000-\u001f]"""), "_")

@@ -19,9 +19,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,7 +43,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,7 +56,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.adamglin.PhosphorIcons
 import com.adamglin.phosphoricons.Regular
 import com.adamglin.phosphoricons.regular.ArrowSquareOut
@@ -67,15 +67,11 @@ import com.adamglin.phosphoricons.regular.ChatsCircle
 import com.adamglin.phosphoricons.regular.Check
 import com.adamglin.phosphoricons.regular.Globe
 import com.adamglin.phosphoricons.regular.GridFour
-import com.adamglin.phosphoricons.regular.Play
-import com.adamglin.phosphoricons.regular.Pause
-import com.adamglin.phosphoricons.regular.ArrowCounterClockwise
-import com.adamglin.phosphoricons.regular.Shuffle
-import com.adamglin.phosphoricons.regular.Timer
 import com.adamglin.phosphoricons.regular.Trash
 import com.hefimer.app.data.model.PollItem
 import com.hefimer.app.data.model.ToastType
 import com.hefimer.app.data.model.formatRemainingCompact
+import com.hefimer.app.data.network.DownloadHelper
 import com.hefimer.app.data.network.HefimerApiConfig
 import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
@@ -101,9 +97,8 @@ import com.hefimer.app.ui.theme.applePressable
 import com.hefimer.app.ui.theme.heroSource
 import com.hefimer.app.ui.theme.rememberReduceMotion
 import com.hefimer.app.ui.theme.tr
-import kotlinx.coroutines.delay
 
-private enum class ExploreTool { HUB, POLL, TIMER, PICKER }
+private enum class ExploreTool { HUB, POLL }
 
 @Composable
 fun ExploreScreen(vm: HefimerViewModel) {
@@ -116,8 +111,8 @@ fun ExploreScreen(vm: HefimerViewModel) {
         kicker = tr("Lab & Community", "Công cụ & Cộng đồng"),
         title = tr("Explore", "Khám phá"),
         subtitle = tr(
-            "Polls, collaborative spaces, rooms, and quick lab utilities.",
-            "Bình chọn 5 mã, không gian Space, phòng chat và tiện ích phòng tin.",
+            "Polls, collaborative spaces, and live rooms.",
+            "Bình chọn 5 mã, không gian Space và phòng chat.",
         ),
         showOrbitMark = true,
         headerActions = {
@@ -193,36 +188,13 @@ fun ExploreScreen(vm: HefimerViewModel) {
                         onClick = { activeTool = ExploreTool.POLL },
                     )
 
-                    // 3. Lab Timer & Random Picker (zero-server utilities)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().appleEntrance(2),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        ExploreBentoTile(
-                            icon = PhosphorIcons.Regular.Timer,
-                            badge = tr("FOCUS", "TẬP TRUNG"),
-                            title = tr("Lab Timer", "Đếm ngược"),
-                            subtitle = tr("Pomodoro & countdown", "Pomodoro & hẹn giờ"),
-                            modifier = Modifier.weight(1f),
-                            onClick = { activeTool = ExploreTool.TIMER },
-                        )
-                        ExploreBentoTile(
-                            icon = PhosphorIcons.Regular.Shuffle,
-                            badge = tr("TEAM", "NHÓM"),
-                            title = tr("Randomize", "Quay ngẫu nhiên"),
-                            subtitle = tr("Pick winner or split teams", "Chọn tên hoặc chia nhóm"),
-                            modifier = Modifier.weight(1f),
-                            onClick = { activeTool = ExploreTool.PICKER },
-                        )
-                    }
-
-                    // 4. Compact, minimal Web / PC availability card
+                    // 3. Compact, minimal Web / PC availability card
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .appleEntrance(3)
+                            .appleEntrance(2)
                             .appleGlassSurface(shape = RoundedCornerShape(24.dp), variant = AppleGlassVariant.Clear, elevation = 0.dp)
                             .applePressable(pressedScale = 0.975f) {
                                 runCatching {
@@ -258,8 +230,6 @@ fun ExploreScreen(vm: HefimerViewModel) {
                 }
 
                 ExploreTool.POLL -> PollSection(vm = vm)
-                ExploreTool.TIMER -> LabTimerSection()
-                ExploreTool.PICKER -> RandomPickerSection(vm = vm)
             }
         }
     }
@@ -486,10 +456,8 @@ private fun PollSection(vm: HefimerViewModel) {
                     }
                 }
                 if (state.coverImageUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = state.coverImageUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                    PollRemoteImage(
+                        url = state.coverImageUrl,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(140.dp)
@@ -557,10 +525,8 @@ private fun PollSection(vm: HefimerViewModel) {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                AsyncImage(
-                                    model = opt.imageUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
+                                PollRemoteImage(
+                                    url = opt.imageUrl,
                                     modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)),
                                 )
                                 Text(tr("Image ready", "Đã gắn ảnh"), color = HefimerColors.White60, fontSize = 11.sp, modifier = Modifier.weight(1f))
@@ -702,10 +668,8 @@ private fun LivePollView(
         }
 
         if (poll.coverImageUrl.isNotBlank()) {
-            AsyncImage(
-                model = poll.coverImageUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            PollRemoteImage(
+                url = poll.coverImageUrl,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
@@ -755,10 +719,8 @@ private fun LivePollView(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (opt.imageUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = opt.imageUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
+                        PollRemoteImage(
+                            url = opt.imageUrl,
                             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)),
                         )
                     }
@@ -788,207 +750,39 @@ private fun LivePollView(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LabTimerSection() {
+private fun PollRemoteImage(
+    url: String,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
-    var presetSec by remember { mutableIntStateOf(25 * 60) }
-    var remainingSec by remember { mutableIntStateOf(25 * 60) }
-    var running by remember { mutableStateOf(false) }
-
-    LaunchedEffect(running) {
-        while (running && remainingSec > 0) {
-            delay(1000L)
-            remainingSec = (remainingSec - 1).coerceAtLeast(0)
-            if (remainingSec == 0) {
-                running = false
-                HefimerHaptics.success(context)
-            }
-        }
-    }
-
-    val mins = remainingSec / 60
-    val secs = remainingSec % 60
-    val frac = if (presetSec > 0) (1f - remainingSec.toFloat() / presetSec.toFloat()).coerceIn(0f, 1f) else 0f
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxWidth()
-            .appleGlassSurface(RoundedCornerShape(30.dp), AppleGlassVariant.Regular, elevation = 10.dp)
-            .padding(22.dp),
-    ) {
-        Text(
-            text = tr("LAB FOCUS TIMER", "ĐỒNG HỒ PHÒNG TIN"),
-            color = HefimerColors.White45,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp,
-        )
-        Text(
-            text = "%02d:%02d".format(mins, secs),
-            color = HefimerColors.White,
-            fontFamily = JetBrainsMonoFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 48.sp,
-        )
-        AppleFluidProgressTrack(progress = frac, accentColor = HefimerColors.White, trackColor = HefimerColors.White10, height = 6.dp)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(1 to "1m", 5 to "5m", 10 to "10m", 25 to "25m").forEach { (m, lbl) ->
-                val sec = m * 60
-                val active = presetSec == sec
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (active) HefimerColors.White else HefimerColors.White06)
-                        .applePressable(pressedScale = 0.94f) {
-                            running = false
-                            presetSec = sec
-                            remainingSec = sec
-                        }
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                ) {
-                    Text(lbl, color = if (active) HefimerColors.Black else HefimerColors.White70, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            HefimerSecondaryButton(
-                text = tr("Reset", "Đặt lại"),
-                icon = PhosphorIcons.Regular.ArrowCounterClockwise,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    running = false
-                    remainingSec = presetSec
-                },
-            )
-            HefimerPrimaryButton(
-                text = if (running) tr("Pause", "Tạm dừng") else tr("Start", "Bắt đầu"),
-                icon = if (running) PhosphorIcons.Regular.Pause else PhosphorIcons.Regular.Play,
-                height = 48.dp,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    if (remainingSec == 0) remainingSec = presetSec
-                    running = !running
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun RandomPickerSection(vm: HefimerViewModel) {
-    val context = LocalContext.current
-    var rawEntries by remember { mutableStateOf("") }
-    var pickedWinner by remember { mutableStateOf<String?>(null) }
-    var teams by remember { mutableStateOf<List<List<String>>>(emptyList()) }
-    var teamCount by remember { mutableIntStateOf(2) }
-
-    val items = rawEntries.lines().map { it.trim() }.filter { it.isNotEmpty() }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(AppMotion.layoutSpring())
-            .appleGlassSurface(RoundedCornerShape(30.dp), AppleGlassVariant.Regular, elevation = 10.dp)
-            .padding(20.dp),
-    ) {
-        Text(
-            text = tr("RANDOM PICKER & TEAM SPLIT", "QUAY SỐ & CHIA NHÓM"),
-            color = HefimerColors.White45,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp,
-        )
-        HefimerTextField(
-            value = rawEntries,
-            onValueChange = { rawEntries = it },
-            placeholder = tr("Enter one name or number per line...", "Mỗi dòng 1 tên hoặc số..."),
-            singleLine = false,
-            modifier = Modifier.heightIn(min = 108.dp),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Teams:", "Số nhóm:"), color = HefimerColors.White55, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            listOf(2, 3, 4).forEach { n ->
-                val active = teamCount == n
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (active) HefimerColors.White else HefimerColors.White06)
-                        .applePressable(pressedScale = 0.94f) { teamCount = n }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Text("$n", color = if (active) HefimerColors.Black else HefimerColors.White70, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            HefimerPrimaryButton(
-                text = tr("Pick 1", "Chọn 1"),
-                icon = PhosphorIcons.Regular.Shuffle,
-                height = 46.dp,
-                enabled = items.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    if (items.isNotEmpty()) {
-                        HefimerHaptics.success(context)
-                        teams = emptyList()
-                        pickedWinner = items.random()
-                    }
-                },
-            )
-            HefimerSecondaryButton(
-                text = tr("Split Teams", "Chia nhóm"),
-                height = 46.dp,
-                enabled = items.size >= 2,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    if (items.size >= 2) {
-                        HefimerHaptics.success(context)
-                        pickedWinner = null
-                        val shuffled = items.shuffled()
-                        val buckets = List(teamCount) { mutableListOf<String>() }
-                        shuffled.forEachIndexed { idx, s -> buckets[idx % teamCount].add(s) }
-                        teams = buckets.filter { it.isNotEmpty() }
-                    } else {
-                        vm.showToast(tr("Enter at least 2 entries", "Nhập ít nhất 2 dòng"), ToastType.INFO)
-                    }
-                },
-            )
-        }
-        if (pickedWinner != null) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .appleGlassSurface(RoundedCornerShape(20.dp), AppleGlassVariant.Clear, accentBorderTint = HefimerColors.White, elevation = 0.dp)
-                    .padding(16.dp),
-            ) {
-                Text(
-                    text = pickedWinner.orEmpty(),
-                    color = HefimerColors.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+    val resolvedUrl = remember(url) { DownloadHelper.resolveDirectImageUrl(url) ?: url }
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(resolvedUrl)
+            .crossfade(true)
+            .build(),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = modifier.background(HefimerColors.White06),
+        loading = {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                CircularProgressIndicator(
+                    color = HefimerColors.White50,
+                    strokeWidth = 1.8.dp,
+                    modifier = Modifier.size(18.dp),
                 )
             }
-        }
-        if (teams.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                teams.forEachIndexed { idx, group ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .appleGlassSurface(RoundedCornerShape(16.dp), AppleGlassVariant.Clear, elevation = 0.dp)
-                            .padding(12.dp),
-                    ) {
-                        Text(tr("Team ${idx + 1}", "Nhóm ${idx + 1}"), color = HefimerColors.White50, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(3.dp))
-                        Text(group.joinToString(" • "), color = HefimerColors.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
+        },
+        error = {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    imageVector = Icons.Rounded.Image,
+                    contentDescription = null,
+                    tint = HefimerColors.White40,
+                    modifier = Modifier.size(20.dp),
+                )
             }
-        }
-    }
+        },
+    )
 }

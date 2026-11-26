@@ -3510,8 +3510,12 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             }
             try {
                 val picked = uploader.resolvePickedFile(uri)
+                val pollImageProvider = when (_defaultProviderId.value) {
+                    "catbox", "litterbox", "uguu", "x0", "pomf2" -> _defaultProviderId.value
+                    else -> "catbox"
+                }
                 val res = uploader.uploadWithFallback(
-                    primaryProviderId = _defaultProviderId.value,
+                    primaryProviderId = pollImageProvider,
                     picked = picked,
                     expire = "48h",
                     cancelToken = UploadCancellationToken(),
