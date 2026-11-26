@@ -2050,6 +2050,11 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         return item
     }
 
+    suspend fun resolveR2PreviewUrl(objectKey: String): String? {
+        if (objectKey.isBlank()) return null
+        return runCatching { r2Service.getDownloadUrl(objectKey) }.getOrNull()
+    }
+
     fun cancelActiveDownload() {
         activeDownloadToken?.cancel()
         activeDownloadToken = null
@@ -3510,18 +3515,11 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             }
             try {
                 val picked = uploader.resolvePickedFile(uri)
-                val pollImageProvider = when (_defaultProviderId.value) {
-                    "catbox", "litterbox", "uguu", "x0", "pomf2" -> _defaultProviderId.value
-                    else -> "catbox"
-                }
-                val res = uploader.uploadWithFallback(
-                    primaryProviderId = pollImageProvider,
+                val res = uploader.uploadVerifiedImage(
+                    preferredProviderId = _defaultProviderId.value,
                     picked = picked,
                     expire = "48h",
                     cancelToken = UploadCancellationToken(),
-                    onProgress = {},
-                    onStatus = {},
-                    onFallback = { _, _ -> },
                 )
                 if (targetOptionId == null) {
                     _pollState.update { it.copy(coverImageUrl = res.fileUrl, uploadingCover = false) }

@@ -91,7 +91,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import coil.compose.AsyncImage
 import com.hefimer.app.data.model.ToastType
 import com.hefimer.app.data.model.formatBytes
 import com.hefimer.app.data.network.DownloadHelper
@@ -100,6 +99,8 @@ import com.hefimer.app.data.network.UploadProviders
 import com.hefimer.app.ui.AppOverlay
 import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.ScanTarget
+import com.hefimer.app.ui.components.HefimerImageLightbox
+import com.hefimer.app.ui.components.HefimerRemoteImage
 import com.hefimer.app.ui.SendSubMode
 import com.hefimer.app.ui.SendUiState
 import com.hefimer.app.ui.components.CodeHighlighter
@@ -400,6 +401,14 @@ private fun SendFileSection(
                     "picked" -> {
                         val totalSize = state.pickedFiles.sumOf { it.size }
                         val single = state.pickedFiles.singleOrNull()
+                        val singleIsImage = single != null &&
+                            !state.isFolderMode &&
+                            DownloadHelper.isImageFileName(single.name, single.mimeType)
+                        val multiImageFiles = remember(state.pickedFiles, state.isFolderMode) {
+                            if (state.isFolderMode) emptyList()
+                            else state.pickedFiles.filter { DownloadHelper.isImageFileName(it.name, it.mimeType) }
+                        }
+                        var lightboxFileIndex by remember { mutableStateOf<Int?>(null) }
                         val label = if (state.pickedFiles.size > 1) {
                             tr("${state.pickedFiles.size} files selected", "Đã chọn ${state.pickedFiles.size} tệp")
                         } else {
@@ -417,20 +426,21 @@ private fun SendFileSection(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                             ) {
-                                if (single != null && single.mimeType.startsWith("image/") && !state.isFolderMode) {
-                                    AsyncImage(
+                                if (singleIsImage && single != null) {
+                                    HefimerRemoteImage(
                                         model = single.uri,
-                                        contentDescription = single.name,
-                                        contentScale = ContentScale.Crop,
+                                        fileName = single.name,
+                                        mimeType = single.mimeType,
+                                        compact = true,
                                         modifier = Modifier
                                             .size(54.dp)
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(HefimerColors.Black)
                                             .border(
                                                 1.dp,
                                                 HefimerColors.White15,
                                                 RoundedCornerShape(16.dp),
                                             ),
+                                        onClick = { lightboxFileIndex = 0 },
                                     )
                                 } else {
                                     Box(
@@ -516,6 +526,72 @@ private fun SendFileSection(
                                 }
                             }
 
+                            if (singleIsImage && single != null) {
+                                val fmtTag = single.name.substringAfterLast('.', "").uppercase().ifBlank { "IMG" }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(148.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .border(1.dp, HefimerColors.White12, RoundedCornerShape(20.dp)),
+                                ) {
+                                    HefimerRemoteImage(
+                                        model = single.uri,
+                                        fileName = single.name,
+                                        mimeType = single.mimeType,
+                                        modifier = Modifier.fillMaxWidth().height(148.dp),
+                                        onClick = { lightboxFileIndex = 0 },
+                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(10.dp)
+                                            .appleGlassSurface(CircleShape, AppleGlassVariant.Elevated, elevation = 0.dp)
+                                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = fmtTag,
+                                            color = HefimerColors.White,
+                                            fontFamily = JetBrainsMonoFamily,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                        Text("•", color = HefimerColors.White30, fontSize = 9.sp)
+                                        Text(
+                                            text = tr("Tap to zoom", "Chạm để phóng to"),
+                                            color = HefimerColors.White75,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                }
+                            } else if (multiImageFiles.isNotEmpty()) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                ) {
+                                    state.pickedFiles.forEachIndexed { idx, file ->
+                                        if (DownloadHelper.isImageFileName(file.name, file.mimeType)) {
+                                            HefimerRemoteImage(
+                                                model = file.uri,
+                                                fileName = file.name,
+                                                mimeType = file.mimeType,
+                                                compact = true,
+                                                modifier = Modifier
+                                                    .size(56.dp)
+                                                    .clip(RoundedCornerShape(14.dp))
+                                                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(14.dp)),
+                                                onClick = { lightboxFileIndex = idx },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             if (state.pickedFiles.size > 1) {
                                 FlowRow(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -548,6 +624,17 @@ private fun SendFileSection(
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        lightboxFileIndex?.let { idx ->
+                            state.pickedFiles.getOrNull(idx)?.let { f ->
+                                HefimerImageLightbox(
+                                    model = f.uri,
+                                    title = f.name,
+                                    mimeType = f.mimeType,
+                                    onDismiss = { lightboxFileIndex = null },
+                                )
                             }
                         }
                     }

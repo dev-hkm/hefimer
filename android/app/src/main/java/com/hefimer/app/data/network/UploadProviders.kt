@@ -629,6 +629,18 @@ object UploadProviders {
         "vikingfile",
     )
 
+    /** Providers suited for direct inline image & SVG previews (direct CDN or working /api/download proxy). */
+    val IMAGE_PREVIEW_PRIORITY = listOf(
+        "pomf",
+        "x0at",
+        "stocare",
+        "tmpfiles",
+        "storageto",
+        "uguu",
+        "tmpfilelink",
+        "puticu",
+    )
+
     fun toConfig(custom: CustomS3Provider): UploadProviderConfig = UploadProviderConfig(
         id = custom.id,
         name = custom.name.ifBlank { custom.bucket },
@@ -894,6 +906,90 @@ class FileUploadEngine(
         throw lastError ?: IOException(
             com.hefimer.app.ui.theme.tr("All upload providers failed", "Tất cả máy chủ tải lên đều thất bại"),
         )
+    }
+
+    /**
+     * Uploads an image/SVG to preview-friendly hosts and verifies with a fast Range GET
+     * that the resulting direct/proxied URL actually serves image bytes (not 404 or HTML).
+     */
+    suspend fun uploadVerifiedImage(
+        preferredProviderId: String,
+        picked: LocalPickedFile,
+        expire: String = "48h",
+        cancelToken: UploadCancellationToken = UploadCancellationToken(),
+    ): FallbackUploadResult = withContext(Dispatchers.IO) {
+        if (picked.size <= 0L) {
+            throw IOException(
+                com.hefimer.app.ui.theme.tr(
+                    "Cannot upload an empty 0-byte image (${picked.name})",
+                    "Không thể tải lên ảnh rỗng 0 byte (${picked.name})",
+                ),
+            )
+        }
+        val customProviders = storage.loadCustomS3Providers()
+        val orderedIds = buildList {
+            if (preferredProviderId in UploadProviders.IMAGE_PREVIEW_PRIORITY) {
+                add(preferredProviderId)
+            }
+            UploadProviders.IMAGE_PREVIEW_PRIORITY.forEach { if (it !in this) add(it) }
+        }.filter { id -> picked.size <= UploadProviders.getConfig(id, customProviders).maxSizeBytes }
+
+        var lastError: Throwable? = null
+        for (providerId in orderedIds) {
+            if (cancelToken.isCancelled()) throw IOException("UPLOAD_CANCELED")
+            val cfg = UploadProviders.getConfig(providerId, customProviders)
+            try {
+                val url = uploadSingle(
+                    providerId = providerId,
+                    picked = picked,
+                    expire = expire,
+                    cancelToken = cancelToken,
+                    onProgress = {},
+                    onBytesProgress = { _, _ -> },
+                    onStatus = {},
+                )
+                verifyImageUrlReachable(url, picked.name)
+                return@withContext FallbackUploadResult(
+                    fileUrl = url,
+                    providerId = providerId,
+                    providerName = cfg.name,
+                )
+            } catch (e: Throwable) {
+                if (cancelToken.isCancelled() || e.message == "UPLOAD_CANCELED") {
+                    throw IOException("UPLOAD_CANCELED")
+                }
+                lastError = e
+            }
+        }
+        throw lastError ?: IOException(
+            com.hefimer.app.ui.theme.tr("Image upload failed across all hosts", "Tải ảnh thất bại trên tất cả máy chủ"),
+        )
+    }
+
+    private fun verifyImageUrlReachable(rawUrl: String, fileName: String) {
+        val probeUrl = DownloadHelper.resolveDirectImageUrl(rawUrl, fileName) ?: rawUrl
+        val req = Request.Builder()
+            .url(probeUrl)
+            .header("Range", "bytes=0-511")
+            .get()
+            .build()
+        HefimerApiConfig.apiClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful && resp.code != 206) {
+                throw IOException("Image host returned HTTP ${resp.code}")
+            }
+            val ct = resp.header("Content-Type")?.lowercase().orEmpty()
+            if (ct.contains("text/html") || ct.contains("application/xhtml")) {
+                throw IOException("Image host returned an HTML page instead of image bytes")
+            }
+            val headBytes = resp.body?.source()?.let { src ->
+                val buf = okio.Buffer()
+                src.read(buf, 128L)
+                buf.readUtf8()
+            }.orEmpty().trimStart().lowercase()
+            if (headBytes.startsWith("<!doctype html") || headBytes.startsWith("<html")) {
+                throw IOException("Image host returned HTML content")
+            }
+        }
     }
 
     internal suspend fun uploadForProvider(

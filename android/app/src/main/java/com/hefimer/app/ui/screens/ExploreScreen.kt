@@ -3,7 +3,6 @@ package com.hefimer.app.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -56,8 +55,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import com.adamglin.PhosphorIcons
 import com.adamglin.phosphoricons.Regular
 import com.adamglin.phosphoricons.regular.ArrowSquareOut
@@ -78,7 +75,9 @@ import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.ScanTarget
 import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
 import com.hefimer.app.ui.components.HefimerHeaderIconButton
+import com.hefimer.app.ui.components.HefimerImageLightbox
 import com.hefimer.app.ui.components.HefimerPrimaryButton
+import com.hefimer.app.ui.components.HefimerRemoteImage
 import com.hefimer.app.ui.components.HefimerSecondaryButton
 import com.hefimer.app.ui.components.HefimerToggleRow
 import com.hefimer.app.ui.components.QrShareModal
@@ -326,8 +325,9 @@ private fun PollSection(vm: HefimerViewModel) {
     val context = LocalContext.current
     var pendingOptionImageTarget by remember { mutableStateOf<String?>(null) }
     var showQr by remember { mutableStateOf(false) }
+    var pollLightbox by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             vm.uploadPollImage(uri, pendingOptionImageTarget)
         }
@@ -440,7 +440,7 @@ private fun PollSection(vm: HefimerViewModel) {
                         modifier = Modifier.weight(1f),
                         onClick = {
                             pendingOptionImageTarget = null
-                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            imagePicker.launch("image/*")
                         },
                     )
                     if (state.coverImageUrl.isNotBlank()) {
@@ -456,13 +456,14 @@ private fun PollSection(vm: HefimerViewModel) {
                     }
                 }
                 if (state.coverImageUrl.isNotBlank()) {
-                    PollRemoteImage(
-                        url = state.coverImageUrl,
+                    HefimerRemoteImage(
+                        model = state.coverImageUrl,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(140.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .border(1.dp, HefimerColors.White12, RoundedCornerShape(18.dp)),
+                        onClick = { pollLightbox = state.coverImageUrl to tr("Cover Image", "Ảnh bìa bình chọn") },
                     )
                 }
 
@@ -499,7 +500,7 @@ private fun PollSection(vm: HefimerViewModel) {
                                     .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
                                     .applePressable(enabled = !opt.uploadingImage, pressedScale = 0.9f) {
                                         pendingOptionImageTarget = opt.id
-                                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                        imagePicker.launch("image/*")
                                     },
                             ) {
                                 if (opt.uploadingImage) {
@@ -525,9 +526,11 @@ private fun PollSection(vm: HefimerViewModel) {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                PollRemoteImage(
-                                    url = opt.imageUrl,
+                                HefimerRemoteImage(
+                                    model = opt.imageUrl,
+                                    compact = true,
                                     modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)),
+                                    onClick = { pollLightbox = opt.imageUrl to (opt.label.ifBlank { tr("Option Image", "Ảnh lựa chọn") }) },
                                 )
                                 Text(tr("Image ready", "Đã gắn ảnh"), color = HefimerColors.White60, fontSize = 11.sp, modifier = Modifier.weight(1f))
                                 Box(
@@ -606,6 +609,14 @@ private fun PollSection(vm: HefimerViewModel) {
             }
         }
     }
+
+    pollLightbox?.let { (imgUrl, imgTitle) ->
+        HefimerImageLightbox(
+            model = imgUrl,
+            title = imgTitle,
+            onDismiss = { pollLightbox = null },
+        )
+    }
 }
 
 @Composable
@@ -668,14 +679,23 @@ private fun LivePollView(
         }
 
         if (poll.coverImageUrl.isNotBlank()) {
-            PollRemoteImage(
-                url = poll.coverImageUrl,
+            var showCoverLightbox by remember(poll.coverImageUrl) { mutableStateOf(false) }
+            HefimerRemoteImage(
+                model = poll.coverImageUrl,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .border(1.dp, HefimerColors.White12, RoundedCornerShape(20.dp)),
+                onClick = { showCoverLightbox = true },
             )
+            if (showCoverLightbox) {
+                HefimerImageLightbox(
+                    model = poll.coverImageUrl,
+                    title = poll.question,
+                    onDismiss = { showCoverLightbox = false },
+                )
+            }
         }
 
         Text(
@@ -719,10 +739,20 @@ private fun LivePollView(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (opt.imageUrl.isNotBlank()) {
-                        PollRemoteImage(
-                            url = opt.imageUrl,
+                        var showOptLightbox by remember(opt.imageUrl) { mutableStateOf(false) }
+                        HefimerRemoteImage(
+                            model = opt.imageUrl,
+                            compact = true,
                             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)),
+                            onClick = { showOptLightbox = true },
                         )
+                        if (showOptLightbox) {
+                            HefimerImageLightbox(
+                                model = opt.imageUrl,
+                                title = opt.label.ifBlank { tr("Option Image", "Ảnh lựa chọn") },
+                                onDismiss = { showOptLightbox = false },
+                            )
+                        }
                     }
                     Text(
                         text = opt.label,
@@ -748,41 +778,4 @@ private fun LivePollView(
             }
         }
     }
-}
-
-@Composable
-private fun PollRemoteImage(
-    url: String,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val resolvedUrl = remember(url) { DownloadHelper.resolveDirectImageUrl(url) ?: url }
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(resolvedUrl)
-            .crossfade(true)
-            .build(),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier.background(HefimerColors.White06),
-        loading = {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                CircularProgressIndicator(
-                    color = HefimerColors.White50,
-                    strokeWidth = 1.8.dp,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        },
-        error = {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    imageVector = Icons.Rounded.Image,
-                    contentDescription = null,
-                    tint = HefimerColors.White40,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        },
-    )
 }

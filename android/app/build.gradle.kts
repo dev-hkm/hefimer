@@ -13,8 +13,8 @@ android {
         applicationId = "com.hefimer.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "2.8.1"
+        versionCode = 27
+        versionName = "2.8.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -104,8 +104,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // Image loading
+    // Image loading (raster + SVG vector)
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-svg:2.7.0")
 
     // QR Generation & CameraX live scanning
     implementation("com.google.zxing:core:3.5.3")

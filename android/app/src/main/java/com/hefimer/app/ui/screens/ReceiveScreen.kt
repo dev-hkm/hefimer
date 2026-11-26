@@ -73,6 +73,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -118,6 +119,8 @@ import com.hefimer.app.ui.HefimerViewModel
 import com.hefimer.app.ui.ScanTarget
 import com.hefimer.app.ui.components.CodeHighlighter
 import com.hefimer.app.ui.components.CodeLineNumberGutter
+import com.hefimer.app.ui.components.HefimerImageLightbox
+import com.hefimer.app.ui.components.HefimerRemoteImage
 import com.hefimer.app.ui.components.HefimerCollapsibleScaffold
 import com.hefimer.app.ui.components.HefimerHeaderIconButton
 import com.hefimer.app.ui.components.HefimerPrimaryButton
@@ -495,6 +498,26 @@ private fun ReceivedDropView(
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))
 
                 multiFiles.forEach { fileEntry ->
+                    val entryIsPreviewableImage = item.e2eeKey.isNullOrBlank() &&
+                        DownloadHelper.isImageFileName(fileEntry.resolvedName)
+                    val entryPreviewUrl by produceState<String?>(
+                        initialValue = if (entryIsPreviewableImage && fileEntry.objectKey.isBlank()) {
+                            DownloadHelper.getMediaPreviewUrl(
+                                fileEntry.resolvedUrl,
+                                DownloadHelper.inferImageMime(fileEntry.resolvedName),
+                                fileEntry.resolvedName,
+                            )
+                        } else null,
+                        key1 = fileEntry.objectKey,
+                        key2 = fileEntry.resolvedUrl,
+                        key3 = entryIsPreviewableImage,
+                    ) {
+                        if (entryIsPreviewableImage && fileEntry.objectKey.isNotBlank()) {
+                            value = vm.resolveR2PreviewUrl(fileEntry.objectKey)
+                        }
+                    }
+                    var showEntryLightbox by remember(fileEntry) { mutableStateOf(false) }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -507,20 +530,41 @@ private fun ReceivedDropView(
                             )
                             .padding(12.dp),
                     ) {
-                        val (icon, iconTint) = fileIconForName(fileEntry.resolvedName, isR2)
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .appleGlassSurface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    variant = AppleGlassVariant.Clear,
-                                    elevation = 0.dp,
-                                ),
-                        ) {
-                            Icon(icon, null, tint = iconTint, modifier = Modifier.size(18.dp))
+                        if (entryPreviewUrl != null) {
+                            HefimerRemoteImage(
+                                model = entryPreviewUrl,
+                                fileName = fileEntry.resolvedName,
+                                compact = true,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, HefimerColors.White15, RoundedCornerShape(12.dp)),
+                                onClick = { showEntryLightbox = true },
+                            )
+                        } else {
+                            val (icon, iconTint) = fileIconForName(fileEntry.resolvedName, isR2)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .appleGlassSurface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        variant = AppleGlassVariant.Clear,
+                                        elevation = 0.dp,
+                                    ),
+                            ) {
+                                Icon(icon, null, tint = iconTint, modifier = Modifier.size(18.dp))
+                            }
                         }
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .let { colMod ->
+                                    if (entryPreviewUrl != null) {
+                                        colMod.applePressable(pressedScale = 0.985f) { showEntryLightbox = true }
+                                    } else colMod
+                                },
+                        ) {
                             Text(
                                 text = fileEntry.resolvedName,
                                 color = HefimerColors.White90,
@@ -530,7 +574,8 @@ private fun ReceivedDropView(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = formatBytes(fileEntry.resolvedSize),
+                                text = formatBytes(fileEntry.resolvedSize) +
+                                    if (entryPreviewUrl != null) " • ${tr("Tap to preview", "Chạm xem ảnh")}" else "",
                                 color = HefimerColors.White30,
                                 fontFamily = JetBrainsMonoFamily,
                                 fontSize = 10.sp,
@@ -546,6 +591,16 @@ private fun ReceivedDropView(
                                 .background(accent)
                                 .applePressable(pressedScale = 0.94f) { vm.downloadDropFile(fileEntry) }
                                 .padding(horizontal = 13.dp, vertical = 7.dp),
+                        )
+                    }
+
+                    if (showEntryLightbox && entryPreviewUrl != null) {
+                        HefimerImageLightbox(
+                            model = entryPreviewUrl,
+                            title = fileEntry.resolvedName,
+                            mimeType = DownloadHelper.inferImageMime(fileEntry.resolvedName),
+                            onDownload = { vm.downloadDropFile(fileEntry) },
+                            onDismiss = { showEntryLightbox = false },
                         )
                     }
                 }
@@ -573,7 +628,20 @@ private fun ReceivedDropView(
                 )
             }
         } else if (isR2) {
-            // Case 2: Secret R2 Single File
+            // Case 2: Secret R2 Single File + optional inline image/SVG preview when not E2EE
+            val r2IsPreviewable = item.e2eeKey.isNullOrBlank() &&
+                DownloadHelper.isImageFileName(item.fileName, item.mimeType)
+            val r2PreviewUrl by produceState<String?>(
+                initialValue = null,
+                key1 = item.objectKey,
+                key2 = r2IsPreviewable,
+            ) {
+                if (r2IsPreviewable && !item.objectKey.isNullOrBlank()) {
+                    value = vm.resolveR2PreviewUrl(item.objectKey)
+                }
+            }
+            var showR2Lightbox by remember(item.objectKey) { mutableStateOf(false) }
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -588,19 +656,33 @@ private fun ReceivedDropView(
                     )
                     .padding(28.dp),
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .appleGlassSurface(
-                            shape = CircleShape,
-                            variant = AppleGlassVariant.Clear,
-                            accentBorderTint = HefimerColors.Emerald400,
-                            accentFillTint = HefimerColors.Emerald400.copy(alpha = 0.14f),
-                            elevation = 0.dp,
-                        ),
-                ) {
-                    Icon(Icons.Rounded.Shield, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(30.dp))
+                if (r2PreviewUrl != null) {
+                    HefimerRemoteImage(
+                        model = r2PreviewUrl,
+                        fileName = item.fileName,
+                        mimeType = item.mimeType,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .border(1.dp, HefimerColors.Emerald400.copy(alpha = 0.45f), RoundedCornerShape(22.dp)),
+                        onClick = { showR2Lightbox = true },
+                    )
+                } else {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .appleGlassSurface(
+                                shape = CircleShape,
+                                variant = AppleGlassVariant.Clear,
+                                accentBorderTint = HefimerColors.Emerald400,
+                                accentFillTint = HefimerColors.Emerald400.copy(alpha = 0.14f),
+                                elevation = 0.dp,
+                            ),
+                    ) {
+                        Icon(Icons.Rounded.Shield, null, tint = HefimerColors.Emerald400, modifier = Modifier.size(30.dp))
+                    }
                 }
                 Text(
                     text = item.fileName ?: tr("Secret File", "Tệp bí mật"),
@@ -610,7 +692,11 @@ private fun ReceivedDropView(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = tr("SECRET CLOUDFLARE R2 STORAGE", "LƯU TRỮ CLOUDFLARE R2 BÍ MẬT"),
+                    text = if (!item.e2eeKey.isNullOrBlank()) {
+                        tr("SECRET R2 • E2EE ENCRYPTED", "R2 BÍ MẬT • MÃ HÓA E2EE")
+                    } else {
+                        tr("SECRET CLOUDFLARE R2 STORAGE", "LƯU TRỮ CLOUDFLARE R2 BÍ MẬT")
+                    },
                     color = HefimerColors.Emerald400.copy(alpha = 0.68f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -625,6 +711,24 @@ private fun ReceivedDropView(
                         textAlign = TextAlign.Center,
                     )
                 }
+            }
+
+            if (showR2Lightbox && r2PreviewUrl != null) {
+                HefimerImageLightbox(
+                    model = r2PreviewUrl,
+                    title = item.fileName ?: tr("Secret Image", "Ảnh R2"),
+                    mimeType = item.mimeType,
+                    onDownload = {
+                        vm.downloadDropFile(
+                            DropFileEntry(
+                                fileName = item.fileName ?: "download",
+                                objectKey = item.objectKey.orEmpty(),
+                                fileSize = item.fileSize,
+                            ),
+                        )
+                    },
+                    onDismiss = { showR2Lightbox = false },
+                )
             }
 
             HefimerPrimaryButton(
@@ -642,17 +746,16 @@ private fun ReceivedDropView(
                 },
             )
         } else if (item.type == "file" || (item.type.isBlank() && item.resolvedUrl.isNotBlank())) {
-            // Case 3: Standard Single File + inline image preview & lightbox
+            // Case 3: Standard Single File + inline image/SVG preview & lightbox
             val downloadUrl = item.resolvedUrl
             val isTab = DownloadHelper.getDirectDownloadMode(downloadUrl) == DirectDownloadMode.TAB
             val providerName = UploadProviders.getProviderNameFromUrl(downloadUrl, false)
-            val previewUrl = remember(downloadUrl, item.mimeType, item.fileName) {
-                val guessedMime = item.mimeType ?: when (item.fileName.orEmpty().substringAfterLast('.', "").lowercase()) {
-                    "jpg", "jpeg", "png", "gif", "webp" -> "image/*"
-                    else -> null
-                }
-                if (guessedMime?.startsWith("image/") == true) {
-                    DownloadHelper.getMediaPreviewUrl(downloadUrl, guessedMime)
+            val guessedMime = remember(item.mimeType, item.fileName, downloadUrl) {
+                DownloadHelper.inferImageMime(item.fileName ?: downloadUrl, item.mimeType)
+            }
+            val previewUrl = remember(downloadUrl, guessedMime, item.fileName, item.e2eeKey) {
+                if (item.e2eeKey.isNullOrBlank() && guessedMime?.startsWith("image/") == true) {
+                    DownloadHelper.getMediaPreviewUrl(downloadUrl, guessedMime, item.fileName)
                 } else null
             }
             var showFullImage by remember { mutableStateOf(false) }
@@ -670,17 +773,50 @@ private fun ReceivedDropView(
                     .padding(24.dp),
             ) {
                 if (previewUrl != null) {
-                    AsyncImage(
-                        model = previewUrl,
-                        contentDescription = item.fileName,
-                        contentScale = ContentScale.Crop,
+                    val fmtBadge = remember(item.fileName, guessedMime) {
+                        val ext = item.fileName.orEmpty().substringAfterLast('.', "").uppercase()
+                        if (DownloadHelper.isSvgAsset(item.fileName, guessedMime)) "SVG"
+                        else ext.ifBlank { "IMG" }
+                    }
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(190.dp)
+                            .height(198.dp)
                             .clip(RoundedCornerShape(22.dp))
-                            .background(HefimerColors.Black)
-                            .applePressable(pressedScale = 0.98f) { showFullImage = true },
-                    )
+                            .border(1.dp, HefimerColors.White15, RoundedCornerShape(22.dp)),
+                    ) {
+                        HefimerRemoteImage(
+                            model = previewUrl,
+                            fileName = item.fileName,
+                            mimeType = guessedMime,
+                            modifier = Modifier.fillMaxWidth().height(198.dp),
+                            onClick = { showFullImage = true },
+                        )
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(10.dp)
+                                .appleGlassSurface(CircleShape, AppleGlassVariant.Elevated, elevation = 0.dp)
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = fmtBadge,
+                                color = HefimerColors.White,
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text("•", color = HefimerColors.White30, fontSize = 9.sp)
+                            Text(
+                                text = tr("Tap to zoom", "Chạm để phóng to"),
+                                color = HefimerColors.White75,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
                 } else {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -692,7 +828,12 @@ private fun ReceivedDropView(
                                 elevation = 0.dp,
                             ),
                     ) {
-                        Icon(Icons.Rounded.UploadFile, null, tint = HefimerColors.White, modifier = Modifier.size(30.dp))
+                        Icon(
+                            imageVector = if (!item.e2eeKey.isNullOrBlank()) Icons.Rounded.Shield else Icons.Rounded.UploadFile,
+                            contentDescription = null,
+                            tint = HefimerColors.White,
+                            modifier = Modifier.size(30.dp),
+                        )
                     }
                 }
                 Text(
@@ -703,7 +844,8 @@ private fun ReceivedDropView(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "${tr("HOSTED ON", "LƯU TRỮ TRÊN")} ${providerName.uppercase()}",
+                    text = "${tr("HOSTED ON", "LƯU TRỮ TRÊN")} ${providerName.uppercase()}" +
+                        if (!item.e2eeKey.isNullOrBlank()) " • E2EE" else "",
                     color = HefimerColors.White45,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -712,110 +854,21 @@ private fun ReceivedDropView(
             }
 
             if (showFullImage && previewUrl != null) {
-                var zoom by remember(previewUrl) { mutableFloatStateOf(1f) }
-                var pan by remember(previewUrl) { mutableStateOf(Offset.Zero) }
-                Dialog(
-                    onDismissRequest = { showFullImage = false },
-                    properties = DialogProperties(usePlatformDefaultWidth = false),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .appleGlassSurface(
-                                shape = RoundedCornerShape(30.dp),
-                                variant = AppleGlassVariant.Elevated,
-                                elevation = 24.dp,
-                            )
-                            .padding(12.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 240.dp, max = 520.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .clipToBounds()
-                                .background(HefimerColors.Black)
-                                .pointerInput(previewUrl) {
-                                    detectTapGestures(
-                                        onDoubleTap = {
-                                            if (zoom > 1.2f) {
-                                                zoom = 1f
-                                                pan = Offset.Zero
-                                            } else {
-                                                zoom = 2.4f
-                                            }
-                                        },
-                                        onTap = {
-                                            if (zoom <= 1.05f) showFullImage = false
-                                        },
-                                    )
-                                }
-                                .pointerInput(previewUrl) {
-                                    detectTransformGestures { _, panChange, zoomChange, _ ->
-                                        val nextZoom = (zoom * zoomChange).coerceIn(1f, 4f)
-                                        zoom = nextZoom
-                                        pan = if (nextZoom <= 1.02f) {
-                                            Offset.Zero
-                                        } else {
-                                            Offset(
-                                                x = (pan.x + panChange.x).coerceIn(-600f, 600f),
-                                                y = (pan.y + panChange.y).coerceIn(-600f, 600f),
-                                            )
-                                        }
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            AsyncImage(
-                                model = previewUrl,
-                                contentDescription = item.fileName,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        scaleX = zoom
-                                        scaleY = zoom
-                                        translationX = pan.x
-                                        translationY = pan.y
-                                    },
-                            )
-                        }
-
-                        // Floating zoom hint & Close button
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.TopCenter)
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = if (zoom > 1.05f) {
-                                    "${String.format(java.util.Locale.US, "%.1f", zoom)}x"
-                                } else {
-                                    tr("Pinch or double-tap to zoom", "Chạm 2 lần hoặc kéo để phóng to")
-                                },
-                                color = HefimerColors.White75,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier
-                                    .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                            )
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
-                                    .applePressable(pressedScale = 0.88f) { showFullImage = false },
-                            ) {
-                                Icon(Icons.Rounded.Close, tr("Close", "Đóng"), tint = HefimerColors.White, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                }
+                HefimerImageLightbox(
+                    model = previewUrl,
+                    title = item.fileName ?: tr("Image", "Ảnh"),
+                    mimeType = guessedMime,
+                    onDownload = {
+                        vm.downloadDropFile(
+                            DropFileEntry(
+                                fileName = item.fileName ?: "download",
+                                fileUrl = downloadUrl,
+                                fileSize = item.fileSize,
+                            ),
+                        )
+                    },
+                    onDismiss = { showFullImage = false },
+                )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

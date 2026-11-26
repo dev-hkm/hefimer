@@ -81,7 +81,6 @@ object DownloadHelper {
     private val SKIP_INLINE_PREVIEW_HOSTS = setOf(
         "gofile.io",
         "vikingfile.com",
-        "storage.to",
         "buzzheavier.com",
         "qu.ax",
         "temp.sh",
@@ -95,6 +94,40 @@ object DownloadHelper {
         "d.tmpfile.link",
         "n.uguu.se",
     )
+
+    private val IMAGE_EXTENSIONS = setOf(
+        "jpg", "jpeg", "png", "gif", "webp", "svg", "heic", "heif", "bmp", "avif", "ico",
+    )
+
+    fun isImageFileName(fileName: String?, mimeType: String? = null): Boolean {
+        val mime = mimeType.orEmpty().lowercase()
+        if (mime.startsWith("image/")) return true
+        val ext = fileName.orEmpty().substringBefore('?').substringAfterLast('.', "").lowercase()
+        return ext in IMAGE_EXTENSIONS
+    }
+
+    fun isSvgAsset(nameOrUrl: String?, mimeType: String? = null): Boolean {
+        if (mimeType.orEmpty().contains("svg", ignoreCase = true)) return true
+        val clean = nameOrUrl.orEmpty().substringBefore('?').trim().lowercase()
+        return clean.endsWith(".svg")
+    }
+
+    fun inferImageMime(fileName: String?, mimeType: String? = null): String? {
+        val cleanMime = mimeType.orEmpty().substringBefore(';').trim().lowercase()
+        if (cleanMime.startsWith("image/")) return cleanMime
+        return when (fileName.orEmpty().substringBefore('?').substringAfterLast('.', "").lowercase()) {
+            "svg" -> "image/svg+xml"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "bmp" -> "image/bmp"
+            "heic", "heif" -> "image/heic"
+            "avif" -> "image/avif"
+            "ico" -> "image/x-icon"
+            "jpg", "jpeg" -> "image/jpeg"
+            else -> null
+        }
+    }
 
     private fun isFileditchHost(host: String): Boolean =
         host.contains("fileditch") || host == "yescatvideos.com"
@@ -117,27 +150,32 @@ object DownloadHelper {
         return "${HefimerApiConfig.SITE_ORIGIN}/api/download?url=$encUrl&filename=$encName$suffix"
     }
 
-    fun getMediaPreviewUrl(url: String?, mimeType: String?): String? {
+    fun getMediaPreviewUrl(url: String?, mimeType: String?, fileName: String? = null): String? {
         if (url.isNullOrBlank()) return null
-        val mime = mimeType.orEmpty().lowercase()
-        val isPreviewable = mime.startsWith("image/") || mime.startsWith("video/") || mime.startsWith("audio/")
-        if (!isPreviewable || mime.contains("svg")) return null
-        val parsed = runCatching { URI(url) }.getOrNull() ?: return null
+        val inferred = inferImageMime(fileName ?: url, mimeType) ?: mimeType.orEmpty().lowercase()
+        if (!inferred.startsWith("image/")) return null
+        val parsed = runCatching { URI(url.trim()) }.getOrNull() ?: return null
         if (parsed.scheme?.lowercase() != "https") return null
         val host = parsed.host?.lowercase().orEmpty()
         if (host in SKIP_INLINE_PREVIEW_HOSTS || isFileditchHost(host)) return null
-        if (host in DIRECT_INLINE_PREVIEW_HOSTS) return url
-        return buildProxyUrl(url, "preview", inline = true)
+        if (host in DIRECT_INLINE_PREVIEW_HOSTS || host.endsWith(".uguu.se")) return url.trim()
+        if (host in PROXIED_HOSTS) return buildProxyUrl(url.trim(), fileName?.ifBlank { "preview" } ?: "preview", inline = true)
+        return url.trim()
     }
 
-    fun resolveDirectImageUrl(url: String?): String? {
+    fun resolveDirectImageUrl(url: String?, fileName: String? = null): String? {
         if (url.isNullOrBlank()) return null
         val parsed = runCatching { URI(url.trim()) }.getOrNull() ?: return null
         val scheme = parsed.scheme?.lowercase().orEmpty()
         if (scheme != "https" && scheme != "http") return null
         val host = parsed.host?.lowercase().orEmpty()
-        if (host in DIRECT_INLINE_PREVIEW_HOSTS) return url.trim()
-        return buildProxyUrl(url.trim(), "image.jpg", inline = true)
+        if (host in DIRECT_INLINE_PREVIEW_HOSTS || host.endsWith(".uguu.se") || host.contains(".r2.cloudflarestorage.com")) {
+            return url.trim()
+        }
+        if (host in PROXIED_HOSTS) {
+            return buildProxyUrl(url.trim(), fileName?.takeIf { it.isNotBlank() } ?: "image.png", inline = true)
+        }
+        return url.trim()
     }
 
     private fun safeDownloadName(raw: String): String {

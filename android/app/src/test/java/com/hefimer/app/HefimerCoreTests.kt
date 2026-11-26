@@ -105,7 +105,7 @@ class HefimerCoreTests {
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://itsfileditchfiles.st/f/xyz"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://fileditchvids.st/charlie67/id/vid.mp4"))
         assertEquals(DirectDownloadMode.TAB, DownloadHelper.getDirectDownloadMode("https://yescatvideos.com/charlie67/id/thumbs.png"))
-        assertNull(DownloadHelper.getMediaPreviewUrl("https://storage.to/a.png", "image/png"))
+        assertNotNull(DownloadHelper.getMediaPreviewUrl("https://storage.to/a.png", "image/png"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://buzzheavier.com/a.png", "image/png"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://fileditchvids.st/a.mp4", "video/mp4"))
         assertNull(DownloadHelper.getMediaPreviewUrl("https://itsfileditchfiles.st/a.png", "image/png"))
@@ -322,5 +322,20 @@ class HefimerCoreTests {
         assertEquals(com.hefimer.app.data.model.ThemeMode.DARK, com.hefimer.app.data.model.ThemeMode.fromId("dark"))
         assertEquals(com.hefimer.app.data.model.ThemeMode.LIGHT, com.hefimer.app.data.model.ThemeMode.fromId("light"))
         assertEquals(com.hefimer.app.data.model.ThemeMode.SYSTEM, com.hefimer.app.data.model.ThemeMode.fromId("unknown"))
+    }
+
+    @Test
+    fun svgAndImagePreviewHelpersSupportAllFormats() {
+        assertTrue(DownloadHelper.isImageFileName("logo.svg", "application/octet-stream"))
+        assertTrue(DownloadHelper.isImageFileName("photo.HEIC", null))
+        assertTrue(DownloadHelper.isSvgAsset("vector.svg", null))
+        assertTrue(DownloadHelper.isSvgAsset("https://x0.at/abc.svg?v=1", null))
+        assertEquals("image/svg+xml", DownloadHelper.inferImageMime("icon.svg", null))
+        assertEquals(
+            "https://x0.at/abc.svg",
+            DownloadHelper.getMediaPreviewUrl("https://x0.at/abc.svg", "image/svg+xml", "abc.svg"),
+        )
+        assertNull(DownloadHelper.getMediaPreviewUrl("https://x0.at/clip.mp4", "video/mp4", "clip.mp4"))
+        assertTrue(UploadProviders.IMAGE_PREVIEW_PRIORITY.first() == "pomf")
     }
 }

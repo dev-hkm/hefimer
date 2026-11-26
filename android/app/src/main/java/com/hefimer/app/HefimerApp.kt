@@ -3,6 +3,7 @@ package com.hefimer.app
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.SvgDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.hefimer.app.data.network.HefimerApiConfig
@@ -19,6 +20,9 @@ class HefimerApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
             .okHttpClient(HefimerApiConfig.apiClient)
+            .components {
+                add(SvgDecoder.Factory())
+            }
             .memoryCache {
                 MemoryCache.Builder(this)
                     .maxSizePercent(0.20)
