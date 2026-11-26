@@ -455,14 +455,23 @@ private fun AnimatedDigitTile(
     isR2: Boolean,
     reduceMotion: Boolean,
 ) {
+    val context = LocalContext.current
     val progress = remember(digit, index) { Animatable(if (reduceMotion) 1f else 0f) }
     LaunchedEffect(digit, index) {
         if (!reduceMotion) {
             delay(index * 115L + 90L)
+            // Delicate ascending pulse per digit as the 5-digit code materializes
+            launch {
+                delay(180L)
+                com.hefimer.app.ui.theme.HefimerHaptics.codeDigitReveal(context, index)
+            }
             progress.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(durationMillis = 820, easing = AppMotion.AppleSheet),
             )
+        } else {
+            delay(index * 70L)
+            com.hefimer.app.ui.theme.HefimerHaptics.codeDigitReveal(context, index)
         }
     }
     Box(
@@ -527,10 +536,14 @@ private fun AnimatedCopyPill(
             )
     }
 
+    val context = LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
-        modifier = modifierWithGlass.applePressable(pressedScale = 0.96f, onClick = onClick),
+        modifier = modifierWithGlass.applePressable(pressedScale = 0.96f, enableHaptic = false) {
+            com.hefimer.app.ui.theme.HefimerHaptics.copyConfirm(context)
+            onClick()
+        },
     ) {
         AnimatedContent(
             targetState = copied to label,

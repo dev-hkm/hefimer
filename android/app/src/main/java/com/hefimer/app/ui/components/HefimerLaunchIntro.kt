@@ -11,9 +11,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.HefimerColors
+import com.hefimer.app.ui.theme.HefimerHaptics
 import com.hefimer.app.ui.theme.rememberReduceMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -27,6 +29,7 @@ fun HefimerLaunchIntro(
     onFinished: () -> Unit,
 ) {
     val reduceMotion = rememberReduceMotion()
+    val context = LocalContext.current
     val backdropAlpha = remember { Animatable(1f) }
     val logoAlpha = remember { Animatable(1f) }
     val logoScale = remember { Animatable(0.84f) }
@@ -42,6 +45,11 @@ fun HefimerLaunchIntro(
         }
 
         // Phase 1: Immediate visible large logo smoothly expands & sweeps one calm orbital turn
+        // paired with a whisper-soft 3-blade Hefimer launch orbit haptic cadence
+        val hapticJob = launch {
+            delay(110L)
+            HefimerHaptics.launchOrbit(context)
+        }
         val scaleJob = launch {
             logoScale.animateTo(1.03f, tween(920, easing = AppMotion.AppleSheet))
             logoScale.animateTo(1f, AppMotion.gentleSpring())
@@ -50,12 +58,14 @@ fun HefimerLaunchIntro(
             logoRotation.animateTo(360f, tween(1480, easing = AppMotion.AppleSheet))
         }
 
+        hapticJob.join()
         scaleJob.join()
         spinJob.join()
 
         delay(120L)
 
         // Phase 2: Slow, velvety iris zoom-dissolve into the live app
+        HefimerHaptics.launchSettle(context)
         val exitScale = launch {
             logoScale.animateTo(1.28f, tween(680, easing = AppMotion.AppleSheet))
         }

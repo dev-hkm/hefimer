@@ -190,10 +190,12 @@ fun HefimerOnboardingOverlay(
 
     // Subtle single-tick haptic on page settlement
     var lastSettledPage by remember { mutableIntStateOf(0) }
+    val onboardContext = androidx.compose.ui.platform.LocalContext.current
+    val onboardView = androidx.compose.ui.platform.LocalView.current
     LaunchedEffect(pagerState.settledPage) {
         if (pagerState.settledPage != lastSettledPage) {
             lastSettledPage = pagerState.settledPage
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            com.hefimer.app.ui.theme.HefimerHaptics.scrubTick(onboardContext, onboardView)
         }
     }
 

@@ -1030,7 +1030,7 @@ private fun SpaceCanvasCard(
     onOpenLink: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val currentSnap by rememberUpdatedState(snapGrid)
     val currentOnDragFinish by rememberUpdatedState(onDragFinish)
@@ -1098,7 +1098,7 @@ private fun SpaceCanvasCard(
                 detectDragGestures(
                     onDragStart = {
                         isDragging = true
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        com.hefimer.app.ui.theme.HefimerHaptics.microTouch(context)
                     },
                     onDragEnd = {
                         val rawX = worldX.value
@@ -1106,7 +1106,7 @@ private fun SpaceCanvasCard(
                         val finalX = if (currentSnap) (rawX / 24f).roundToInt() * 24f else rawX
                         val finalY = if (currentSnap) (rawY / 24f).roundToInt() * 24f else rawY
                         isDragging = false
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        com.hefimer.app.ui.theme.HefimerHaptics.tick(context)
                         scope.launch { worldX.animateTo(finalX, AppMotion.layoutSpring()) }
                         scope.launch { worldY.animateTo(finalY, AppMotion.layoutSpring()) }
                         currentOnDragFinish(finalX, finalY)

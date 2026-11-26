@@ -268,6 +268,8 @@ fun FiveDigitPinSlots(
 ) {
     var focused by remember { mutableStateOf(false) }
     val reduceMotion = rememberReduceMotion()
+    val context = LocalContext.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val blink = rememberInfiniteTransition(label = "pin_cursor").animateFloat(
         initialValue = 1f,
         targetValue = 0.15f,
@@ -368,7 +370,13 @@ fun FiveDigitPinSlots(
         val pinAccessibilityLabel = tr("Enter 5-digit Drop code", "Nhập mã Drop 5 chữ số")
         BasicTextField(
             value = code,
-            onValueChange = { onCodeChange(it.filter { c -> c.isDigit() }.take(5)) },
+            onValueChange = { raw ->
+                val clean = raw.filter { c -> c.isDigit() }.take(5)
+                if (clean != code) {
+                    com.hefimer.app.ui.theme.HefimerHaptics.tick(context, view)
+                }
+                onCodeChange(clean)
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Go,

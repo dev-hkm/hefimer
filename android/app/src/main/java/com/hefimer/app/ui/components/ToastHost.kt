@@ -74,6 +74,15 @@ fun HefimerToastHost(
     modifier: Modifier = Modifier,
 ) {
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(toast?.id) {
+        when (toast?.type) {
+            ToastType.SUCCESS -> com.hefimer.app.ui.theme.HefimerHaptics.success(context)
+            ToastType.ERROR -> com.hefimer.app.ui.theme.HefimerHaptics.softError(context)
+            else -> Unit
+        }
+    }
 
     Box(
         modifier = modifier
@@ -371,6 +380,7 @@ fun HefimerToggleRow(
         label = "toggle_thumb",
     )
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -382,7 +392,10 @@ fun HefimerToggleRow(
                 accentFillTint = if (checked) activeColor.copy(alpha = 0.14f) else null,
                 elevation = 0.dp,
             )
-            .applePressable(pressedScale = 0.97f, onClick = onToggle)
+            .applePressable(pressedScale = 0.97f, enableHaptic = false) {
+                com.hefimer.app.ui.theme.HefimerHaptics.toggle(context, !checked)
+                onToggle()
+            }
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Icon(

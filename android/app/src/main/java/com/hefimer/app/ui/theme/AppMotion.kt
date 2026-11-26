@@ -71,14 +71,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,10 +90,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-
-object HefimerHaptics {
-    var enabled by mutableStateOf(true)
-}
 
 object AppMotion {
     // Canonical Apple cubic-bezier deceleration curves
@@ -219,7 +214,8 @@ fun Modifier.applePressable(
     enableHaptic: Boolean = true,
     onClick: () -> Unit,
 ): Modifier = composed {
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val view = LocalView.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val reduceMotion = rememberReduceMotion()
@@ -261,8 +257,8 @@ fun Modifier.applePressable(
             interactionSource = interactionSource,
             indication = null,
             onClick = {
-                if (enableHaptic && HefimerHaptics.enabled) {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                if (enableHaptic) {
+                    HefimerHaptics.tick(context, view)
                 }
                 onClick()
             },
@@ -421,7 +417,8 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
     val heroBounds = LocalHeroBounds.current
     val density = LocalDensity.current
     val saveableHolder = rememberSaveableStateHolder()
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val view = LocalView.current
     val reduceMotion = rememberReduceMotion()
     val scope = rememberCoroutineScope()
 
@@ -513,7 +510,7 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
                     rootBackEdge = event.swipeEdge
                     if (!capturedStart) {
                         capturedStart = true
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HefimerHaptics.gestureEdge(context, view)
                     }
                     rootBackProgress.snapTo(curved)
                 }
@@ -601,7 +598,7 @@ fun <TabT : Any, OverlayT : Any> AppleLayeredNavigationHost(
                         if (!capturedStart) {
                             startTouchY = event.touchY
                             capturedStart = true
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HefimerHaptics.gestureEdge(context, view)
                         }
                         currentTouchY = event.touchY
                         dismissProgress.snapTo(curved)
@@ -700,7 +697,8 @@ fun AppleSwipeableSheet(
     content: @Composable (dismiss: () -> Unit) -> Unit,
 ) {
     val reduceMotion = rememberReduceMotion()
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     var isMounted by remember { mutableStateOf(false) }
     var isDismissing by remember { mutableStateOf(false) }
@@ -779,7 +777,7 @@ fun AppleSwipeableSheet(
                     val curved = raw * 0.68f + (1f - (1f - raw) * (1f - raw)) * 0.32f
                     if (!capturedStart) {
                         capturedStart = true
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HefimerHaptics.gestureEdge(context, view)
                     }
                     backPeel.snapTo(curved)
                     offsetY.snapTo(curved * heightPx * 0.28f)
@@ -886,7 +884,8 @@ fun <T> AppleSegmentedControl(
     selectedTextColor: Color = HefimerColors.Black,
 ) {
     val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val view = LocalView.current
     val innerRadius = (outerRadius - padding).coerceAtLeast(8.dp)
 
     BoxWithConstraints(
@@ -959,9 +958,7 @@ fun <T> AppleSegmentedControl(
                             if (!change.pressed) {
                                 val finalIdx = (change.position.x / pillWidthPx).toInt().coerceIn(0, opts.lastIndex)
                                 if (finalIdx != currentSelectedIndex || moved) {
-                                    if (HefimerHaptics.enabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
+                                    HefimerHaptics.tick(context, view)
                                     currentOnSelect(opts[finalIdx])
                                 }
                                 scrubbedIndex = -1
@@ -975,9 +972,7 @@ fun <T> AppleSegmentedControl(
                             if (hoverIdx != curIdx) {
                                 curIdx = hoverIdx
                                 scrubbedIndex = hoverIdx
-                                if (HefimerHaptics.enabled) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                }
+                                HefimerHaptics.scrubTick(context, view)
                                 currentOnSelect(opts[hoverIdx])
                             }
                         }

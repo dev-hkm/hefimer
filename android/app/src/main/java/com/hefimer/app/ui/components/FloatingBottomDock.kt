@@ -65,8 +65,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
@@ -196,7 +197,8 @@ fun HefimerFloatingBottomDock(
     modifier: Modifier = Modifier,
 ) {
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val view = LocalView.current
     val reduceMotion = rememberReduceMotion()
     val tabs = MainTab.entries
     val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
@@ -383,9 +385,7 @@ fun HefimerFloatingBottomDock(
                                     val releaseIdx = ((change.position.x - horizPadPx) / slotWidthPx)
                                         .toInt()
                                         .coerceIn(0, opts.lastIndex)
-                                    if (HefimerHaptics.enabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
+                                    HefimerHaptics.tick(context, view)
                                     currentOnSelectTab(opts[releaseIdx])
                                     hoveredTabIdx = -1
                                     break
@@ -397,9 +397,7 @@ fun HefimerFloatingBottomDock(
                                 if (nextIdx != curIdx) {
                                     curIdx = nextIdx
                                     hoveredTabIdx = nextIdx
-                                    if (HefimerHaptics.enabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
+                                    HefimerHaptics.scrubTick(context, view)
                                     currentOnSelectTab(opts[nextIdx])
                                 }
                             }

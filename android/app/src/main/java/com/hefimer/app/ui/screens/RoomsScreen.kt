@@ -879,18 +879,22 @@ private fun ChatBubbleItem(
                             reactionScale.animateTo(1f, AppMotion.softPopSpring())
                         }
                     }
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .graphicsLayer {
-                                scaleX = reactionScale.value
-                                scaleY = reactionScale.value
-                            }
-                            .clip(CircleShape)
-                            .background(HefimerColors.White06)
-                            .applePressable(pressedScale = 0.84f) { onReact(id) },
-                    ) {
+                        val reactCtx = androidx.compose.ui.platform.LocalContext.current
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .graphicsLayer {
+                                    scaleX = reactionScale.value
+                                    scaleY = reactionScale.value
+                                }
+                                .clip(CircleShape)
+                                .background(HefimerColors.White06)
+                                .applePressable(pressedScale = 0.84f, enableHaptic = false) {
+                                    com.hefimer.app.ui.theme.HefimerHaptics.reactionPop(reactCtx)
+                                    onReact(id)
+                                },
+                        ) {
                         com.hefimer.app.ui.components.HefimerReactionGlyph(
                             reactionId = id,
                             tint = HefimerColors.White,

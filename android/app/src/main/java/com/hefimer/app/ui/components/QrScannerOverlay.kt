@@ -145,9 +145,7 @@ fun QrScannerOverlay(
 
     fun triggerSuccess(text: String) {
         releaseCameraImmediately()
-        if (HefimerHaptics.enabled) {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
+        HefimerHaptics.success(context)
         onResult(text)
     }
 
