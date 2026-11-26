@@ -420,14 +420,46 @@ private fun ReceivedDropView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text(
-                    text = tr("DROP #${item.code}", "MÃ NHẬN #${item.code}"),
-                    color = accent.copy(alpha = 0.55f),
-                    fontFamily = JetBrainsMonoFamily,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .applePressable(pressedScale = 0.94f) {
+                            copyToClipboard(context, "Hefimer Code", item.code)
+                            com.hefimer.app.ui.theme.HefimerHaptics.success(context)
+                            vm.showToast(tr("Copied code #${item.code}", "Đã sao chép mã #${item.code}"), ToastType.SUCCESS)
+                        }
+                        .padding(vertical = 2.dp),
+                ) {
+                    Text(
+                        text = tr("DROP #${item.code}", "MÃ NHẬN #${item.code}"),
+                        color = accent.copy(alpha = 0.70f),
+                        fontFamily = JetBrainsMonoFamily,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Icon(
+                        imageVector = Icons.Rounded.ContentCopy,
+                        contentDescription = tr("Copy code", "Chép mã"),
+                        tint = accent.copy(alpha = 0.55f),
+                        modifier = Modifier.size(12.dp),
+                    )
+                    if (item.maxDownloads > 1) {
+                        val remaining = (item.maxDownloads - (item.downloadCount + 1)).coerceAtLeast(0)
+                        Text(
+                            text = tr("$remaining/${item.maxDownloads} left", "Còn $remaining/${item.maxDownloads}"),
+                            color = HefimerColors.White75,
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .appleGlassSurface(CircleShape, AppleGlassVariant.Clear, elevation = 0.dp)
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        )
+                    }
+                }
                 Text(
                     text = tr("Received Data", "Dữ liệu đã nhận"),
                     color = HefimerColors.White,
@@ -449,6 +481,25 @@ private fun ReceivedDropView(
             ) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = HefimerColors.White85, modifier = Modifier.size(15.dp))
                 Text(tr("Back", "Quay lại"), color = HefimerColors.White85, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (!item.description.isNullOrBlank() && !isR2) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .appleGlassSurface(RoundedCornerShape(18.dp), AppleGlassVariant.Clear, elevation = 0.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.Rounded.Edit, null, tint = HefimerColors.White55, modifier = Modifier.size(14.dp))
+                Text(
+                    text = item.description,
+                    color = HefimerColors.White85,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         }
 
@@ -1022,29 +1073,58 @@ private fun ReceivedDropView(
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))
 
                 var textLayoutResult by remember(textBody) { mutableStateOf<TextLayoutResult?>(null) }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 140.dp, max = 380.dp)
-                        .verticalScroll(rememberScrollState())
-                        .horizontalScroll(rememberScrollState())
-                        .padding(18.dp),
-                ) {
-                    if (showLineNumbers) {
-                        CodeLineNumberGutter(
-                            text = textBody,
-                            textLayoutResult = textLayoutResult,
-                            color = HefimerColors.White20,
+                var spoilerRevealed by remember(item.code) { mutableStateOf(!item.spoilerMode) }
+                if (!spoilerRevealed) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 160.dp)
+                            .applePressable(pressedScale = 0.985f) {
+                                com.hefimer.app.ui.theme.HefimerHaptics.tick(context)
+                                spoilerRevealed = true
+                            }
+                            .padding(24.dp),
+                    ) {
+                        Icon(Icons.Rounded.VisibilityOff, null, tint = HefimerColors.White60, modifier = Modifier.size(28.dp))
+                        Text(
+                            text = tr("Content Hidden (Privacy Shield)", "Nội dung đang được che bảo mật"),
+                            color = HefimerColors.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = tr("Tap to reveal text or code", "Chạm vào đây để hiển thị nội dung"),
+                            color = HefimerColors.White50,
+                            fontSize = 11.5.sp,
                         )
                     }
-                    Text(
-                        text = highlighted,
-                        fontFamily = JetBrainsMonoFamily,
-                        fontSize = 13.5.sp,
-                        lineHeight = 20.sp,
-                        color = HefimerColors.White,
-                        onTextLayout = { textLayoutResult = it },
-                    )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 140.dp, max = 380.dp)
+                            .verticalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState())
+                            .padding(18.dp),
+                    ) {
+                        if (showLineNumbers) {
+                            CodeLineNumberGutter(
+                                text = textBody,
+                                textLayoutResult = textLayoutResult,
+                                color = HefimerColors.White20,
+                            )
+                        }
+                        Text(
+                            text = highlighted,
+                            fontFamily = JetBrainsMonoFamily,
+                            fontSize = 13.5.sp,
+                            lineHeight = 20.sp,
+                            color = HefimerColors.White,
+                            onTextLayout = { textLayoutResult = it },
+                        )
+                    }
                 }
 
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(HefimerColors.White10))

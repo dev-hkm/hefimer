@@ -118,6 +118,8 @@ data class SendUiState(
     val fileExpire: String = "72h",
     val filePassword: String = "",
     val fileOneTime: Boolean = false,
+    val fileMaxDownloads: Int = 0, // 0 = unlimited, 1/3/5/10 = max views/downloads
+    val fileNote: String = "",
     val fileE2ee: Boolean = false,
     val r2CustomName: String = "",
     val r2Description: String = "",
@@ -137,6 +139,9 @@ data class SendUiState(
     val textExpire: String = "1h",
     val textPassword: String = "",
     val textOneTime: Boolean = false,
+    val textMaxDownloads: Int = 0,
+    val textNote: String = "",
+    val textSpoilerMode: Boolean = false,
     val textLoading: Boolean = false,
     val textResultCode: String = "",
     val textResultExpiresAt: Long? = null,
@@ -1408,10 +1413,15 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
 
     fun setFileExpire(expire: String) = _sendState.update { it.copy(fileExpire = expire) }
     fun setFilePassword(pw: String) = _sendState.update { it.copy(filePassword = pw) }
-    fun toggleFileOneTime() = _sendState.update { it.copy(fileOneTime = !it.fileOneTime) }
+    fun toggleFileOneTime() = _sendState.update { it.copy(fileOneTime = !it.fileOneTime, fileMaxDownloads = if (!it.fileOneTime) 1 else 0) }
+    fun setFileMaxDownloads(limit: Int) = _sendState.update { it.copy(fileMaxDownloads = limit, fileOneTime = limit == 1) }
+    fun setFileNote(note: String) = _sendState.update { it.copy(fileNote = note) }
     fun toggleFileE2ee() = _sendState.update { it.copy(fileE2ee = !it.fileE2ee) }
     fun setR2CustomName(v: String) = _sendState.update { it.copy(r2CustomName = v) }
     fun setR2Description(v: String) = _sendState.update { it.copy(r2Description = v) }
+    fun setTextNote(note: String) = _sendState.update { it.copy(textNote = note) }
+    fun setTextMaxDownloads(limit: Int) = _sendState.update { it.copy(textMaxDownloads = limit, textOneTime = limit == 1) }
+    fun toggleTextSpoilerMode() = _sendState.update { it.copy(textSpoilerMode = !it.textSpoilerMode) }
 
     fun cancelFileUpload() {
         fileCancelToken?.cancel()
@@ -1619,7 +1629,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     put("timestamp", FirebaseRtdbClient.serverTimestamp())
                     if (isMulti) put("files", JsonArray(uploadedEntries))
                     if (st.filePassword.isNotBlank()) put("password", JsonPrimitive(st.filePassword.trim()))
-                    if (st.fileOneTime) put("isOneTime", JsonPrimitive(true))
+                    if (st.fileNote.isNotBlank()) put("description", JsonPrimitive(st.fileNote.trim()))
+                    if (st.fileOneTime || st.fileMaxDownloads == 1) put("isOneTime", JsonPrimitive(true))
+                    if (st.fileMaxDownloads > 1) put("maxDownloads", JsonPrimitive(st.fileMaxDownloads))
                     if (e2eeKey != null) {
                         put("e2eeKey", JsonPrimitive(e2eeKey))
                         put("e2eeAlgo", JsonPrimitive(com.hefimer.app.data.network.FileE2eeCrypto.ALGO_LABEL))
@@ -1784,7 +1796,8 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     put("timestamp", FirebaseRtdbClient.serverTimestamp())
                     if (isMulti) put("files", JsonArray(entries)) else put("objectKey", JsonPrimitive(singleKey))
                     if (st.filePassword.isNotBlank()) put("password", JsonPrimitive(st.filePassword.trim()))
-                    if (st.fileOneTime) put("isOneTime", JsonPrimitive(true))
+                    if (st.fileOneTime || st.fileMaxDownloads == 1) put("isOneTime", JsonPrimitive(true))
+                    if (st.fileMaxDownloads > 1) put("maxDownloads", JsonPrimitive(st.fileMaxDownloads))
                     if (e2eeKey != null) {
                         put("e2eeKey", JsonPrimitive(e2eeKey))
                         put("e2eeAlgo", JsonPrimitive(com.hefimer.app.data.network.FileE2eeCrypto.ALGO_LABEL))
@@ -1877,7 +1890,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     put("expiresAt", JsonPrimitive(expiresAt))
                     put("timestamp", FirebaseRtdbClient.serverTimestamp())
                     if (st.textPassword.isNotBlank()) put("password", JsonPrimitive(st.textPassword.trim()))
-                    if (st.textOneTime) put("isOneTime", JsonPrimitive(true))
+                    if (st.textNote.isNotBlank()) put("description", JsonPrimitive(st.textNote.trim()))
+                    if (st.textSpoilerMode) put("spoilerMode", JsonPrimitive(true))
+                    if (st.textOneTime || st.textMaxDownloads == 1) put("isOneTime", JsonPrimitive(true))
+                    if (st.textMaxDownloads > 1) put("maxDownloads", JsonPrimitive(st.textMaxDownloads))
                 }
                 rtdb.set("drops/$code", dropJson)
 
@@ -2004,8 +2020,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         // Notify Hefimer Link if this drop matched an incoming transfer
         markLinkedTransferReceived(drop.code)
 
-        // Perform one-time self-destruct cleanup matching web ReceiveResult
-        if (drop.isOneTime) {
+        // Perform one-time / maxDownloads self-destruct cleanup matching web ReceiveResult
+        val nextCount = drop.downloadCount + 1
+        val reachedLimit = drop.isOneTime || (drop.maxDownloads > 0 && nextCount >= drop.maxDownloads)
+        if (reachedLimit) {
             viewModelScope.launch {
                 runCatching {
                     drop.objectKey?.takeIf { it.isNotBlank() }?.let { r2Service.deleteObject(it) }
@@ -2013,8 +2031,19 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                         if (f.objectKey.isNotBlank()) r2Service.deleteObject(f.objectKey)
                     }
                     rtdb.remove("drops/${drop.code}")
-                    showToast(tr("This drop self-destructed after viewing", "Dữ liệu này đã tự hủy sau khi xem"), ToastType.INFO)
+                    showToast(
+                        if (drop.maxDownloads > 1) {
+                            tr("Final view (${drop.maxDownloads}/${drop.maxDownloads}) — drop self-destructed", "Lượt cuối (${drop.maxDownloads}/${drop.maxDownloads}) — dữ liệu đã tự hủy")
+                        } else {
+                            tr("This drop self-destructed after viewing", "Dữ liệu này đã tự hủy sau khi xem")
+                        },
+                        ToastType.INFO,
+                    )
                 }
+            }
+        } else if (drop.maxDownloads > 1) {
+            viewModelScope.launch {
+                runCatching { rtdb.incrementInt("drops/${drop.code}/downloadCount", 1) }
             }
         }
     }
@@ -3460,6 +3489,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         val coverImageUrl: String = "",
         val uploadingCover: Boolean = false,
         val allowMultiple: Boolean = false,
+        val allowRevote: Boolean = true,
         val expire: String = "24h",
         val createPassword: String = "",
         val draftOptions: List<PollDraftOption> = listOf(PollDraftOption(), PollDraftOption()),
@@ -3474,6 +3504,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     fun setPollJoinPassword(pw: String) = _pollState.update { it.copy(joinPassword = pw) }
     fun setPollQuestion(q: String) = _pollState.update { it.copy(question = q) }
     fun setPollAllowMultiple(allow: Boolean) = _pollState.update { it.copy(allowMultiple = allow) }
+    fun setPollAllowRevote(allow: Boolean) = _pollState.update { it.copy(allowRevote = allow) }
     fun setPollExpire(exp: String) = _pollState.update { it.copy(expire = exp) }
     fun setPollCreatePassword(pw: String) = _pollState.update { it.copy(createPassword = pw) }
     fun clearPollCoverImage() = _pollState.update { it.copy(coverImageUrl = "") }
@@ -3590,6 +3621,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     put("question", JsonPrimitive(question))
                     if (st.coverImageUrl.isNotBlank()) put("coverImageUrl", JsonPrimitive(st.coverImageUrl))
                     put("allowMultiple", JsonPrimitive(st.allowMultiple))
+                    put("allowRevote", JsonPrimitive(st.allowRevote))
                     if (st.createPassword.isNotBlank()) put("password", JsonPrimitive(st.createPassword.trim()))
                     put("expire", JsonPrimitive(st.expire))
                     put("createdAt", JsonPrimitive(now))
@@ -3665,18 +3697,28 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun votePoll(optionId: String) {
+    fun submitPollSelection(selectedIds: Set<String>) {
         val st = _pollState.value
         val poll = st.activePoll ?: return
-        if (!poll.allowMultiple && st.votedOptionIds.isNotEmpty()) {
-            showToast(tr("You already voted on this poll", "Bạn đã bình chọn rồi"), ToastType.INFO)
+        val prevVoted = st.votedOptionIds
+        if (!poll.allowRevote && prevVoted.isNotEmpty()) {
+            showToast(tr("You already confirmed your vote", "Bạn đã xác nhận bình chọn rồi"), ToastType.INFO)
             return
         }
-        if (optionId in st.votedOptionIds) return
+        val normalized = if (!poll.allowMultiple) selectedIds.take(1).toSet() else selectedIds
+        if (normalized.isEmpty() || normalized == prevVoted) return
+        val toRemove = prevVoted - normalized
+        val toAdd = normalized - prevVoted
         viewModelScope.launch {
             try {
-                rtdb.incrementInt("polls/${poll.code}/options/$optionId/votes", 1)
-                _pollState.update { it.copy(votedOptionIds = it.votedOptionIds + optionId) }
+                toRemove.forEach { id -> rtdb.incrementInt("polls/${poll.code}/options/$id/votes", -1) }
+                toAdd.forEach { id -> rtdb.incrementInt("polls/${poll.code}/options/$id/votes", 1) }
+                _pollState.update { it.copy(votedOptionIds = normalized) }
+                showToast(
+                    if (prevVoted.isEmpty()) tr("Vote confirmed!", "Đã xác nhận bình chọn!")
+                    else tr("Vote updated!", "Đã cập nhật lựa chọn!"),
+                    ToastType.SUCCESS,
+                )
             } catch (e: Throwable) {
                 showToast(e.message ?: tr("Vote failed", "Bình chọn thất bại"), ToastType.ERROR)
             }
@@ -3719,6 +3761,7 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             coverImageUrl = obj["coverImageUrl"]?.jsonPrimitive?.contentOrNull.orEmpty(),
             options = options,
             allowMultiple = obj["allowMultiple"]?.jsonPrimitive?.contentOrNull == "true",
+            allowRevote = obj["allowRevote"]?.jsonPrimitive?.contentOrNull != "false",
             password = obj["password"]?.jsonPrimitive?.contentOrNull,
             expire = obj["expire"]?.jsonPrimitive?.contentOrNull ?: "24h",
             createdAt = obj["createdAt"]?.jsonPrimitive?.longOrNull ?: 0L,

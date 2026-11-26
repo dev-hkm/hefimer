@@ -15,6 +15,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -22,11 +23,19 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +66,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,9 +76,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -125,10 +137,28 @@ fun QrScannerOverlay(
     var decodingImage by remember { mutableStateOf(false) }
     var galleryError by remember { mutableStateOf<String?>(null) }
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
+    var zoomRatio by remember { mutableFloatStateOf(1f) }
+    var maxZoomRatio by remember { mutableFloatStateOf(4f) }
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
     val providerRef = remember { AtomicReference<ProcessCameraProvider?>(null) }
     val analysisRef = remember { AtomicReference<ImageAnalysis?>(null) }
     val scanned = remember { AtomicBoolean(false) }
     val executor = remember { Executors.newSingleThreadExecutor() }
+
+    LaunchedEffect(focusPoint) {
+        if (focusPoint != null) {
+            delay(1100L)
+            focusPoint = null
+        }
+    }
+
+    fun applyZoom(targetRatio: Float) {
+        val cam = boundCamera ?: return
+        val clamped = targetRatio.coerceIn(1f, maxZoomRatio.coerceAtLeast(1f))
+        zoomRatio = clamped
+        runCatching { cam.cameraControl.setZoomRatio(clamped) }
+    }
 
     fun releaseCameraImmediately() {
         scanned.set(true)
@@ -190,104 +220,161 @@ fun QrScannerOverlay(
             .background(HefimerColors.Black),
     ) {
         if (hasPermission) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx).apply {
-                        // TextureView (COMPATIBLE) composites smoothly inside Compose graphicsLayer transforms
-                        // during exit animations without SurfaceView punch-hole lag.
-                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                        scaleType = PreviewView.ScaleType.FILL_CENTER
-                    }
-                    val providerFuture = ProcessCameraProvider.getInstance(ctx)
-                    providerFuture.addListener({
-                        if (scanned.get()) return@addListener
-                        val provider = runCatching { providerFuture.get() }.getOrNull() ?: return@addListener
-                        providerRef.set(provider)
-                        val preview = Preview.Builder().build().also {
-                            it.surfaceProvider = previewView.surfaceProvider
-                        }
-                        val reader = MultiFormatReader().apply {
-                            setHints(
-                                mapOf(
-                                    DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
-                                    DecodeHintType.TRY_HARDER to true,
-                                ),
-                            )
-                        }
-                        val analysis = ImageAnalysis.Builder()
-                            .setResolutionSelector(
-                                ResolutionSelector.Builder()
-                                    .setResolutionStrategy(
-                                        ResolutionStrategy(
-                                            Size(1280, 720),
-                                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                                        ),
-                                    )
-                                    .build(),
-                            )
-                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                            .build()
-                        analysisRef.set(analysis)
-                        analysis.setAnalyzer(executor) { imageProxy ->
-                            try {
-                                if (scanned.get()) return@setAnalyzer
-                                if (imageProxy.format == ImageFormat.YUV_420_888) {
-                                    val plane = imageProxy.planes[0]
-                                    val buffer = plane.buffer
-                                    val bytes = ByteArray(buffer.remaining())
-                                    buffer.get(bytes)
-                                    val source = PlanarYUVLuminanceSource(
-                                        bytes,
-                                        plane.rowStride,
-                                        imageProxy.height,
-                                        0,
-                                        0,
-                                        imageProxy.width,
-                                        imageProxy.height,
-                                        false,
-                                    )
-                                    val bitmap = BinaryBitmap(HybridBinarizer(source))
-                                    val decoded = runCatching { reader.decodeWithState(bitmap) }.getOrNull()
-                                    reader.reset()
-                                    if (decoded != null && scanned.compareAndSet(false, true)) {
-                                        val text = decoded.text
-                                        ContextCompat.getMainExecutor(ctx).execute {
-                                            triggerSuccess(text)
-                                        }
-                                    }
-                                }
-                            } finally {
-                                imageProxy.close()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(boundCamera, previewViewRef) {
+                        detectTapGestures { offset ->
+                            val pv = previewViewRef ?: return@detectTapGestures
+                            val cam = boundCamera ?: return@detectTapGestures
+                            focusPoint = offset
+                            HefimerHaptics.tick(context)
+                            runCatching {
+                                val point = pv.meteringPointFactory.createPoint(offset.x, offset.y)
+                                val action = FocusMeteringAction.Builder(point).build()
+                                cam.cameraControl.startFocusAndMetering(action)
                             }
                         }
-
-                        runCatching {
-                            provider.unbindAll()
-                            boundCamera = provider.bindToLifecycle(
-                                lifecycleOwner,
-                                CameraSelector.DEFAULT_BACK_CAMERA,
-                                preview,
-                                analysis,
-                            )
+                    }
+                    .pointerInput(boundCamera, maxZoomRatio) {
+                        detectTransformGestures { _, _, zoomChange, _ ->
+                            if (kotlin.math.abs(zoomChange - 1f) > 0.005f) {
+                                applyZoom(zoomRatio * zoomChange)
+                            }
                         }
-                    }, ContextCompat.getMainExecutor(ctx))
-                    previewView
-                },
-            )
+                    },
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        val previewView = PreviewView(ctx).apply {
+                            // TextureView (COMPATIBLE) composites smoothly inside Compose graphicsLayer transforms
+                            // during exit animations without SurfaceView punch-hole lag.
+                            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                        }
+                        previewViewRef = previewView
+                        val providerFuture = ProcessCameraProvider.getInstance(ctx)
+                        providerFuture.addListener({
+                            if (scanned.get()) return@addListener
+                            val provider = runCatching { providerFuture.get() }.getOrNull() ?: return@addListener
+                            providerRef.set(provider)
+                            val preview = Preview.Builder().build().also {
+                                it.surfaceProvider = previewView.surfaceProvider
+                            }
+                            val reader = MultiFormatReader().apply {
+                                setHints(
+                                    mapOf(
+                                        DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+                                        DecodeHintType.TRY_HARDER to true,
+                                    ),
+                                )
+                            }
+                            val analysis = ImageAnalysis.Builder()
+                                .setResolutionSelector(
+                                    ResolutionSelector.Builder()
+                                        .setResolutionStrategy(
+                                            ResolutionStrategy(
+                                                Size(1280, 720),
+                                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                                            ),
+                                        )
+                                        .build(),
+                                )
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build()
+                            analysisRef.set(analysis)
+                            analysis.setAnalyzer(executor) { imageProxy ->
+                                try {
+                                    if (scanned.get()) return@setAnalyzer
+                                    if (imageProxy.format == ImageFormat.YUV_420_888) {
+                                        val plane = imageProxy.planes[0]
+                                        val buffer = plane.buffer
+                                        val bytes = ByteArray(buffer.remaining())
+                                        buffer.get(bytes)
+                                        val source = PlanarYUVLuminanceSource(
+                                            bytes,
+                                            plane.rowStride,
+                                            imageProxy.height,
+                                            0,
+                                            0,
+                                            imageProxy.width,
+                                            imageProxy.height,
+                                            false,
+                                        )
+                                        val bitmap = BinaryBitmap(HybridBinarizer(source))
+                                        val decoded = runCatching { reader.decodeWithState(bitmap) }.getOrNull()
+                                        reader.reset()
+                                        if (decoded != null && scanned.compareAndSet(false, true)) {
+                                            val text = decoded.text
+                                            ContextCompat.getMainExecutor(ctx).execute {
+                                                triggerSuccess(text)
+                                            }
+                                        }
+                                    }
+                                } finally {
+                                    imageProxy.close()
+                                }
+                            }
 
-            // Crisp monochrome viewfinder reticle
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val frameSize = minOf(size.width, size.height) * 0.66f
-                val left = (size.width - frameSize) / 2f
-                val top = (size.height - frameSize) / 2f
-                drawRoundRect(
-                    color = Color.White.copy(alpha = 0.85f),
-                    topLeft = Offset(left, top),
-                    size = androidx.compose.ui.geometry.Size(frameSize, frameSize),
-                    cornerRadius = CornerRadius(32.dp.toPx(), 32.dp.toPx()),
-                    style = Stroke(width = 2.5.dp.toPx()),
+                            runCatching {
+                                provider.unbindAll()
+                                val cam = provider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    CameraSelector.DEFAULT_BACK_CAMERA,
+                                    preview,
+                                    analysis,
+                                )
+                                boundCamera = cam
+                                maxZoomRatio = (cam.cameraInfo.zoomState.value?.maxZoomRatio ?: 4f).coerceIn(1f, 8f)
+                            }
+                        }, ContextCompat.getMainExecutor(ctx))
+                        previewView
+                    },
                 )
+
+                // Crisp monochrome viewfinder reticle + animated scan beam + tap-to-focus ring
+                val scanTransition = rememberInfiniteTransition(label = "qr_beam")
+                val beamProgress by scanTransition.animateFloat(
+                    initialValue = 0.08f,
+                    targetValue = 0.92f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(2200, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                    label = "qr_beam_y",
+                )
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val frameSize = minOf(size.width, size.height) * 0.66f
+                    val left = (size.width - frameSize) / 2f
+                    val top = (size.height - frameSize) / 2f
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.85f),
+                        topLeft = Offset(left, top),
+                        size = androidx.compose.ui.geometry.Size(frameSize, frameSize),
+                        cornerRadius = CornerRadius(32.dp.toPx(), 32.dp.toPx()),
+                        style = Stroke(width = 2.5.dp.toPx()),
+                    )
+                    val beamY = top + frameSize * beamProgress
+                    drawLine(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.85f), Color.Transparent),
+                            startX = left + 20.dp.toPx(),
+                            endX = left + frameSize - 20.dp.toPx(),
+                        ),
+                        start = Offset(left + 20.dp.toPx(), beamY),
+                        end = Offset(left + frameSize - 20.dp.toPx(), beamY),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                    focusPoint?.let { fp ->
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.9f),
+                            radius = 28.dp.toPx(),
+                            center = fp,
+                            style = Stroke(width = 1.8.dp.toPx()),
+                        )
+                    }
+                }
             }
         } else {
             Column(
@@ -434,6 +521,46 @@ fun QrScannerOverlay(
             }
 
             if (hasPermission) {
+                // Quick zoom selector pills (1x, 2x, 3x)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .appleGlassSurface(
+                            shape = CircleShape,
+                            variant = AppleGlassVariant.Clear,
+                            elevation = 10.dp,
+                        )
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                ) {
+                    listOf(1f, 2f, 3f).filter { it <= maxZoomRatio + 0.1f }.forEach { preset ->
+                        val active = kotlin.math.abs(zoomRatio - preset) < 0.35f
+                        Text(
+                            text = "${preset.toInt()}x",
+                            color = if (active) Color.Black else Color.White.copy(alpha = 0.8f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (active) Color.White else Color.Transparent)
+                                .applePressable(pressedScale = 0.9f) {
+                                    HefimerHaptics.tick(context)
+                                    applyZoom(preset)
+                                }
+                                .padding(horizontal = 11.dp, vertical = 5.dp),
+                        )
+                    }
+                    if (zoomRatio > 1.08f && listOf(1f, 2f, 3f).none { kotlin.math.abs(zoomRatio - it) < 0.2f }) {
+                        Text(
+                            text = "${String.format(java.util.Locale.US, "%.1f", zoomRatio)}x",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp),
+                        )
+                    }
+                }
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,

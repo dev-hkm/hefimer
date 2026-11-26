@@ -952,6 +952,52 @@ private fun SendFileSection(
                         )
                     }
 
+                    HefimerTextField(
+                        value = state.fileNote,
+                        onValueChange = { vm.setFileNote(it) },
+                        placeholder = tr("Short label / note (optional)...", "Ghi chú / nhãn ngắn (tùy chọn)..."),
+                        leadingIcon = Icons.Rounded.Edit,
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = tr("MAX DOWNLOADS / VIEWS", "GIỚI HẠN LƯỢT TẢI / XEM"),
+                            color = HefimerColors.White30,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.8.sp,
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(
+                                0 to tr("Unlimited", "Không giới hạn"),
+                                1 to tr("1x (Burn)", "1 lần (Tự hủy)"),
+                                3 to "3x",
+                                5 to "5x",
+                                10 to "10x",
+                            ).forEach { (limit, lbl) ->
+                                val selected = state.fileMaxDownloads == limit
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(if (selected) HefimerColors.White else HefimerColors.White06)
+                                        .border(1.dp, if (selected) HefimerColors.White else HefimerColors.White12, CircleShape)
+                                        .applePressable(pressedScale = 0.93f) { vm.setFileMaxDownloads(limit) }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                ) {
+                                    Text(
+                                        text = lbl,
+                                        color = if (selected) HefimerColors.Black else HefimerColors.White70,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     HefimerToggleRow(
                         title = tr("Encrypt File (E2EE)", "Mã hóa tệp (E2EE)"),
                         subtitle = tr("AES-256-GCM on-device before upload", "Mã hóa AES-256-GCM trên máy trước khi tải lên"),
@@ -959,15 +1005,6 @@ private fun SendFileSection(
                         onToggle = { vm.toggleFileE2ee() },
                         icon = Icons.Rounded.Lock,
                         activeColor = HefimerColors.White,
-                    )
-
-                    HefimerToggleRow(
-                        title = tr("Self-Destruct", "Tự hủy sau 1 lần xem"),
-                        subtitle = tr("Delete after one successful read", "Xóa ngay sau khi người nhận mở 1 lần"),
-                        checked = state.fileOneTime,
-                        onToggle = { vm.toggleFileOneTime() },
-                        icon = Icons.Rounded.DeleteOutline,
-                        activeColor = HefimerColors.Red500,
                     )
                 }
             }
@@ -1395,13 +1432,57 @@ private fun SendTextSection(
                         placeholder = tr("Password (optional)", "Mật khẩu (không bắt buộc)"),
                         leadingIcon = Icons.Rounded.Lock,
                     )
+                    HefimerTextField(
+                        value = state.textNote,
+                        onValueChange = { vm.setTextNote(it) },
+                        placeholder = tr("Short label / note (optional)...", "Ghi chú / nhãn ngắn (tùy chọn)..."),
+                        leadingIcon = Icons.Rounded.Edit,
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = tr("MAX VIEWS BEFORE BURN", "GIỚI HẠN LƯỢT XEM"),
+                            color = HefimerColors.White30,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.8.sp,
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(
+                                0 to tr("Unlimited", "Không giới hạn"),
+                                1 to tr("1x (Burn)", "1 lần (Tự hủy)"),
+                                3 to "3x",
+                                5 to "5x",
+                                10 to "10x",
+                            ).forEach { (limit, lbl) ->
+                                val selected = state.textMaxDownloads == limit
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(if (selected) HefimerColors.White else HefimerColors.White06)
+                                        .border(1.dp, if (selected) HefimerColors.White else HefimerColors.White12, CircleShape)
+                                        .applePressable(pressedScale = 0.93f) { vm.setTextMaxDownloads(limit) }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                ) {
+                                    Text(
+                                        text = lbl,
+                                        color = if (selected) HefimerColors.Black else HefimerColors.White70,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                        }
+                    }
                     HefimerToggleRow(
-                        title = tr("Self-Destruct", "Tự hủy sau 1 lần xem"),
-                        subtitle = tr("Delete after one successful read", "Xóa ngay sau khi người nhận mở 1 lần"),
-                        checked = state.textOneTime,
-                        onToggle = { vm.toggleTextOneTime() },
-                        icon = Icons.Rounded.DeleteOutline,
-                        activeColor = HefimerColors.Red500,
+                        title = tr("Hide Behind Spoiler Shield", "Che nội dung trước khi mở"),
+                        subtitle = tr("Mask code/text until recipient taps to reveal", "Ẩn văn bản/mã nguồn cho đến khi người nhận chạm để xem"),
+                        checked = state.textSpoilerMode,
+                        onToggle = { vm.toggleTextSpoilerMode() },
+                        icon = Icons.Rounded.VisibilityOff,
+                        activeColor = HefimerColors.White,
                     )
                 }
             }

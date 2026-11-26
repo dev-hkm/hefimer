@@ -254,10 +254,20 @@ fun DropResultCard(
 
         Spacer(Modifier.height(22.dp))
 
-        // Staggered animated 5-digit boxes matching ResultView
+        // Staggered animated 5-digit boxes matching ResultView (tap to copy code directly)
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(22.dp))
+                .applePressable(pressedScale = 0.96f) {
+                    copyToClipboard(context, "Hefimer Code", code)
+                    copiedCode = true
+                    com.hefimer.app.ui.theme.HefimerHaptics.success(context)
+                    onToast(tr("Code #$code copied", "Đã sao chép mã #$code"), false)
+                    scope.launch { delay(2000L); copiedCode = false }
+                }
+                .padding(horizontal = 4.dp, vertical = 2.dp),
         ) {
             code.take(5).forEachIndexed { idx, ch ->
                 AnimatedDigitTile(

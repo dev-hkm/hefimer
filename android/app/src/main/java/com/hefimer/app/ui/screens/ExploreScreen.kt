@@ -81,6 +81,7 @@ import com.hefimer.app.ui.components.HefimerRemoteImage
 import com.hefimer.app.ui.components.HefimerSecondaryButton
 import com.hefimer.app.ui.components.HefimerToggleRow
 import com.hefimer.app.ui.components.QrShareModal
+import com.hefimer.app.ui.components.copyToClipboard
 import com.hefimer.app.ui.theme.AppMotion
 import com.hefimer.app.ui.theme.AppleFluidProgressTrack
 import com.hefimer.app.ui.theme.AppleGlassVariant
@@ -338,9 +339,14 @@ private fun PollSection(vm: HefimerViewModel) {
         LivePollView(
             poll = activePoll,
             votedIds = state.votedOptionIds,
-            onVote = { optId ->
+            onConfirmVote = { selected ->
                 HefimerHaptics.reactionPop(context)
-                vm.votePoll(optId)
+                vm.submitPollSelection(selected)
+            },
+            onCopyCode = { code ->
+                copyToClipboard(context, "Hefimer Poll", code)
+                HefimerHaptics.success(context)
+                vm.showToast(tr("Copied poll code #$code", "Đã sao chép mã bình chọn #$code"), ToastType.SUCCESS)
             },
             onShowQr = { showQr = true },
             onBack = { vm.closeActivePoll() },
@@ -566,6 +572,15 @@ private fun PollSection(vm: HefimerViewModel) {
                     activeColor = HefimerColors.White,
                 )
 
+                HefimerToggleRow(
+                    title = tr("Allow Changing Vote", "Cho phép đổi lựa chọn"),
+                    subtitle = tr("Voters can re-select and update their choice", "Người tham gia có thể chọn lại đáp án khác"),
+                    checked = state.allowRevote,
+                    onToggle = { vm.setPollAllowRevote(!state.allowRevote) },
+                    icon = Icons.Rounded.QrCode2,
+                    activeColor = HefimerColors.White,
+                )
+
                 Text(
                     text = tr("EXPIRES IN (MAX 48H)", "THỜI HẠN (TỐI ĐA 48 GIỜ)"),
                     color = HefimerColors.White45,
@@ -623,11 +638,17 @@ private fun PollSection(vm: HefimerViewModel) {
 private fun LivePollView(
     poll: PollItem,
     votedIds: Set<String>,
-    onVote: (String) -> Unit,
+    onConfirmVote: (Set<String>) -> Unit,
+    onCopyCode: (String) -> Unit,
     onShowQr: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     val total = poll.totalVotes.coerceAtLeast(0)
+    var draftSelection by remember(poll.code, votedIds) { mutableStateOf(votedIds) }
+    val canChange = votedIds.isEmpty() || poll.allowRevote
+    val hasPendingChange = draftSelection.isNotEmpty() && draftSelection != votedIds
+
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
@@ -648,7 +669,11 @@ private fun LivePollView(
                     fontFamily = JetBrainsMonoFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
-                    modifier = Modifier.clip(CircleShape).background(HefimerColors.White).padding(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(HefimerColors.White)
+                        .applePressable(pressedScale = 0.92f) { onCopyCode(poll.code) }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                 )
                 Text(
                     text = formatRemainingCompact(poll.expiresAt),
@@ -716,7 +741,8 @@ private fun LivePollView(
         }
 
         poll.options.forEach { opt ->
-            val picked = opt.id in votedIds
+            val selected = opt.id in draftSelection
+            val confirmed = opt.id in votedIds
             val frac = if (total > 0) (opt.votes.toFloat() / total.toFloat()).coerceIn(0f, 1f) else 0f
             val pct = (frac * 100f).toInt()
             Column(
@@ -726,11 +752,18 @@ private fun LivePollView(
                     .appleGlassSurface(
                         shape = RoundedCornerShape(20.dp),
                         variant = AppleGlassVariant.Clear,
-                        accentBorderTint = if (picked) HefimerColors.White else null,
-                        accentFillTint = if (picked) HefimerColors.White08 else null,
+                        accentBorderTint = if (selected) HefimerColors.White else null,
+                        accentFillTint = if (selected) HefimerColors.White08 else null,
                         elevation = 0.dp,
                     )
-                    .applePressable(pressedScale = 0.975f) { onVote(opt.id) }
+                    .applePressable(enabled = canChange, pressedScale = 0.975f) {
+                        HefimerHaptics.tick(context)
+                        draftSelection = if (poll.allowMultiple) {
+                            if (opt.id in draftSelection) draftSelection - opt.id else draftSelection + opt.id
+                        } else {
+                            setOf(opt.id)
+                        }
+                    }
                     .padding(12.dp),
             ) {
                 Row(
@@ -758,12 +791,20 @@ private fun LivePollView(
                         text = opt.label,
                         color = HefimerColors.White,
                         fontSize = 14.sp,
-                        fontWeight = if (picked) FontWeight.Bold else FontWeight.Medium,
+                        fontWeight = if (selected || confirmed) FontWeight.Bold else FontWeight.Medium,
                         modifier = Modifier.weight(1f),
                     )
+                    if (selected) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(20.dp).clip(CircleShape).background(HefimerColors.White),
+                        ) {
+                            Icon(PhosphorIcons.Regular.Check, null, tint = HefimerColors.Black, modifier = Modifier.size(12.dp))
+                        }
+                    }
                     Text(
                         text = "$pct% (${opt.votes})",
-                        color = if (picked) HefimerColors.White else HefimerColors.White60,
+                        color = if (selected || confirmed) HefimerColors.White else HefimerColors.White60,
                         fontFamily = JetBrainsMonoFamily,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -771,11 +812,35 @@ private fun LivePollView(
                 }
                 AppleFluidProgressTrack(
                     progress = frac,
-                    accentColor = if (picked) HefimerColors.White else HefimerColors.White60,
+                    accentColor = if (selected || confirmed) HefimerColors.White else HefimerColors.White60,
                     trackColor = HefimerColors.White10,
                     height = 5.dp,
                 )
             }
+        }
+
+        AnimatedVisibility(visible = hasPendingChange, enter = AppMotion.softExpandEnter, exit = AppMotion.softExpandExit) {
+            HefimerPrimaryButton(
+                text = if (votedIds.isEmpty()) {
+                    tr("Confirm Vote", "Xác nhận bình chọn")
+                } else {
+                    tr("Update Choice", "Cập nhật lựa chọn")
+                },
+                icon = PhosphorIcons.Regular.Check,
+                onClick = { onConfirmVote(draftSelection) },
+            )
+        }
+
+        if (votedIds.isNotEmpty() && !hasPendingChange) {
+            Text(
+                text = if (poll.allowRevote) {
+                    tr("Tap another option to change your vote", "Chạm lựa chọn khác nếu bạn muốn đổi ý")
+                } else {
+                    tr("Your vote is confirmed and locked", "Bình chọn của bạn đã được xác nhận và khóa")
+                },
+                color = HefimerColors.White45,
+                fontSize = 11.sp,
+            )
         }
     }
 }

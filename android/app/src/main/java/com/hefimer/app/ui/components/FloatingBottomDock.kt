@@ -30,7 +30,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import com.adamglin.PhosphorIcons
 import com.adamglin.phosphoricons.Regular
@@ -220,12 +220,13 @@ fun HefimerFloatingBottomDock(
         val orbSize = 48.dp
         val orbRise = 18.dp
         val totalHeight = barHeight + orbRise
-        val horizontalPad = 20.dp
+        val horizontalPad = 12.dp
+        val slotWidth = 60.dp
+        val dockWidth = slotWidth * tabs.size + horizontalPad * 2
 
         BoxWithConstraints(
             modifier = Modifier
-                .widthIn(max = 330.dp)
-                .fillMaxWidth()
+                .width(dockWidth)
                 .height(totalHeight),
         ) {
             val density = LocalDensity.current
@@ -237,38 +238,45 @@ fun HefimerFloatingBottomDock(
             val orbRisePx = with(density) { orbRise.toPx() }
             val notchRadiusPx = with(density) { 25.dp.toPx() }
             val notchDepthPx = with(density) { 25.dp.toPx() }
-            val cornerRadiusPx = with(density) { 18.dp.toPx() }
+            val cornerRadiusPx = with(density) { 22.dp.toPx() }
 
             var hoveredTabIdx by remember { mutableIntStateOf(-1) }
             val activeIndex = if (hoveredTabIdx in tabs.indices) hoveredTabIdx else selectedIndex
             val currentTabs by rememberUpdatedState(tabs)
             val currentOnSelectTab by rememberUpdatedState(onSelectTab)
 
-            // Smooth unhurried horizontal glide for both the orb and the glass bar's concave notch
+            // Smooth unhurried Apple-grade horizontal glide for both the orb and the glass bar's concave notch
+            val glideSpec = remember {
+                androidx.compose.animation.core.spring<Float>(
+                    dampingRatio = 0.80f,
+                    stiffness = 250f,
+                )
+            }
             val animatedIndex by animateFloatAsState(
                 targetValue = activeIndex.toFloat(),
-                animationSpec = if (reduceMotion) tween(150, easing = AppMotion.AppleEase) else AppMotion.fluidSpring(),
+                animationSpec = if (reduceMotion) tween(150, easing = AppMotion.AppleEase) else glideSpec,
                 label = "notched_dock_idx",
             )
             val orbCenterX = horizPadPx + slotWidthPx * (animatedIndex + 0.5f)
+            val travelDelta = kotlin.math.abs(animatedIndex - activeIndex.toFloat())
 
             // Soft liquid droplet breathe on tab settle
             val orbBounceOffset = remember { Animatable(0f) }
             LaunchedEffect(selectedTab) {
                 if (!reduceMotion) {
-                    orbBounceOffset.snapTo(3.0f)
+                    orbBounceOffset.snapTo(2.4f)
                     orbBounceOffset.animateTo(0f, AppMotion.softPopSpring())
                 }
             }
 
-            // Liquid squish-and-stretch on press/scrub
+            // Liquid squish-and-stretch on press/scrub + subtle mid-flight momentum stretch
             val orbSquishX by animateFloatAsState(
-                targetValue = if (hoveredTabIdx >= 0) 1.07f else 1f,
+                targetValue = if (hoveredTabIdx >= 0) 1.07f else (1f + (travelDelta * 0.14f).coerceAtMost(0.14f)),
                 animationSpec = if (hoveredTabIdx >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                 label = "orb_squish_x",
             )
             val orbSquishY by animateFloatAsState(
-                targetValue = if (hoveredTabIdx >= 0) 0.91f else 1f,
+                targetValue = if (hoveredTabIdx >= 0) 0.92f else (1f - (travelDelta * 0.08f).coerceAtMost(0.08f)),
                 animationSpec = if (hoveredTabIdx >= 0) AppMotion.pressDownSpring() else AppMotion.pressReleaseSpring(),
                 label = "orb_squish_y",
             )
