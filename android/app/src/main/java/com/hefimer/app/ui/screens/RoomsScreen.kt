@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint as AndroidPaint
 import android.graphics.Path as AndroidPath
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -1255,44 +1257,50 @@ fun WhiteboardOverlay(
                         .applePressable(pressedScale = 0.89f) {
                             scope.launch {
                                 runCatching {
-                                    val exportScale = 2f
-                                    val outW = (boardW * exportScale).roundToInt().coerceAtLeast(1280)
-                                    val outH = (boardH * exportScale).roundToInt().coerceAtLeast(720)
-                                    val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
-                                    val c = AndroidCanvas(bmp)
-                                    c.drawColor(android.graphics.Color.BLACK)
-                                    c.scale(exportScale, exportScale)
-                                    val strokePaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-                                        style = AndroidPaint.Style.STROKE
-                                        strokeCap = AndroidPaint.Cap.ROUND
-                                        strokeJoin = AndroidPaint.Join.ROUND
-                                    }
-                                    val dotPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-                                        style = AndroidPaint.Style.FILL
-                                    }
-                                    state.boardStrokes.forEach { st ->
-                                        if (st.points.isEmpty()) return@forEach
-                                        val parsedColor = runCatching { android.graphics.Color.parseColor(st.color) }
-                                            .getOrDefault(android.graphics.Color.WHITE)
-                                        if (st.points.size == 1) {
-                                            dotPaint.color = parsedColor
-                                            val pt = st.points.first()
-                                            c.drawCircle(pt.x, pt.y, (st.size / 2f).coerceAtLeast(0.8f), dotPaint)
-                                        } else {
-                                            strokePaint.color = parsedColor
-                                            strokePaint.strokeWidth = st.size
-                                            val ap = AndroidPath().apply {
-                                                moveTo(st.points.first().x, st.points.first().y)
-                                                for (i in 1 until st.points.size) lineTo(st.points[i].x, st.points[i].y)
+                                    withContext(Dispatchers.Default) {
+                                        val exportScale = 2f
+                                        val outW = (boardW * exportScale).roundToInt().coerceAtLeast(1280)
+                                        val outH = (boardH * exportScale).roundToInt().coerceAtLeast(720)
+                                        val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+                                        try {
+                                            val c = AndroidCanvas(bmp)
+                                            c.drawColor(android.graphics.Color.BLACK)
+                                            c.scale(exportScale, exportScale)
+                                            val strokePaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                                                style = AndroidPaint.Style.STROKE
+                                                strokeCap = AndroidPaint.Cap.ROUND
+                                                strokeJoin = AndroidPaint.Join.ROUND
                                             }
-                                            c.drawPath(ap, strokePaint)
+                                            val dotPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                                                style = AndroidPaint.Style.FILL
+                                            }
+                                            state.boardStrokes.forEach { st ->
+                                                if (st.points.isEmpty()) return@forEach
+                                                val parsedColor = runCatching { android.graphics.Color.parseColor(st.color) }
+                                                    .getOrDefault(android.graphics.Color.WHITE)
+                                                if (st.points.size == 1) {
+                                                    dotPaint.color = parsedColor
+                                                    val pt = st.points.first()
+                                                    c.drawCircle(pt.x, pt.y, (st.size / 2f).coerceAtLeast(0.8f), dotPaint)
+                                                } else {
+                                                    strokePaint.color = parsedColor
+                                                    strokePaint.strokeWidth = st.size
+                                                    val ap = AndroidPath().apply {
+                                                        moveTo(st.points.first().x, st.points.first().y)
+                                                        for (i in 1 until st.points.size) lineTo(st.points[i].x, st.points[i].y)
+                                                    }
+                                                    c.drawPath(ap, strokePaint)
+                                                }
+                                            }
+                                            DownloadHelper.saveBitmapToGallery(
+                                                context,
+                                                bmp,
+                                                "hefimer_board_${state.activeBoardId}_hd.png",
+                                            )
+                                        } finally {
+                                            bmp.recycle()
                                         }
                                     }
-                                    DownloadHelper.saveBitmapToGallery(
-                                        context,
-                                        bmp,
-                                        "hefimer_board_${state.activeBoardId}_hd.png",
-                                    )
                                 }.onSuccess { outcome ->
                                     vm.notifyFileSaved(outcome)
                                     vm.showToast(

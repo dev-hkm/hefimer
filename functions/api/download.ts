@@ -16,6 +16,11 @@ const ALLOWED_HOSTS = new Set([
   "put.icu",
 ]);
 
+function isAllowedDownloadHost(hostname: string) {
+  const normalized = hostname.toLowerCase();
+  return ALLOWED_HOSTS.has(normalized) || (normalized.endsWith(".uguu.se") && normalized.length > ".uguu.se".length);
+}
+
 function safeFileName(value: string) {
   return (value || "download").replace(/[\\/\r\n\0"]/g, "_").slice(0, 180) || "download";
 }
@@ -174,7 +179,7 @@ export const onRequestGet: any = async ({ request }: { request: Request }) => {
     return json({ error: "Invalid download URL" }, 400);
   }
 
-  if (source.protocol !== "https:" || source.username || source.password || !ALLOWED_HOSTS.has(source.hostname.toLowerCase())) {
+  if (source.protocol !== "https:" || source.username || source.password || !isAllowedDownloadHost(source.hostname)) {
     return json({ error: "Download provider is not allowed" }, 403);
   }
 

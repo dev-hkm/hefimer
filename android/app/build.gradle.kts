@@ -13,8 +13,8 @@ android {
         applicationId = "com.hefimer.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 28
-        versionName = "2.9.0"
+        versionCode = 29
+        versionName = "2.9.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

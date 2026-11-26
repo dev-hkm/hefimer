@@ -9,6 +9,7 @@
       }
     },
     "spaces": {
+      ".indexOn": ["expiresAt"],
       "$spaceId": {
         ".read": true,
         ".write": true,
@@ -16,6 +17,7 @@
       }
     },
     "chats": {
+      ".indexOn": ["expiresAt"],
       "$roomId": {
         ".read": true,
         ".write": true,
@@ -23,6 +25,7 @@
       }
     },
     "boards": {
+      ".indexOn": ["expiresAt"],
       "$boardId": {
         ".read": true,
         ".write": true,
@@ -37,6 +40,7 @@
       }
     },
     "link_codes": {
+      ".indexOn": ["expiresAt"],
       "$code": {
         ".read": true,
         ".write": true,
@@ -44,6 +48,7 @@
       }
     },
     "polls": {
+      ".indexOn": ["expiresAt"],
       "$code": {
         ".read": true,
         ".write": true,

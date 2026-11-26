@@ -1,7 +1,10 @@
 package com.hefimer.app.ui.components
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -9,6 +12,7 @@ import android.graphics.ImageDecoder
 import android.graphics.ImageFormat
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -83,12 +87,15 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
@@ -133,6 +140,7 @@ fun QrScannerOverlay(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED,
         )
     }
+    var permissionRequestedOnce by remember { mutableStateOf(false) }
     var torchOn by remember { mutableStateOf(false) }
     var decodingImage by remember { mutableStateOf(false) }
     var galleryError by remember { mutableStateOf<String?>(null) }
@@ -144,6 +152,7 @@ fun QrScannerOverlay(
     val providerRef = remember { AtomicReference<ProcessCameraProvider?>(null) }
     val analysisRef = remember { AtomicReference<ImageAnalysis?>(null) }
     val scanned = remember { AtomicBoolean(false) }
+    val disposed = remember { AtomicBoolean(false) }
     val executor = remember { Executors.newSingleThreadExecutor() }
 
     LaunchedEffect(focusPoint) {
@@ -174,12 +183,14 @@ fun QrScannerOverlay(
     }
 
     fun triggerSuccess(text: String) {
+        if (disposed.get()) return
         releaseCameraImmediately()
         HefimerHaptics.success(context)
         onResult(text)
     }
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionRequestedOnce = true
         hasPermission = granted
     }
 
@@ -207,8 +218,24 @@ fun QrScannerOverlay(
         if (!hasPermission) permLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA,
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
+            disposed.set(true)
             releaseCameraImmediately()
             runCatching { executor.shutdownNow() }
         }
@@ -413,7 +440,28 @@ fun QrScannerOverlay(
                 Spacer(Modifier.height(20.dp))
                 HefimerPrimaryButton(
                     text = tr("Grant Permission", "Cấp quyền"),
-                    onClick = { permLauncher.launch(Manifest.permission.CAMERA) },
+                    onClick = {
+                        val activity = context.findActivity()
+                        val permanentlyDenied = permissionRequestedOnce &&
+                            activity != null &&
+                            !ActivityCompat.shouldShowRequestPermissionRationale(
+                                activity,
+                                Manifest.permission.CAMERA,
+                            )
+                        if (permanentlyDenied) {
+                            runCatching {
+                                val intent = Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null),
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            }
+                        } else {
+                            permLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
                 )
                 Spacer(Modifier.height(10.dp))
                 HefimerSecondaryButton(
@@ -685,4 +733,10 @@ private fun decodeQrFromBitmap(bitmap: Bitmap): String? {
         if (!decoded.isNullOrBlank()) return decoded
     }
     return null
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

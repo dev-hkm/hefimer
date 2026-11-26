@@ -54,6 +54,8 @@ import com.hefimer.app.ui.theme.HefimerHaptics
 import com.hefimer.app.ui.theme.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1831,6 +1833,17 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }
                 showToast(tr("Uploaded to Secret Cloudflare R2!", "Đã tải lên Secret Cloudflare R2!"), ToastType.SUCCESS)
+                offerDropToLinkedGroup(
+                    DropCreatedOffer(
+                        kind = "file",
+                        name = displayName,
+                        provider = "Secret Cloudflare R2",
+                        sizeBytes = totalSize,
+                        dropCode = code,
+                        expiresAt = expiresAt,
+                        payload = dropJson,
+                    ),
+                )
             } catch (e: Throwable) {
                 if (!token.isCancelled() && e.message != "UPLOAD_CANCELED") {
                     showToast(e.message?.take(140) ?: tr("Secret R2 upload failed", "Tải lên Secret R2 thất bại"), ToastType.ERROR)
@@ -1978,8 +1991,10 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val raw = rtdb.get("drops/$targetCode") as? JsonObject
                 if (raw == null) {
-                    _receiveState.update { it.copy(loading = false) }
-                    showToast(tr("Code not found", "Không tìm thấy mã"), ToastType.ERROR)
+                    if (!tryRouteUniversalCode(targetCode)) {
+                        _receiveState.update { it.copy(loading = false) }
+                        showToast(tr("Code not found", "Không tìm thấy mã"), ToastType.ERROR)
+                    }
                     return@launch
                 }
                 val parsed = normalizeDropItem(targetCode, raw)
@@ -1999,6 +2014,63 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
                 _receiveState.update { it.copy(loading = false) }
                 showToast(e.message ?: tr("Failed to retrieve drop", "Không thể nhận dữ liệu"), ToastType.ERROR)
             }
+        }
+    }
+
+    private suspend fun tryRouteUniversalCode(targetCode: String): Boolean {
+        val (pollObj, spaceObj, chatObj, linkObj) = coroutineScope {
+            val pollDef = async { runCatching { rtdb.get("polls/$targetCode") as? JsonObject }.getOrNull() }
+            val spaceDef = async { runCatching { rtdb.get("spaces/$targetCode") as? JsonObject }.getOrNull() }
+            val chatDef = async { runCatching { rtdb.get("chats/$targetCode") as? JsonObject }.getOrNull() }
+            val linkDef = async { runCatching { rtdb.get("link_codes/$targetCode") as? JsonObject }.getOrNull() }
+            listOf(pollDef.await(), spaceDef.await(), chatDef.await(), linkDef.await())
+        }
+        return when {
+            pollObj != null -> {
+                _receiveState.update { it.copy(loading = false) }
+                _pollState.update { it.copy(lobbyMode = "join", joinCode = targetCode, needsPassword = false, joinPassword = "") }
+                selectTab(MainTab.EXPLORE)
+                joinPoll(codeOverride = targetCode)
+                true
+            }
+            spaceObj != null -> {
+                _receiveState.update { it.copy(loading = false) }
+                _spaceState.update { it.copy(lobbyMode = "join", joinCode = targetCode, joinRequiresPassword = false, joinPassword = "") }
+                selectTab(MainTab.EXPLORE)
+                openOverlay(AppOverlay.SpaceHub)
+                joinSpace(codeOverride = targetCode)
+                true
+            }
+            chatObj != null -> {
+                _receiveState.update { it.copy(loading = false) }
+                _roomsState.update { it.copy(section = "chat", chatLobbyMode = "join", chatJoinCode = targetCode) }
+                selectTab(MainTab.EXPLORE)
+                openOverlay(AppOverlay.RoomsHub)
+                joinChatRoom(codeOverride = targetCode)
+                true
+            }
+            linkObj != null -> {
+                _receiveState.update { it.copy(loading = false) }
+                _linkState.update { it.copy(pairToken = targetCode, setupMode = "join", showPairModal = false) }
+                selectTab(MainTab.LINK)
+                val existingGroup = _linkState.value.sync.group
+                if (existingGroup != null) {
+                    requestConfirm(
+                        title = tr("Switch Link Group?", "Chuyển sang nhóm ghép nối mới?"),
+                        message = tr(
+                            "This device is currently in \"${existingGroup.name}\". Leave it and pair with code $targetCode?",
+                            "Thiết bị đang nằm trong nhóm \"${existingGroup.name}\". Rời nhóm hiện tại để ghép nối với mã $targetCode?",
+                        ),
+                        confirmLabel = tr("Switch & Pair", "Chuyển & Ghép nối"),
+                        isDestructive = false,
+                        onConfirm = { joinLinkGroup(overrideToken = targetCode, leaveCurrentFirst = true) },
+                    )
+                } else {
+                    joinLinkGroup(overrideToken = targetCode)
+                }
+                true
+            }
+            else -> false
         }
     }
 
@@ -2120,11 +2192,14 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         try {
             val outcome = if (entry.objectKey.isNotBlank()) {
                 val url = r2Service.getDownloadUrl(entry.objectKey)
+                val activeDropE2eeKey = entry.e2eeKey?.takeIf { it.isNotBlank() }
+                    ?: _receiveState.value.result?.e2eeKey?.takeIf { it.isNotBlank() }
                 DownloadHelper.streamDirectUrlToDownloads(
                     context = getApplication(),
                     url = url,
                     fileName = entry.resolvedName,
                     cancelToken = token,
+                    e2eeKey = activeDropE2eeKey,
                     onProgress = { loaded, total, pct ->
                         val effectiveTotal = if (total > 0L) total else knownSize
                         val effectivePct = if (effectiveTotal > 0L) {
@@ -3238,23 +3313,37 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
         try {
             deviceApi.updateTransferStatus(transfer.id, "downloading")
             val payload = transfer.payload
+            val rootE2eeKey = payload?.get("e2eeKey")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
             val filesArr = payload?.get("files") as? JsonArray
             if (filesArr != null && filesArr.isNotEmpty()) {
                 for (elem in filesArr) {
                     val obj = elem as? JsonObject ?: continue
-                    val url = listOf("fileUrl", "url", "raw_url", "downloadUrl")
-                        .firstNotNullOfOrNull { obj[it]?.jsonPrimitive?.contentOrNull?.takeIf { u -> u.startsWith("https://", true) } }
-                        ?: continue
                     val name = obj["fileName"]?.jsonPrimitive?.contentOrNull ?: transfer.name
-                    DownloadHelper.downloadFile(getApplication(), url, name)
+                    val fileE2eeKey = obj["e2eeKey"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: rootE2eeKey
+                    val objKey = obj["objectKey"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                    if (objKey != null) {
+                        val r2Url = r2Service.getDownloadUrl(objKey)
+                        DownloadHelper.streamDirectUrlToDownloads(getApplication(), r2Url, name, e2eeKey = fileE2eeKey)
+                    } else {
+                        val url = listOf("fileUrl", "url", "raw_url", "downloadUrl")
+                            .firstNotNullOfOrNull { obj[it]?.jsonPrimitive?.contentOrNull?.takeIf { u -> u.startsWith("https://", true) } }
+                            ?: continue
+                        DownloadHelper.downloadFile(getApplication(), url, name, e2eeKey = fileE2eeKey)
+                    }
                     delay(350L)
                 }
             } else if (payload != null) {
-                val url = listOf("fileUrl", "url", "raw_url", "downloadUrl")
-                    .firstNotNullOfOrNull { payload[it]?.jsonPrimitive?.contentOrNull?.takeIf { u -> u.startsWith("https://", true) } }
-                if (!url.isNullOrBlank()) {
-                    val name = payload["fileName"]?.jsonPrimitive?.contentOrNull ?: transfer.name
-                    DownloadHelper.downloadFile(getApplication(), url, name)
+                val name = payload["fileName"]?.jsonPrimitive?.contentOrNull ?: transfer.name
+                val objKey = payload["objectKey"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                if (objKey != null) {
+                    val r2Url = r2Service.getDownloadUrl(objKey)
+                    DownloadHelper.streamDirectUrlToDownloads(getApplication(), r2Url, name, e2eeKey = rootE2eeKey)
+                } else {
+                    val url = listOf("fileUrl", "url", "raw_url", "downloadUrl")
+                        .firstNotNullOfOrNull { payload[it]?.jsonPrimitive?.contentOrNull?.takeIf { u -> u.startsWith("https://", true) } }
+                    if (!url.isNullOrBlank()) {
+                        DownloadHelper.downloadFile(getApplication(), url, name, e2eeKey = rootE2eeKey)
+                    }
                 }
             }
             deviceApi.updateTransferStatus(transfer.id, "received")
@@ -3771,6 +3860,9 @@ class HefimerViewModel(application: Application) : AndroidViewModel(application)
     // endregion
 
     override fun onCleared() {
+        spaceObserverJob?.cancel()
+        chatObserverJob?.cancel()
+        boardObserverJob?.cancel()
         pollObserverJob?.cancel()
         networkMonitor.close()
         _sendState.value.pickedFiles.forEach { file ->

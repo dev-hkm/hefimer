@@ -70,7 +70,6 @@ fun AdminLoginDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding()
                 .padding(horizontal = 24.dp)
                 .appleGlassSurface(
                     shape = RoundedCornerShape(32.dp),

@@ -146,12 +146,70 @@ class FirebaseRtdbClient(
     }
 
     suspend fun incrementInt(path: String, delta: Int = 1): Int = withContext(Dispatchers.IO) {
-        val current = runCatching {
-            get(path)?.jsonPrimitive?.content?.toIntOrNull() ?: 0
-        }.getOrDefault(0)
-        val next = current + delta
-        set(path, JsonPrimitive(next))
-        next
+        val url = pathUrl(path)
+        val maxAttempts = 5
+        for (attempt in 1..maxAttempts) {
+            val getReq = Request.Builder()
+                .url(url)
+                .header("X-Firebase-ETag", "true")
+                .get()
+                .build()
+            val (current, etag) = apiClient.newCall(getReq).execute().use { resp ->
+                val body = resp.body?.string().orEmpty()
+                if (!resp.isSuccessful) {
+                    throw IOException(
+                        com.hefimer.app.ui.theme.tr(
+                            "RTDB GET failed (${resp.code}): ${body.take(120)}",
+                            "Lỗi tải dữ liệu RTDB (${resp.code}): ${body.take(120)}",
+                        ),
+                    )
+                }
+                val value = if (body.isBlank() || body == "null") {
+                    0
+                } else {
+                    runCatching { json.parseToJsonElement(body).jsonPrimitive.content.toIntOrNull() ?: 0 }
+                        .getOrDefault(0)
+                }
+                value to resp.header("ETag")
+            }
+            val next = current + delta
+            val putBody = json.encodeToString(JsonElement.serializer(), JsonPrimitive(next))
+            val putReqBuilder = Request.Builder()
+                .url(url)
+                .put(putBody.toRequestBody(jsonMediaType))
+            if (!etag.isNullOrBlank()) {
+                putReqBuilder.header("If-Match", etag)
+            }
+            apiClient.newCall(putReqBuilder.build()).execute().use { resp ->
+                if (resp.code == 412) {
+                    if (attempt == maxAttempts) {
+                        throw IOException(
+                            com.hefimer.app.ui.theme.tr(
+                                "RTDB atomic increment failed after $maxAttempts retries",
+                                "Cập nhật bộ đếm RTDB thất bại sau $maxAttempts lần thử",
+                            ),
+                        )
+                    }
+                    return@use
+                }
+                val body = resp.body?.string().orEmpty()
+                if (!resp.isSuccessful) {
+                    throw IOException(
+                        com.hefimer.app.ui.theme.tr(
+                            "RTDB PUT failed (${resp.code}): ${body.take(120)}",
+                            "Lỗi ghi dữ liệu RTDB (${resp.code}): ${body.take(120)}",
+                        ),
+                    )
+                }
+                return@withContext next
+            }
+        }
+        throw IOException(
+            com.hefimer.app.ui.theme.tr(
+                "RTDB atomic increment failed",
+                "Cập nhật bộ đếm RTDB thất bại",
+            ),
+        )
     }
 
     /**

@@ -208,9 +208,14 @@ object DownloadHelper {
     ): DownloadOutcome = withContext(Dispatchers.IO) {
         val safeName = safeDownloadName(fileName)
         val mode = getDirectDownloadMode(url)
-        if (mode == DirectDownloadMode.TAB && e2eeKey.isNullOrBlank()) {
-            openExternalUrl(context, url)
-            return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
+        if (mode == DirectDownloadMode.TAB) {
+            return@withContext openExternalOrThrowIfEncrypted(
+                context = context,
+                url = url,
+                safeName = safeName,
+                e2eeKey = e2eeKey,
+                isTabHost = true,
+            )
         }
 
         val host = runCatching { URI(url).host?.lowercase().orEmpty() }.getOrDefault("")
@@ -231,8 +236,7 @@ object DownloadHelper {
             if (proxyRes != null) return@withContext proxyRes
 
             if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
-            openExternalUrl(context, url)
-            return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
+            return@withContext openExternalOrThrowIfEncrypted(context, url, safeName, e2eeKey)
         }
 
         // 2. For qu.ax: resolve /x/<file> raw link from page HTML and stream directly with Referer
@@ -245,8 +249,7 @@ object DownloadHelper {
                 if (res != null) return@withContext res
             }
             if (cancelToken.isCancelled()) throw IOException("DOWNLOAD_CANCELED")
-            openExternalUrl(context, url)
-            return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
+            return@withContext openExternalOrThrowIfEncrypted(context, url, safeName, e2eeKey)
         }
 
         // 3. For proxied hosts (sto.care, tempfile, temp.sh, tmpfiles, put.icu, litterbox, filebin, uguu):
@@ -277,8 +280,7 @@ object DownloadHelper {
                     )
                 } catch (directErr: Throwable) {
                     if (cancelToken.isCancelled() || directErr.message == "DOWNLOAD_CANCELED") throw directErr
-                    openExternalUrl(context, url)
-                    return@withContext DownloadOutcome(mode = "tab", fileName = safeName)
+                    return@withContext openExternalOrThrowIfEncrypted(context, url, safeName, e2eeKey)
                 }
             }
         }
@@ -288,8 +290,7 @@ object DownloadHelper {
             streamToDownloads(context, url, safeName, cancelToken, onProgress, e2eeKey = e2eeKey)
         } catch (e: HtmlUpstreamException) {
             if (cancelToken.isCancelled()) throw e
-            openExternalUrl(context, url)
-            DownloadOutcome(mode = "tab", fileName = safeName)
+            openExternalOrThrowIfEncrypted(context, url, safeName, e2eeKey)
         }
     }
 
@@ -367,8 +368,9 @@ object DownloadHelper {
         fileName: String,
         cancelToken: DownloadCancellationToken = DownloadCancellationToken(),
         onProgress: (loadedBytes: Long, totalBytes: Long, percent: Int) -> Unit = { _, _, _ -> },
+        e2eeKey: String? = null,
     ): DownloadOutcome = withContext(Dispatchers.IO) {
-        streamToDownloads(context, url, safeDownloadName(fileName), cancelToken, onProgress)
+        streamToDownloads(context, url, safeDownloadName(fileName), cancelToken, onProgress, e2eeKey = e2eeKey)
     }
 
     private fun resolveMimeType(fileName: String, serverCt: String): String {
@@ -550,11 +552,42 @@ object DownloadHelper {
         return loaded
     }
 
-    fun openExternalUrl(context: Context, url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun openExternalOrThrowIfEncrypted(
+        context: Context,
+        url: String,
+        safeName: String,
+        e2eeKey: String?,
+        isTabHost: Boolean = false,
+    ): DownloadOutcome {
+        if (!e2eeKey.isNullOrBlank()) {
+            val msg = if (isTabHost) {
+                com.hefimer.app.ui.theme.tr(
+                    "Encrypted files cannot be downloaded from browser-only hosts",
+                    "Không thể tải tệp mã hóa từ máy chủ chỉ hỗ trợ trình duyệt",
+                )
+            } else {
+                com.hefimer.app.ui.theme.tr(
+                    "Could not stream encrypted file for decryption",
+                    "Không thể tải trực tiếp tệp mã hóa để giải mã",
+                )
+            }
+            throw IOException(msg)
         }
-        context.startActivity(intent)
+        openExternalUrl(context, url)
+        return DownloadOutcome(mode = "tab", fileName = safeName)
+    }
+
+    fun openExternalUrl(context: Context, url: String): Boolean {
+        val uri = runCatching { Uri.parse(url.trim()) }.getOrNull() ?: return false
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return false
+        return runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        }.getOrDefault(false)
     }
 
     fun isUriReadable(context: Context, uriString: String): Boolean {

@@ -39,7 +39,8 @@ class HefimerApp : Application(), ImageLoaderFactory {
             .build()
 
     private fun pruneStaleCacheFiles() {
-        Executors.newSingleThreadExecutor().execute {
+        val executor = Executors.newSingleThreadExecutor()
+        executor.execute {
             runCatching {
                 val cutoff = System.currentTimeMillis() - 6L * 3_600_000L
                 cacheDir.listFiles()?.forEach { f ->
@@ -55,5 +56,6 @@ class HefimerApp : Application(), ImageLoaderFactory {
                 }
             }
         }
+        executor.shutdown()
     }
 }

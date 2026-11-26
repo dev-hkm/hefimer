@@ -962,9 +962,9 @@ fun SpaceCanvasOverlay(
         }
 
         // Composer Modal for Note / Link / Code
-        if (composerMode != null) {
+        composerMode?.let { activeMode ->
             SpaceComposerDialog(
-                mode = composerMode!!,
+                mode = activeMode,
                 editing = editingItem,
                 onDismiss = { composerMode = null; editingItem = null },
                 onSave = { name, content, url, color ->
@@ -973,7 +973,7 @@ fun SpaceCanvasOverlay(
                         vm.spaceUpdateItem(existing, name, content, url, color)
                     } else {
                         val (wx, wy) = viewportCenterWorld(state.items.size % 5)
-                        vm.spaceAddItem(composerMode!!, name, content, url, color, wx, wy)
+                        vm.spaceAddItem(activeMode, name, content, url, color, wx, wy)
                     }
                     composerMode = null
                     editingItem = null
@@ -1344,6 +1344,7 @@ private fun SpaceComposerDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .appleGlassSurface(
                         shape = RoundedCornerShape(36.dp),
                         variant = AppleGlassVariant.Elevated,
@@ -1455,6 +1456,7 @@ private fun SpaceItemPreviewDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .appleGlassSurface(
                         shape = RoundedCornerShape(36.dp),
                         variant = AppleGlassVariant.Elevated,

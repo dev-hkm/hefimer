@@ -154,8 +154,8 @@ fun ReceiveScreen(vm: HefimerViewModel) {
         kicker = tr("Retrieve a drop", "Nhận tệp & văn bản"),
         title = tr("Receive", "Nhận"),
         subtitle = tr(
-            "Enter a 5-digit code or scan a Hefimer QR to unlock files and snippets.",
-            "Nhập mã 5 chữ số hoặc quét mã QR Hefimer để mở tệp và đoạn mã.",
+            "Enter any 5-digit code or scan a QR to open a Drop, Poll, Space, Room, or Link.",
+            "Nhập mã 5 chữ số bất kỳ hoặc quét QR để mở Drop, Bình chọn, Space, Phòng chat hoặc Link.",
         ),
         showOrbitMark = true,
         headerActions = {
@@ -370,7 +370,7 @@ fun FiveDigitPinSlots(
         }
 
         // Invisible overlay numeric input
-        val pinAccessibilityLabel = tr("Enter 5-digit Drop code", "Nhập mã Drop 5 chữ số")
+        val pinAccessibilityLabel = tr("Enter 5-digit Hefimer code", "Nhập mã Hefimer 5 chữ số")
         BasicTextField(
             value = code,
             onValueChange = { raw ->
@@ -1223,7 +1223,7 @@ private fun UnlockPasswordDialog(
 ) {
     var pw by remember { mutableStateOf("") }
     com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
-        Box(modifier = Modifier.fillMaxWidth().imePadding().padding(horizontal = 24.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -1276,7 +1276,7 @@ private fun SaveTextRenameDialog(
 ) {
     var input by remember { mutableStateOf(defaultName) }
     com.hefimer.app.ui.theme.AppleAnimatedDialog(onDismissRequest = onDismiss) { close ->
-        Box(modifier = Modifier.fillMaxWidth().imePadding().padding(horizontal = 24.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier

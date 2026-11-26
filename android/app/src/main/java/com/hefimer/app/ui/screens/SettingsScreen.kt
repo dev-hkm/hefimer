@@ -707,7 +707,6 @@ private fun CustomS3EditorDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding()
                 .padding(horizontal = 20.dp)
                 .appleGlassSurface(shape = RoundedCornerShape(30.dp), variant = AppleGlassVariant.Elevated, elevation = 24.dp)
                 .padding(20.dp),

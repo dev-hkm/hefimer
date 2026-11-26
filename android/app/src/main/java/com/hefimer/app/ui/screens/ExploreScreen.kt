@@ -105,7 +105,22 @@ fun ExploreScreen(vm: HefimerViewModel) {
     val heroBounds = LocalHeroBounds.current
     val reduceMotion = rememberReduceMotion()
     val context = LocalContext.current
-    var activeTool by remember { mutableStateOf(ExploreTool.HUB) }
+    val pollState by vm.pollState.collectAsState()
+    var activeTool by remember {
+        mutableStateOf(
+            if (pollState.activePoll != null || pollState.needsPassword || pollState.loading) {
+                ExploreTool.POLL
+            } else {
+                ExploreTool.HUB
+            },
+        )
+    }
+
+    LaunchedEffect(pollState.activePoll, pollState.needsPassword) {
+        if (pollState.activePoll != null || pollState.needsPassword) {
+            activeTool = ExploreTool.POLL
+        }
+    }
 
     HefimerCollapsibleScaffold(
         kicker = tr("Lab & Community", "Công cụ & Cộng đồng"),
